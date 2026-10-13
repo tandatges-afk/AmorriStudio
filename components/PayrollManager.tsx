@@ -1,10 +1,12 @@
 'use client';
+import {formatVnd} from '@/lib/domain/vietnam-money';
 import {useCallback,useEffect,useState} from 'react';
 import type {User} from 'firebase/auth';
 import {authorizedFetch,decodeResult} from '@/lib/firebase/authorized-fetch';
 import type {PayrollLedger,PayrollRow,Payment} from '@/lib/domain/payroll';
 import {Check,Download,RefreshCw,WalletCards,X} from 'lucide-react';
-const money=(n:number)=>new Intl.NumberFormat('vi-VN').format(n)+' đ';
+import {VndInput} from '@/lib/ui/VndInput';
+const money = formatVnd;
 function csvCell(v:string|number){
  const str=String(v);
  // Spreadsheet formula injection: keep user-provided staff names as literal text.
@@ -70,7 +72,7 @@ export function PayrollManager({month,user}:{month:string;user:User|null}){
   {current&&<div className="detail-backdrop" onClick={()=>setEditId(null)}><section role="dialog" aria-modal="true" aria-label="Cập nhật lương" className="detail-panel" onClick={e=>e.stopPropagation()}>
     <div className="detail-header"><span>CẬP NHẬT THANH TOÁN · {month}</span><button aria-label="Đóng" onClick={()=>setEditId(null)}><X size={19}/></button></div>
     <h2 className="mt-4 text-xl font-bold">{current.name}</h2><p className="my-3 text-sm text-slate-600">Nhập tổng tiền đã ứng và đã trả trong tháng (không phải số tiền cộng thêm). Đơn vị VND.</p>
-    <div className="my-4 grid gap-3"><label className="text-sm font-semibold">Tổng ứng trước (VND)<input inputMode="numeric" type="number" min={0} max={1000000000000} step={1} className="mt-2 w-full rounded-lg border p-3" value={advance} onChange={e=>setAdvance(e.target.value)}/></label><label className="text-sm font-semibold">Tổng đã trả (VND)<input inputMode="numeric" type="number" min={0} max={1000000000000} step={1} className="mt-2 w-full rounded-lg border p-3" value={paid} onChange={e=>setPaid(e.target.value)}/></label></div>
+    <div className="my-4 grid gap-3"><label className="text-sm font-semibold">Tổng ứng trước (VND)<VndInput className="mt-2 w-full rounded-lg border p-3" value={Number(advance)} onValueChange={v=>setAdvance(String(v))}/></label><label className="text-sm font-semibold">Tổng đã trả (VND)<VndInput className="mt-2 w-full rounded-lg border p-3" value={Number(paid)} onValueChange={v=>setPaid(String(v))}/></label></div>
     {error&&<p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">{error}</p>}
     <div className="mt-4 flex flex-wrap gap-2"><button className="primary-button" disabled={busy} onClick={()=>void save()}><Check size={16}/> {busy?'Đang lưu…':'Lưu thanh toán'}</button><button className="secondary-button" disabled={busy} onClick={()=>setEditId(null)}>Hủy</button></div>
    </section></div>}

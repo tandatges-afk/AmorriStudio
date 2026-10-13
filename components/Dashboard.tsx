@@ -1,4 +1,5 @@
 'use client';
+import {formatVnd} from '@/lib/domain/vietnam-money';
 
 import {PayrollManager} from '@/components/PayrollManager';
 import {DeliveryGrantManager} from '@/components/DeliveryGrantManager';
@@ -33,7 +34,7 @@ type Tab = 'overview'|'calendar'|'staff'|'payroll'|'delivery'|'analytics'|'syste
 type SystemSection='health'|'activity'|'data';
 const monthNow = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
 const localToday = () => { const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const take=(type:string)=>parts.find(p=>p.type===type)?.value||'';return `${take('year')}-${take('month')}-${take('day')}`; };
-const money = (n:number) => new Intl.NumberFormat('vi-VN', {style:'currency',currency:'VND',maximumFractionDigits:0}).format(n);
+const money = formatVnd;
 const dateDisplay = (s:string) => /^\d{4}-\d{2}-\d{2}$/.test(s) ? `${s.slice(8,10)}/${s.slice(5,7)}/${s.slice(0,4)}` : s;
 const pages: {key:Tab;name:string;sub:string;icon:typeof LayoutDashboard}[] = [
   {key:'overview',name:'Tổng quan',sub:'Tình hình vận hành',icon:LayoutDashboard},

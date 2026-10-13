@@ -1,4 +1,5 @@
 'use client';
+import {formatVnd} from '@/lib/domain/vietnam-money';
 import { useEffect, useState, type FormEvent } from 'react';
 import type { User } from 'firebase/auth';
 import { CalendarClock, ExternalLink, Save, Trash2, X } from 'lucide-react';
@@ -6,10 +7,13 @@ import { DeliveryGrantManager } from './DeliveryGrantManager';
 import type { Staff, StudioEvent } from '@/lib/domain/types';
 import type { EditableChanges } from '@/lib/domain/event-management';
 import {defaultStaffTask,taskOptionsFor,taskForService} from '@/lib/domain/staff-task';
+import {MapLocationInput} from '@/lib/ui/MapLocationInput';
+import {VndInput} from '@/lib/ui/VndInput';
+import {isEventReleased} from '@/lib/domain/event-release';
 
 type Detail = Omit<StudioEvent,'products'> & {sourceLinks?:Record<string,string>;products:{id:string;name:string;url:string;mediaType:string}[];phone?:string;note?:string;isRuocDau?:boolean;startTrai?:string;startGai?:string;locTrai?:string;locGai?:string;phoneTrai?:string;phoneGai?:string};
 type Props={id:string|null;staff:Staff[];user:User;onClose:()=>void;onChanged:(newDate?:string)=>void;onDataUpdated?:()=>void};
-const money=(value:number)=>new Intl.NumberFormat('vi-VN').format(value);
+const money = formatVnd;
 const input='w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100';
 const label='flex flex-col gap-1.5 text-xs font-semibold text-slate-600';
 const initialChanges=(e:Detail):EditableChanges=>({
@@ -30,6 +34,8 @@ export function EventEditor({id,staff,user,onClose,onChanged,onDataUpdated}:Prop
  const [reloadKey,setReloadKey]=useState(0),[sourceDrafts,setSourceDrafts]=useState<Record<string,string>>({});
  const [productId,setProductId]=useState(''),[productName,setProductName]=useState(''),[productUrl,setProductUrl]=useState(''),[productType,setProductType]=useState('auto');
  const [productNotice,setProductNotice]=useState('');
+ const [now,setNow]=useState(()=>Date.now());
+ useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),30_000);return()=>clearInterval(timer);},[]);
  useEffect(()=>{
    if(!id){setDetail(null);setVersion('');setError('');setConfirmName('');return;}
    const ctrl=new AbortController();setLoading(true);setError('');setDetail(null);setDeleting(false);setConfirmName('');setProductId('');setProductName('');setProductUrl('');setProductType('auto');
@@ -67,6 +73,7 @@ export function EventEditor({id,staff,user,onClose,onChanged,onDataUpdated}:Prop
  }
  const set=<K extends keyof EditableChanges>(key:K,value:EditableChanges[K])=>setForm(f=>({...f,[key]:value}));
  const assignments=form.assignments||[];
+ const released=detail ? isEventReleased(detail,now):false;
  const roster=[...staff.filter(s=>s.active!==false||assignments.some(a=>a.id===s.id)),...assignments.filter(a=>!staff.some(s=>s.id===a.id)).map(a=>({id:a.id,name:`Nhân sự cũ (${a.id})`,role:'Không còn trong danh sách'}))];
  function toggleStaff(staffId:string,checked:boolean){set('assignments',checked?[...assignments,{id:staffId,cost:0,task:defaultStaffTask(roster.find(s=>s.id===staffId)?.role||'',String(form.eventType||'')),locType:detail?.isRuocDau?'Nhà trai':''}]:assignments.filter(a=>a.id!==staffId));}
  function editAssignment(staffId:string,key:'cost'|'task'|'locType',value:number|string){set('assignments',assignments.map(a=>a.id===staffId?{...a,[key]:value}:a));}
@@ -194,7 +201,8 @@ export function EventEditor({id,staff,user,onClose,onChanged,onDataUpdated}:Prop
     <form id="edit-event-form" className="grid flex-1 grid-cols-1 content-start gap-4 overflow-y-auto p-5 sm:grid-cols-2 sm:p-7" onSubmit={save}>
       {detail.isRuocDau&&<div className="col-span-full grid gap-3 rounded-xl bg-amber-50 p-4 sm:grid-cols-2"><p className="col-span-full text-xs font-bold text-amber-800">Thông tin rước dâu hai nhà — chỉnh sửa trực tiếp tại đây</p>
        {(['startTrai','startGai'] as const).map((key,i)=><label key={key} className={label}>Giờ nhà {i===0?'trai':'gái'}<input type="time" required className={input} value={form[key]||''} onChange={e=>set(key,e.target.value)}/></label>)}
-       {(['locTrai','locGai'] as const).map((key,i)=><label key={key} className={label}>Địa điểm nhà {i===0?'trai':'gái'}<input required className={input} maxLength={240} value={form[key]||''} onChange={e=>set(key,e.target.value)}/></label>)}
+       {(['locTrai','locGai'] as const).map((key,i)=><label key={key} className={label}>Địa điểm nhà {i===0?'trai':'gái'}<MapLocationInput required user={user} className={input} maxLength={1500} value={form[key]||''} onChange={v=>set(key,v)}/></label>)}
+       <label className={label}>Giờ kết thúc ca<input required type="time" className={input} value={form.end||''} onChange={e=>set('end',e.target.value)}/></label>
        {(['phoneTrai','phoneGai'] as const).map((key,i)=><label key={key} className={label}>SĐT nhà {i===0?'trai':'gái'}<input className={input} maxLength={50} value={form[key]||''} onChange={e=>set(key,e.target.value)}/></label>)}
       </div>}
       <label className={`${label} sm:col-span-2`}>Tên khách hàng / dự án<input className={input} required minLength={2} value={form.name||''} onChange={e=>set('name',e.target.value)}/></label>
@@ -202,16 +210,18 @@ export function EventEditor({id,staff,user,onClose,onChanged,onDataUpdated}:Prop
       <label className={label}>Trạng thái<select className={input} value={form.status||'pending'} onChange={e=>set('status',e.target.value as NonNullable<EditableChanges['status']>)}><option value="pending">Chờ xác nhận</option><option value="confirmed">Đã chốt</option><option value="done">Hoàn thành</option><option value="cancelled">Đã hủy</option></select></label>
       {!detail.isRuocDau&&<><label className={label}>Bắt đầu<input className={input} type="time" required value={form.start||''} onChange={e=>set('start',e.target.value)}/></label><label className={label}>Kết thúc<input className={input} type="time" required value={form.end||''} onChange={e=>set('end',e.target.value)}/></label></>}
       <label className={`${label} sm:col-span-2`}>Dịch vụ<input className={input} value={form.eventType||''} maxLength={80} onChange={e=>{const next=e.target.value;setForm(previous=>({...previous,eventType:next,assignments:(previous.assignments||[]).map(a=>({...a,task:taskForService(a.task,roster.find(s=>s.id===a.id)?.role||'',next)}))}));}}/></label>
-      {!detail.isRuocDau&&<><label className={`${label} sm:col-span-2`}>Địa điểm<input className={input} value={form.location||''} maxLength={240} onChange={e=>set('location',e.target.value)}/></label><label className={`${label} sm:col-span-2`}>Số điện thoại<input className={input} value={form.phone||''} maxLength={50} onChange={e=>set('phone',e.target.value)}/></label></>}
-      <label className={label}>Giá trị hợp đồng (VND)<input className={input} type="number" min={0} step={1000} value={form.price??0} onChange={e=>set('price',Number(e.target.value))}/></label>
-      <label className={label}>Tiền cọc (VND)<input className={input} type="number" min={0} step={1000} value={form.deposit??0} onChange={e=>set('deposit',Number(e.target.value))}/></label>
+      {!detail.isRuocDau&&<><label className={`${label} sm:col-span-2`}>Địa điểm<MapLocationInput user={user} className={input} maxLength={1500} value={form.location||''} onChange={v=>set('location',v)}/></label><label className={`${label} sm:col-span-2`}>Số điện thoại<input className={input} value={form.phone||''} maxLength={50} onChange={e=>set('phone',e.target.value)}/></label></>}
+      <label className={label}>Giá trị hợp đồng (VND)<VndInput className={input} value={form.price??0} onValueChange={v=>set('price',v)}/></label>
+      <label className={label}>Tiền cọc (VND)<VndInput className={input} value={form.deposit??0} onValueChange={v=>set('deposit',v)}/></label>
       <label className={`${label} sm:col-span-2`}>Ghi chú<textarea className={input} rows={2} maxLength={1000} value={form.note||''} onChange={e=>set('note',e.target.value)}/></label>
       <fieldset className="col-span-full rounded-xl border border-slate-200 p-4"><legend className="px-2 text-sm font-bold text-slate-800">Phân công nhân sự ({assignments.length})</legend>
         <div className="space-y-3">{roster.map(s=>{const a=assignments.find(a=>a.id===s.id);return <div key={s.id} className="rounded-lg bg-slate-50 p-3"><label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={!!a} onChange={e=>toggleStaff(s.id,e.target.checked)}/>{s.name} <span className="text-xs font-normal text-slate-400">{s.role}</span></label>{a&&<><div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">{taskOptionsFor(s.role,String(form.eventType||'')).length>0&&<label className={label}>Công việc cưới<select className={input} value={a.task} onChange={e=>editAssignment(s.id,'task',e.target.value)}>{!taskOptionsFor(s.role,String(form.eventType||'')).includes(a.task)&&<option value={a.task}>{a.task||'Chưa phân loại (legacy)'}</option>}{taskOptionsFor(s.role,String(form.eventType||'')).map(t=><option key={t} value={t}>{t}</option>)}</select></label>}
-         <label className={label}>Chi phí (VND)<input className={input} type="number" min={0} step={1000} value={a.cost} onChange={e=>editAssignment(s.id,'cost',Number(e.target.value))}/></label>
-         {detail.isRuocDau&&<label className={label}>Vị trí rước dâu<select className={input} value={a.locType||'Nhà trai'} onChange={e=>editAssignment(s.id,'locType',e.target.value)}><option value="Nhà trai">Nhà trai</option><option value="Nhà gái">Nhà gái</option>{a.locType&&!['Nhà trai','Nhà gái'].includes(a.locType)&&<option value={a.locType}>{a.locType} (legacy)</option>}</select></label>}</div><div className="mt-2 rounded-lg border border-dashed border-slate-200 bg-white p-2"><label className={label}>Link Source nhân sự (http/https)<input className={input} type="url" value={sourceDrafts[s.id]||''} onChange={e=>setSourceDrafts(v=>({...v,[s.id]:e.target.value}))} placeholder="Dán link thư mục Source của thợ" maxLength={1500}/></label><button className="mt-2 rounded-lg border bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800 disabled:opacity-40" type="button" disabled={busy||sourceDrafts[s.id]===(detail.sourceLinks?.[s.id]||'')} onClick={()=>void saveSource(s.id)}>Lưu link Source</button></div></>}</div>})}</div>
+         <label className={label}>Chi phí (VND)<VndInput className={input} value={a.cost} onValueChange={v=>editAssignment(s.id,'cost',v)}/></label>
+         {detail.isRuocDau&&<label className={label}>Vị trí rước dâu<select className={input} value={a.locType||'Nhà trai'} onChange={e=>editAssignment(s.id,'locType',e.target.value)}><option value="Nhà trai">Nhà trai</option><option value="Nhà gái">Nhà gái</option>{a.locType&&!['Nhà trai','Nhà gái'].includes(a.locType)&&<option value={a.locType}>{a.locType} (legacy)</option>}</select></label>}</div><div className="mt-2 rounded-lg border border-dashed border-slate-200 bg-white p-2">{!released&&<p className="text-xs font-semibold text-amber-800">Source chỉ mở sau {form.date||detail.date} lúc {form.end||detail.end}.</p>}{released&&<><label className={label}>Link Source nhân sự (http/https)<input className={input} type="url" value={sourceDrafts[s.id]||''} onChange={e=>setSourceDrafts(v=>({...v,[s.id]:e.target.value}))} placeholder="Dán link thư mục Source của thợ" maxLength={1500}/></label><button className="mt-2 rounded-lg border bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800 disabled:opacity-40" type="button" disabled={busy||sourceDrafts[s.id]===(detail.sourceLinks?.[s.id]||'')} onClick={()=>void saveSource(s.id)}>Lưu link Source</button></>}</div></>}</div>})}</div>
       </fieldset>
       <fieldset className="col-span-full rounded-xl border border-indigo-200 p-4"><legend className="px-2 text-sm font-bold text-slate-800">Sản phẩm bàn giao / Google Drive</legend>
+       {!released&&<p className="mb-3 rounded-lg bg-amber-50 p-3 text-xs font-semibold text-amber-900">Quản lý link bàn giao chỉ mở sau {form.date||detail.date} lúc {form.end||detail.end}. Link chỉ cấp sau khi kết thúc lịch.</p>}
+       {released&&<>
        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 p-3">
          <div><p className="text-sm font-bold text-slate-800">Quản lý link bàn giao</p><p className="text-xs text-slate-500">Copy lại link bàn giao sản phẩm ngay tại đây và mở nhanh từng link Drive đã lưu.</p></div>
          <span className="text-xs font-semibold text-slate-500">Link được cấp theo từng sản phẩm</span>
@@ -224,6 +234,7 @@ export function EventEditor({id,staff,user,onClose,onChanged,onDataUpdated}:Prop
        </div>)}{!detail.products.length&&<p className="text-xs text-slate-400">Chưa có sản phẩm.</p>}</div>
        <div className="grid gap-2 sm:grid-cols-2"><label className={label}>Tên sản phẩm<input className={input} maxLength={180} value={productName} onChange={e=>setProductName(e.target.value)} placeholder="VD: Album ảnh cưới"/></label><label className={`${label} sm:col-span-2`}>Link Drive (folder hoặc file)<input className={input} value={productUrl} onChange={e=>setProductUrl(e.target.value)} placeholder="https://drive.google.com/drive/folders/..." maxLength={1200}/></label></div>
        <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={()=>void saveProduct()} disabled={busy||!productName.trim()||!productUrl.trim()} className="rounded-lg bg-indigo-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-40">{productId?'Cập nhật sản phẩm':'Thêm sản phẩm'}</button><button type="button" className="rounded-lg border px-3 py-2 text-xs" onClick={()=>{setProductId('');setProductName('');setProductUrl('');setProductType('auto');}}>Tạo mới</button></div>
+      </>}
       </fieldset>
       {productNotice&&<p role="status" className="col-span-full rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">{productNotice}</p>}
       {error&&<div role="alert" className="col-span-full rounded-xl bg-red-50 p-3 text-xs font-semibold text-red-700">

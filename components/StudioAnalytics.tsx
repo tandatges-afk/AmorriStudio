@@ -1,11 +1,12 @@
 'use client';
+import {formatVnd} from '@/lib/domain/vietnam-money';
 import {useMemo} from 'react';
 import {CalendarCheck,ChartNoAxesCombined,FolderCheck,Wallet} from 'lucide-react';
 import type {DashboardData} from '@/lib/domain/types';
 import {getOperationsSnapshot} from '@/lib/domain/operations';
 
 const statuses=[{key:'pending',label:'Chờ xác nhận',color:'#dea65b'},{key:'confirmed',label:'Đã chốt',color:'#6383c9'},{key:'done',label:'Hoàn thành',color:'#51a27a'},{key:'cancelled',label:'Đã hủy',color:'#a8b1bd'}] as const;
-const vnMoney=(n:number)=>new Intl.NumberFormat('vi-VN',{style:'currency',currency:'VND',maximumFractionDigits:0}).format(n);
+const vnMoney = formatVnd;
 export function StudioAnalytics({data,today}:{data:DashboardData;today:string}){
  const summary=useMemo(()=>getOperationsSnapshot(data.events,data.staff,data.month,today),[data,today]);
  const services=useMemo(()=>{

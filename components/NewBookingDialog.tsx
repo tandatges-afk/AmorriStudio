@@ -5,6 +5,8 @@ import type { User } from 'firebase/auth';
 import type { Staff,Assignment } from '@/lib/domain/types';
 import { validateBooking, type BookingInput } from '@/lib/domain/booking';
 import {defaultStaffTask, taskOptionsFor} from '@/lib/domain/staff-task';
+import {MapLocationInput} from '@/lib/ui/MapLocationInput';
+import {VndInput} from '@/lib/ui/VndInput';
 
 type Props = {open:boolean; onClose:()=>void; onCreated:()=>void; user:User;staff:Staff[]};
 const today = () => new Date(Date.now()+7*60*60*1000).toISOString().slice(0,10);
@@ -68,26 +70,26 @@ export function NewBookingDialog({open,onClose,onCreated,user,staff}:Props){
       <label className={`${lab} sm:col-span-2`}>Tên khách hàng / dự án *<input required minLength={2} maxLength={180} className={field} value={name} onChange={e=>setName(e.target.value)} placeholder="VD: Lễ cưới Minh & Hà"/></label>
       <label className={lab}>Ngày thực hiện *<input required type="date" className={field} value={date} onChange={e=>setDate(e.target.value)}/></label>
       {!isRuocDau&&<label className={lab}>Bắt đầu *<input required type="time" className={field} value={start} onChange={e=>setStart(e.target.value)}/></label>}
-      <label className={lab}>Kết thúc *<input required type="time" className={field} value={end} onChange={e=>setEnd(e.target.value)} disabled={isRuocDau}/></label>
+      <label className={lab}>Kết thúc *<input required type="time" className={field} value={end} onChange={e=>setEnd(e.target.value)}/></label>
       {isRuocDau&&<div className="sm:col-span-2 grid gap-3 rounded-xl border p-3 sm:grid-cols-2">
        <label className={lab}>Giờ nhà trai<input type="time" required className={field} value={startTrai} onChange={e=>setStartTrai(e.target.value)}/></label>
        <label className={lab}>Giờ nhà gái<input type="time" required className={field} value={startGai} onChange={e=>setStartGai(e.target.value)}/></label>
-       <label className={lab}>Địa điểm nhà trai<input required className={field} value={locTrai} onChange={e=>setLocTrai(e.target.value)} maxLength={240}/></label>
-       <label className={lab}>Địa điểm nhà gái<input required className={field} value={locGai} onChange={e=>setLocGai(e.target.value)} maxLength={240}/></label>
+       <label className={lab}>Địa điểm nhà trai<MapLocationInput required className={field} user={user} value={locTrai} onChange={setLocTrai} maxLength={1500}/></label>
+       <label className={lab}>Địa điểm nhà gái<MapLocationInput required className={field} user={user} value={locGai} onChange={setLocGai} maxLength={1500}/></label>
        <label className={lab}>SĐT nhà trai<input className={field} value={phoneTrai} onChange={e=>setPhoneTrai(e.target.value)} maxLength={50}/></label>
        <label className={lab}>SĐT nhà gái<input className={field} value={phoneGai} onChange={e=>setPhoneGai(e.target.value)} maxLength={50}/></label>
       </div>}
-      {!isRuocDau&&<label className={`${lab} sm:col-span-2`}>Địa điểm<input className={field} maxLength={240} value={location} onChange={e=>setLocation(e.target.value)} placeholder="Địa điểm làm việc"/></label>}
+      {!isRuocDau&&<label className={`${lab} sm:col-span-2`}>Địa điểm<MapLocationInput className={field} user={user} maxLength={1500} value={location} onChange={setLocation} placeholder="Nhập địa chỉ hoặc dán link Google Maps"/></label>}
       {!isRuocDau&&<label className={lab}>Số điện thoại<input type="tel" maxLength={50} className={field} value={phone} onChange={e=>setPhone(e.target.value)}/></label>}
       <label className={lab}>Trạng thái<select className={field} value={status} onChange={e=>setStatus(e.target.value as BookingInput['status'])}><option value="pending">Chờ xác nhận</option><option value="confirmed">Đã chốt</option><option value="done">Hoàn thành</option><option value="cancelled">Đã hủy</option></select></label>
-      <label className={lab}>Giá trị hợp đồng (VND)<input type="number" min={0} step="1000" className={field} value={price} onChange={e=>setPrice(e.target.value)}/></label>
-      <label className={lab}>Đã cọc (VND)<input type="number" min={0} step="1000" className={field} value={deposit} onChange={e=>setDeposit(e.target.value)}/></label>
+      <label className={lab}>Giá trị hợp đồng (VND)<VndInput className={field} value={Number(price)} onValueChange={v=>setPrice(String(v))}/></label>
+      <label className={lab}>Đã cọc (VND)<VndInput className={field} value={Number(deposit)} onValueChange={v=>setDeposit(String(v))}/></label>
       <label className={`${lab} sm:col-span-2`}>Ghi chú<textarea rows={2} maxLength={1000} className={field} value={note} onChange={e=>setNote(e.target.value)}/></label>
       <fieldset className="sm:col-span-2 rounded-xl border border-indigo-100 bg-indigo-50/40 p-4"><legend className="px-2 text-sm font-bold text-slate-800">Phân công nhân sự ngay khi tạo lịch ({assignments.length})</legend>
        {staff.filter(s=>s.active!==false).length===0&&<p className="text-sm text-slate-500">Chưa có nhân sự. Vào mục Đội ngũ để thêm nhân sự.</p>}
        <div className="max-h-80 space-y-2 overflow-y-auto">{staff.filter(s=>s.active!==false).map(st=>{const a=assignments.find(a=>a.id===st.id);return <div key={st.id} className="rounded-lg border bg-white p-3"><label className="flex items-center gap-2 text-xs font-semibold"><input type="checkbox" checked={!!a} onChange={e=>toggleStaff(st.id,e.target.checked)}/>{st.name} <span className="font-normal text-slate-500">{st.role}</span></label>{a&&<div className="mt-2 grid gap-2 sm:grid-cols-2">
          {taskOptionsFor(st.role,eventType).length>0&&<label className={lab}>Công việc cưới<select className={field} value={a.task} onChange={e=>changeAssignment(st.id,'task',e.target.value)}>{taskOptionsFor(st.role,eventType).map(t=><option key={t} value={t}>{t}</option>)}</select></label>}
-         <label className={lab}>Chi phí (VND)<input className={field} type="number" min={0} step={1000} value={a.cost} onChange={e=>changeAssignment(st.id,'cost',Number(e.target.value))}/></label>
+         <label className={lab}>Chi phí (VND)<VndInput className={field} value={a.cost} onValueChange={v=>changeAssignment(st.id,'cost',v)}/></label>
          {isRuocDau&&<label className={lab}>Vị trí rước dâu<select className={field} value={a.locType||'Nhà trai'} onChange={e=>changeAssignment(st.id,'locType',e.target.value)}><option value="Nhà trai">Nhà trai</option><option value="Nhà gái">Nhà gái</option></select></label>}
        </div>}</div>})}</div>
        <p className="mt-2 text-xs text-indigo-800">Backend sẽ từ chối khi nhân sự có lịch trùng giờ hoặc đã báo nghỉ.</p>
