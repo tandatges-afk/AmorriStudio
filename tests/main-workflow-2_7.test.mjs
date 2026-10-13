@@ -23,7 +23,11 @@ test('Public staff API requires bearer capability and minimizes returned records
  const src=r('app/api/staff/shared/route.ts');
  assert.match(src,/verifyStaffShare\(staffId,token\)/);
  assert.match(src,/recordValues\(e\.assignments\)\.filter\(a=>String\(a\.id\)===staffId\)/);
- for(const sensitive of ['price:String','phone:String','cost:String','products:String','email:String'])assert.doesNotMatch(src,new RegExp(sensitive));
+ // Staff explicitly needs customer phone and their own assignment cost, never contract price or other wages.
+ assert.match(src,/phone:String/);
+ assert.match(src,/cost:own\.reduce/);
+ assert.match(src,/roster\.has/);
+ for(const sensitive of ['price:String','products:String','email:String'])assert.doesNotMatch(src,new RegExp(sensitive));
 });
 test('Event create API checks actual staff roster and overlap before transaction',()=>{
  const src=r('app/api/events/route.ts');
