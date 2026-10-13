@@ -4,6 +4,7 @@ import {adminDatabase} from '@/lib/server/firebase-admin';
 import {findBooking,bookingVersion} from '@/lib/server/event-storage';
 import {requireVersion,eventIdValid} from '@/lib/domain/event-management';
 import {recordValues} from '@/lib/domain/scheduling';
+import {isEventReleased} from '@/lib/domain/event-release';
 export const runtime='nodejs';export const dynamic='force-dynamic';
 /** Moves the legacy source-delivery link mutation to server-authorized API. */
 export async function PUT(request:Request,{params}:{params:Promise<{id:string}>}){
@@ -18,10 +19,11 @@ export async function PUT(request:Request,{params}:{params:Promise<{id:string}>}
   try{if(sourceUrl){const u=new URL(sourceUrl);if(!['https:','http:'].includes(u.protocol)||!u.hostname)throw Error('bad');}}
   catch{throw new ScheduleError(422,'Source phải là URL http/https hợp lệ','SOURCE_INVALID_URL');}
   const located=await findBooking(id);
+  if(!isEventReleased(located.value))throw new ScheduleError(403,'Source chỉ mở sau giờ kết thúc lịch','SOURCE_LOCKED');
   if(located.version!==body.expectedVersion)throw new ScheduleError(409,'Lịch đã thay đổi, hãy tải lại','SOURCE_CONFLICT');
   let issue='';
   const tx=await located.ref.transaction((current:Record<string,unknown>|null)=>{
-   if(!current||String(current.id)!==id||bookingVersion(current)!==body.expectedVersion){issue='Lịch đã thay đổi';return;}
+   if(!current||String(current.id)!==id||bookingVersion(current)!==body.expectedVersion||!isEventReleased(current)){issue='Lịch đã thay đổi';return;}
    const assignments=recordValues(current.assignments);
    if(!assignments.some(a=>String(a.id)===staffId)){issue='Thợ không còn được phân công trong lịch';return;}
    const updated=assignments.map(a=>String(a.id)===staffId?{...a,link:sourceUrl,sourceSubmittedAt:sourceUrl?Date.now():null}:a);

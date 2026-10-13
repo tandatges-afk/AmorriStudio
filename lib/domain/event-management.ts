@@ -51,7 +51,7 @@ export function validateEventChanges(raw: unknown, current: Record<string,unknow
     }
     if(typeof value!=='string')return {ok:false,message:`${key} phải là chuỗi`};
     const input=value.trim();
-    const max:Record<string,number>={name:180,date:10,start:5,end:5,eventType:80,location:240,phone:50,note:1000,startTrai:5,startGai:5,locTrai:240,locGai:240,phoneTrai:50,phoneGai:50,status:30};
+    const max:Record<string,number>={name:180,date:10,start:5,end:5,eventType:80,location:1500,phone:50,note:1000,startTrai:5,startGai:5,locTrai:1500,locGai:1500,phoneTrai:50,phoneGai:50,status:30};
     if(input.length>max[key])return {ok:false,message:`${key} vượt độ dài cho phép`};
     if(key==='name'&&input.length<2)return {ok:false,message:'Tên dự án phải từ 2 ký tự'};
     if(key==='date'&&!isCalendarDate(input))return {ok:false,message:'Ngày không hợp lệ'};
@@ -69,6 +69,12 @@ export function validateEventChanges(raw: unknown, current: Record<string,unknow
       if(typeof val!=='string'||!val.trim() || (key.startsWith('start')&&!timeRe.test(val)))
         return {ok:false,message:'Lịch rước dâu cần đủ giờ và địa điểm của hai nhà'};
     }
+  }
+  if(current.isRuocDau===true && keys.some(k=>['end','startTrai','startGai'].includes(k))){
+    const end=String(result.end??current.end??'');
+    const a=String(result.startTrai??current.startTrai??'');
+    const b=String(result.startGai??current.startGai??'');
+    if(end<a||end<b)return {ok:false,message:'Giờ kết thúc phải sau giờ bắt đầu tại cả hai nhà'};
   }
   const price=result.price??Number(current.price??0), deposit=result.deposit??Number(current.deposit??0);
   if(!Number.isFinite(price)||!Number.isFinite(deposit)||deposit>price)return {ok:false,message:'Tiền cọc không được lớn hơn hợp đồng'};
