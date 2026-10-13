@@ -1,6 +1,6 @@
 {
   "name": "amorri-studio-vnext-2",
-  "version": "3.0.2-drive-redirect-pilot",
+  "version": "3.0.3-staff-money-302-auto",
   "private": true,
   "scripts": {
     "dev": "next dev",

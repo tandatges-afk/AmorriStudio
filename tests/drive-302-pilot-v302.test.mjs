@@ -6,12 +6,16 @@ const id='1234567890testVideo';
 const link=`https://drive.google.com/uc?export=download&id=${id}`;
 const source=(path)=>readFileSync(new URL('../'+path,import.meta.url),'utf8');
 const resp=(status,headers={})=>({status,headers:new Headers(headers),body:{cancel:async()=>{}}});
-test('redirect is disabled unless enabled and explicitly allowlisted',()=>{
+test('redirect stays opt-in; pilot IDs or auto-mode after authorization/probe',()=>{
  assert.equal(isDirectRedirectEnabled(id,{}),false);
  assert.equal(isDirectRedirectEnabled(id,{AMORRI_VIDEO_REDIRECT_MODE:'verified-public'}),false);
  assert.equal(isDirectRedirectEnabled(id,{AMORRI_VIDEO_REDIRECT_MODE:'verified-public',AMORRI_VIDEO_REDIRECT_TEST_IDS:'*'}),false);
  assert.equal(isDirectRedirectEnabled(id,{AMORRI_VIDEO_REDIRECT_MODE:'verified-public',AMORRI_VIDEO_REDIRECT_TEST_IDS:id}),true);
  assert.equal(isDirectRedirectEnabled('OTHERIDENTIFIER123',{AMORRI_VIDEO_REDIRECT_MODE:'verified-public',AMORRI_VIDEO_REDIRECT_TEST_IDS:id}),false);
+ assert.equal(isDirectRedirectEnabled(id,{AMORRI_VIDEO_REDIRECT_MODE:'verified-public-auto'}),true);
+ assert.equal(isDirectRedirectEnabled('ANOTHER1234567890',{AMORRI_VIDEO_REDIRECT_MODE:'verified-public-auto',AMORRI_VIDEO_REDIRECT_TEST_IDS:id}),true);
+ assert.equal(isDirectRedirectEnabled('oops!',{AMORRI_VIDEO_REDIRECT_MODE:'verified-public-auto'}),false);
+ assert.equal(isDirectRedirectEnabled(id,{AMORRI_VIDEO_REDIRECT_MODE:'always'}),false);
 });
 test('redirect allowlist rejects arbitrary URL and wrong Drive ID',()=>{
  assert.equal(isAllowedPublicDriveUrl(link,id),true);
@@ -67,5 +71,5 @@ test('V3.0.2 preserves ticket authorization, original proxy, 302 GET and browser
  assert.match(client,/issueDriveTicket\(redirectFailed\)/);
  assert.match(client,/playbackMode:'proxy'/);
  const health=source('app/api/health/route.ts');
- assert.match(health,/drive-302-pilot-20261013-r1/);
+ assert.match(health,/availability-money-302-auto-20261013-r1/);
 });
