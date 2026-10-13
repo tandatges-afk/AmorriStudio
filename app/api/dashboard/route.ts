@@ -7,7 +7,7 @@ import { classifyFirebaseError } from '@/lib/server/dashboard-errors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-const RELEASE='studio-os-3-0-1-20261013-r1';
+const RELEASE='drive-302-pilot-20261013-r1';
 const NO_CACHE = { 'Cache-Control': 'private, no-store, max-age=0', 'X-Amorri-Auth-Version': RELEASE };
 const errorResponse=(body:{error:string;code:string},status:number,id:string)=>NextResponse.json({...body,release:RELEASE,requestId:id},{status,headers:{...NO_CACHE,'X-Amorri-Request-Id':id}});
 const yyyyMM = /^\d{4}-(0[1-9]|1[0-2])$/;

@@ -20,6 +20,7 @@ function VideoReview({eventId,productId,file,token}:{eventId:string;productId:st
   const updateName=(value:string)=>{setName(value);try{localStorage.setItem(REVIEWER_NAME_KEY,value);}catch{}};
 
   const retryCount=useRef(0);
+  const playbackTransport=useRef<'redirect'|'proxy'>('proxy');
   const lastPosition=useRef(0);
   const endpoint=`/api/delivery/${encodeURIComponent(eventId)}/reviews?productId=${encodeURIComponent(productId)}&mediaId=${encodeURIComponent(file.id)}`;
   const load=useCallback(async()=>{
@@ -27,14 +28,14 @@ function VideoReview({eventId,productId,file,token}:{eventId:string;productId:st
       const v=await r.json();if(!r.ok)throw new Error(v.error||'Không tải được góp ý');setComments(v.comments||[]);
     }catch(err){setError(err instanceof Error?err.message:'Không tải được góp ý');}
   },[endpoint,token]);
-  const issueDriveTicket=useCallback(async()=>{
+  const issueDriveTicket=useCallback(async(forceProxy=false)=>{
     const r=await fetch('/api/drive-video',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({id:file.id,clientGallery:eventId,productId,deliveryToken:token})});
+      body:JSON.stringify({id:file.id,clientGallery:eventId,productId,deliveryToken:token,...(forceProxy?{playbackMode:'proxy'}:{})})});
     const b=await r.json();if(!r.ok)throw new Error(b.error||'Không phát được video Drive');
-    return b.url as string;
+    return {url:b.url as string,transport:b.transport==='redirect'?'redirect' as const:'proxy' as const};
   },[eventId,productId,file.id,token]);
   const useDrive=useCallback(async()=>{
-    try{const url=await issueDriveTicket();setSrc(url);setMode('drive');}
+    try{const ticket=await issueDriveTicket();playbackTransport.current=ticket.transport;setSrc(ticket.url);setMode('drive');}
     catch(e){setMode('iframe');setError(`Không lấy được quyền phát trực tiếp từ Drive: ${e instanceof Error?e.message:'Lỗi kết nối'}. Đang dùng khung preview.`);}
   },[issueDriveTicket]);
   const onNativeError=useCallback(async(e:SyntheticEvent<HTMLVideoElement>)=>{
@@ -43,8 +44,10 @@ function VideoReview({eventId,productId,file,token}:{eventId:string;productId:st
     const source=src;
     lastPosition.current=Number.isFinite(node.currentTime)?node.currentTime:seconds;
     if(retryCount.current===0){
-      retryCount.current=1;setError('Luồng video bị gián đoạn, đang xin lại đường dẫn phát từ Google Drive…');
-      try{const fresh=await issueDriveTicket();setSrc(fresh);setMode('drive');return;}
+      retryCount.current=1;
+      const redirectFailed=playbackTransport.current==='redirect';
+      setError(redirectFailed?'Nguồn Google Drive trực tiếp không phát được, đang chuyển về luồng dự phòng…':'Luồng video bị gián đoạn, đang xin lại đường dẫn phát từ Google Drive…');
+      try{const fresh=await issueDriveTicket(redirectFailed);playbackTransport.current=fresh.transport;setSrc(fresh.url);setMode('drive');return;}
       catch(err){setError(`Không cấp lại được link Drive: ${err instanceof Error?err.message:'Lỗi kết nối'}. Đang dùng preview dự phòng.`);}
     }
     // The browser's MediaError is NOT proof that an MP4 codec is unsupported.
