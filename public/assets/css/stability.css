@@ -1,0 +1,48 @@
+/* VNext / Stage 1. All changes are scoped. Legacy CSS is left untouched.
+   Structural redesign must replace the legacy cascade component-by-component. */
+:root{--am-focus:#2563eb}
+:where(button,a,input,select,textarea,[tabindex]):focus-visible{outline:3px solid var(--am-focus);outline-offset:3px}
+body{user-select:text;-webkit-user-select:text}
+button:disabled{cursor:not-allowed;opacity:.58;transform:none!important}
+@media(prefers-reduced-motion:reduce){
+  *,*::before,*::after{scroll-behavior:auto!important;animation-duration:.01ms!important;transition-duration:.01ms!important}
+}
+/* Limit layout shifts by maintaining the video aspect ratio. Don't scale down the video's intrinsic resolution. */
+body[data-client-gallery="true"] #clientGalleryView .client-video-frame{
+  width:100%!important;min-width:0!important;aspect-ratio:16/9!important;
+  height:auto!important;min-height:0!important;background:#050505!important;
+  overflow:hidden!important;contain:layout paint;
+}
+body[data-client-gallery="true"] #clientGalleryView .client-video-frame video,
+body[data-client-gallery="true"] #clientGalleryView .client-video-frame iframe{
+  width:100%!important;height:100%!important;max-width:100%!important;
+  object-fit:contain!important;inset:0;
+}
+/* Keep comments readable with consistent warm/blurred cinema surfaces. */
+body.amorri-cinema[data-client-gallery="true"] #clientGalleryView #cgVideoContainer .vr-panel{
+  background:rgba(199,187,172,.76)!important;
+  backdrop-filter:blur(16px)!important;-webkit-backdrop-filter:blur(16px)!important;
+  border-color:rgba(238,222,198,.55)!important;
+  opacity:1!important;filter:none!important;
+}
+body.amorri-cinema[data-client-gallery="true"] #clientGalleryView #cgVideoContainer .vr-panel :is(.vr-comment,.vr-heading,.vr-list-wrap){opacity:1!important}
+/* The gallery does not show the mascot; remove extra page-level chrome only in client delivery. */
+body[data-client-gallery="true"] #panda-mascot-container{display:none!important}
+/* Stop a synthetic drop shadow/filter on video while decoding; preserve overlay & frame geometry. */
+body[data-client-gallery="true"] #clientGalleryView video{filter:none!important;backface-visibility:hidden}
+@media(max-width:850px){
+  body[data-client-gallery="true"] #clientGalleryView #cgVideoContainer .client-video-review-layout{
+    grid-template-columns:minmax(0,1fr)!important;
+  }
+  body[data-client-gallery="true"] #clientGalleryView #cgVideoContainer .vr-panel{
+    height:auto!important;max-height:none!important;
+  }
+}
+body[data-client-gallery="true"] .client-video-frame .am-media-feedback{
+  position:absolute;z-index:5;top:12px;left:12px;
+  color:#fff;background:rgba(16,16,16,.8);
+  border:1px solid rgba(255,255,255,.18);border-radius:10px;
+  font-size:12px;font-weight:600;padding:7px 11px;
+  max-width:calc(100% - 24px);pointer-events:none;
+}
+body[data-client-gallery="true"] .client-video-frame .am-media-feedback[hidden]{display:none!important}

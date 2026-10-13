@@ -1,0 +1,9 @@
+REVIEW ONLY — NOT A COMPLETE RTDB RULES DOCUMENT.
+Merge inside your existing database.rules JSON after testing on staging:
+
+"amorriStaffShares_v1": {
+  ".read": false,
+  ".write": false
+}
+
+Vercel Firebase Admin SDK bypasses RTDB Security Rules; client Firebase SDK should never read or write these grant hashes. NEVER overwrite all production rules with this fragment.

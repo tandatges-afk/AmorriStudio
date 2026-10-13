@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<!-- Legacy assets resolve from the site root when served through the /studio rewrite. -->
+<base href="/">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#f1f5f9">
+
+<link rel="icon" href="logo.png" type="image/png">
+<!-- Phông chữ cao cấp -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous">
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet" crossorigin="anonymous">
+
+<title>Amorri Studio — Lịch Quay & Chụp</title>
+
+<!-- THÊM FIREBASE AUTH -->
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.13.2/firebase-database-compat.js"></script>
+
+<link rel="stylesheet" href="./assets/css/legacy.css">
+<link rel="stylesheet" href="./assets/css/stability.css">
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+<meta name="referrer" content="strict-origin-when-cross-origin">
+</head>
+<body class="role-guest"> <!-- Mặc định Khách -->
+
+
+
+
+<div id="loadingOverlay">
+    <div class="loading-logo"><img src="logo.png" alt="Amorri" onerror="this.style.display='none'"></div>
+    <div style="font-weight:700; color:var(--text); font-size: 15px; letter-spacing: 0.5px; margin-top:10px;">Đang đồng bộ dữ liệu...</div>
+</div>
+
+<!-- =========================================
+     GIAO DIỆN PHÒNG CHỌN ẢNH (CLIENT GALLERY)
+========================================== -->
+
+<div id="clientGalleryView">
+  <div id="amorri-cinema-overlay" aria-hidden="true"></div>
+    <div class="gallery-cover">
+        <div class="gallery-cover-inner">
+            <div class="gallery-brand">
+                <img src="logo.png" alt="Amorri" onerror="this.style.display='none'">
+                <span>Amorri Studio</span>
+                <span class="gallery-brand-tag">Bàn giao</span>
+            </div>
+            <div class="gallery-head-row">
+                <div class="gallery-head-copy">
+                    <h1 id="cgTitle">Loading...</h1>
+                    <p>Ảnh và video bàn giao. Với video, hãy dừng ở đoạn cần sửa và gửi góp ý theo mốc thời gian.</p>
+                </div>
+                <div class="gallery-head-status" id="cgImageStats">
+                    <div class="gallery-stat"><strong id="cgImageCount">0</strong><span>Ảnh</span></div>
+                    <div class="gallery-stat"><strong id="cgSelectedTop">0</strong><span>Đã chọn</span></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="gallery-container">
+        <div id="cgVideoContainer"></div>
+        <div id="cgGalleryNotice" class="cg-gallery-notice" hidden role="status"></div>
+        <div class="photo-grid-client" id="cgPhotoGrid"></div>
+    </div>
+
+    <div class="client-bottom-bar" id="cgBottomBar">
+        <div class="count-info">Đã chọn: <span id="cgSelectedCount">0</span> ảnh</div>
+        <div class="cg-gallery-actions">
+          <div class="cg-photo-filters" role="group" aria-label="Lọc ảnh theo trạng thái chọn">
+            <button type="button" class="cg-filter-btn" data-photo-filter="unselected" aria-pressed="false">Chưa chọn</button>
+            <button type="button" class="cg-filter-btn" data-photo-filter="selected" aria-pressed="false">Đã chọn</button>
+          </div>
+          <button class="btn primary cg-submit-photos" style="background:#ef4444;color:#fff;" onclick="window.submitClientFavorites()">Gửi Studio chỉnh sửa</button>
+        </div>
+    </div>
+
+</div>
+
+<div class="app">
+  <aside class="sidebar">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom: 10px;">
+        <div class="brand sb-text" style="margin:0; padding:0;">
+            <div class="brand-mark"><img src="logo.png" alt="Amorri" onerror="this.style.display='none'"></div>
+            <div><h1 style="color:#fff;">Amorri Studio</h1><small>Lịch quay & chụp</small></div>
+        </div>
+        <button id="sidebarToggleBtn" title="Thu gọn/Mở rộng menu" aria-label="Thu gọn Menu"><b>≡</b></button>
+    </div>
+    
+    <nav class="side-nav">
+      <button class="nav-btn active" data-view="month"><b>▦</b><span class="sb-text">Lịch tháng</span></button>
+      <button class="nav-btn admin-only" data-view="agenda"><b>💰</b><span class="sb-text">Lương thợ</span></button>
+      <button class="nav-btn staff-only" data-view="agenda"><b>💰</b><span class="sb-text">Lương của tôi</span></button>
+      <button class="nav-btn admin-only" id="openStaffBtn"><b>✦</b><span class="sb-text">Đội ngũ</span></button>
+      <button class="nav-btn staff-only" onclick="window.openBlackoutModal()"><b>⛔</b><span class="sb-text">Báo bận/nghỉ</span></button>
+      <button class="nav-btn admin-only" id="settingsBtn"><b>⚙</b><span class="sb-text">Cài đặt</span></button>
+    </nav>
+    <div class="sidebar-bottom">
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left" style="display:flex; align-items:center; gap:16px;">
+        <div><h2 class="title">Bảng điều khiển</h2><div class="subtitle" id="todayText"></div></div>
+      </div>
+      <!-- CỤM BUTTON ĐƯỢC CHỈNH LẠI HÀNG NGANG -->
+      <div class="actions">
+        <button class="btn ghost admin-only" style="border: 1px solid var(--blue); color: var(--blue);" onclick="window.smoothOpen('smartPasteModal')">⚡ Nhập nhanh</button>
+        <button class="btn primary admin-only" id="addBtn">＋ Thêm lịch</button>
+        <button class="btn ghost guest-only login-btn-ui" style="font-weight:700; border: 1px solid var(--line);" onclick="window.loginAdmin()">🔑 Đăng nhập Admin</button>
+        <button class="btn ghost danger admin-only logout-btn-ui" style="font-weight:700; border: 1px solid var(--red);" onclick="window.logoutAdmin()">🚪 Đăng xuất</button>
+      </div>
+    </div>
+
+    <section class="grid-stats admin-only admin-only-grid">
+      <div class="stat"><div class="stat-label">Lịch trong tháng</div><div class="stat-num" id="statTotal">0</div><div class="stat-meta">theo bộ lọc</div></div>
+      <div class="stat"><div class="stat-label">Đã xác nhận</div><div class="stat-num" id="statConfirmed">0</div><div class="stat-meta" style="color:var(--green)">booking đã chốt</div></div>
+      <div class="stat"><div class="stat-label">Chờ xác nhận</div><div class="stat-num" id="statPending">0</div><div class="stat-meta" style="color:var(--orange)">cần theo dõi</div></div>
+      <div class="stat"><div class="stat-label">Khách nợ</div><div class="stat-num" id="statUnpaid" style="color:var(--red)">0</div><div class="stat-meta">chưa thanh toán đủ</div></div>
+    </section>
+
+    <section class="layout">
+      <div class="panel">
+        <div class="calendar-head">
+          <div class="calendar-nav">
+            <button class="icon-btn" id="prevBtn" aria-label="Tháng trước">‹</button>
+            <button class="icon-btn" id="nextBtn" aria-label="Tháng sau">›</button>
+            <div class="month-title" id="calendarTitle"></div>
+          </div>
+        </div>
+        
+        <div class="filters" id="mainFilters">
+          <label for="searchInput" style="display:none;">Tìm kiếm</label>
+          <input class="field" id="searchInput" placeholder="Tìm tên, SĐT, địa điểm, thợ..." style="flex: 1; min-width: 250px;">
+          
+          <label for="staffFilter" style="display:none;">Bộ lọc nhân sự</label>
+          <select class="field admin-only" id="staffFilter">
+              <option value="">Tất cả nhân sự</option>
+          </select>
+          
+          <label for="statusFilter" style="display:none;">Trạng thái</label>
+          <select class="field" id="statusFilter">
+              <option value="">Tất cả trạng thái</option>
+              <option value="pending">Chờ xác nhận</option>
+              <option value="confirmed">Đã chốt</option>
+              <option value="done">Hoàn thành</option>
+              <option value="cancelled">Đã hủy</option>
+          </select>
+        </div>
+        
+        <div class="calendar-mobile-hint" aria-hidden="true">Chạm một ngày để xem lịch chi tiết phía dưới</div>
+        <div class="calendar-wrap">
+          <div class="calendar" id="calendar"></div>
+          <div class="agenda" id="agenda"></div>
+        </div>
+      </div>
+
+      <aside class="side-panel">
+        <div class="panel side-card staff-only-block" id="upcomingListPanel" style="display:none;">
+          <h3>Lịch sắp tới của bạn</h3>
+          <div class="mini-list" id="upcomingList"></div>
+          <div style="height:1px;background:var(--line);margin:24px 0 20px"></div>
+          <div class="staff-activity-head">
+            <h3 style="margin:0;font-size:16px;">Thông báo từ Admin</h3>
+            <span id="staffActivityBadge" class="pill orange" style="display:none">Mới</span>
+          </div>
+          <div id="staffActivityList" class="staff-activity-list"></div>
+        </div>
+        
+        <div class="panel side-card admin-only admin-only-block">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+            <h3 style="margin:0;font-size:16px;">Lịch thợ</h3>
+            <div style="display:flex;gap:6px">
+              <select id="staffMonthM" class="field" aria-label="Chọn tháng" style="padding:6px 10px;font-size:12.5px;min-height:0">
+                <option value="1">Tháng 1</option><option value="2">Tháng 2</option><option value="3">Tháng 3</option><option value="4">Tháng 4</option><option value="5">Tháng 5</option><option value="6">Tháng 6</option><option value="7">Tháng 7</option><option value="8">Tháng 8</option><option value="9">Tháng 9</option><option value="10">Tháng 10</option><option value="11">Tháng 11</option><option value="12">Tháng 12</option>
+              </select>
+              <select id="staffMonthY" class="field" aria-label="Chọn năm" style="padding:6px 10px;font-size:12.5px;min-height:0">
+                <option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option><option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option>
+              </select>
+            </div>
+          </div>
+          <div class="staff-list" id="staffMonthList"></div>
+        </div>
+        
+        <div class="panel side-card admin-only admin-only-block">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:10px">
+            <h3 style="margin:0;font-size:16px;">Tổng quan</h3>
+            <div style="display:flex;gap:6px">
+              <select id="summaryMonthM" class="field" aria-label="Chọn tháng tổng quan" style="padding:6px 10px;font-size:12.5px;min-height:0">
+                <option value="1">Tháng 1</option><option value="2">Tháng 2</option><option value="3">Tháng 3</option><option value="4">Tháng 4</option><option value="5">Tháng 5</option><option value="6">Tháng 6</option><option value="7">Tháng 7</option><option value="8">Tháng 8</option><option value="9">Tháng 9</option><option value="10">Tháng 10</option><option value="11">Tháng 11</option><option value="12">Tháng 12</option>
+              </select>
+              <select id="summaryMonthY" class="field" aria-label="Chọn năm tổng quan" style="padding:6px 10px;font-size:12.5px;min-height:0">
+                <option value="2024">2024</option><option value="2025">2025</option><option value="2026">2026</option><option value="2027">2027</option><option value="2028">2028</option><option value="2029">2029</option><option value="2030">2030</option>
+              </select>
+            </div>
+          </div>
+          <div id="monthSummary"></div>
+        </div>
+      </aside>
+    </section>
+  </main>
+</div>
+
+<!-- Modal Báo Bận (Staff Blackout) -->
+<div class="modal-backdrop" id="blackoutModal">
+  <div class="modal" style="width:min(450px,100%)">
+    <div class="modal-head">
+      <div class="modal-title">Đăng ký ngày nghỉ</div>
+      <button type="button" class="icon-btn" aria-label="Đóng" onclick="window.smoothClose('blackoutModal')" style="border:0;background:#f4f4f5;border-radius:50%">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13.5px; color:var(--muted); margin-top:0;">Chọn ngày bạn bận để Admin không xếp lịch trùng.</p>
+      <div class="form-grid" style="grid-template-columns:1fr; gap:16px;">
+        <div class="form-group">
+          <label for="blackoutDate">Ngày nghỉ</label>
+          <input type="date" id="blackoutDate" required>
+        </div>
+        <div class="form-group">
+          <label for="blackoutReason">Lý do (Tùy chọn)</label>
+          <input type="text" id="blackoutReason" placeholder="VD: Việc gia đình, Đi du lịch...">
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot" style="justify-content:flex-end; gap:10px;">
+      <button type="button" class="btn ghost" onclick="window.smoothClose('blackoutModal')">Hủy</button>
+      <button type="button" class="btn primary" onclick="window.saveBlackout()">Lưu ngày nghỉ</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Chọn Loại Lịch (PRE-SELECTION) -->
+<div class="modal-backdrop" id="chooseTypeModal">
+  <div class="modal" style="width:min(400px, 100%)">
+     <div class="modal-head">
+         <div class="modal-title">Chọn loại lịch</div>
+         <button type="button" class="icon-btn" aria-label="Đóng" onclick="window.smoothClose('chooseTypeModal')" style="border:0;background:#f4f4f5;border-radius:50%">✕</button>
+     </div>
+     <div class="modal-body" style="padding: 24px;">
+         <div id="mainTypeGrid" style="display:grid; gap:12px;">
+             <button class="btn ghost" style="justify-content:flex-start; padding:16px; font-size:15px; border:1px solid var(--line)" onclick="window.proceedWithEventType('Tốt nghiệp', '')">🎓 Tốt nghiệp</button>
+             <button class="btn ghost" style="justify-content:flex-start; padding:16px; font-size:15px; border:1px solid var(--line)" onclick="window.proceedWithEventType('Concept', '')">✨ Concept</button>
+             <button class="btn ghost" style="justify-content:space-between; padding:16px; font-size:15px; border:1px solid var(--line)" onclick="document.getElementById('mainTypeGrid').style.display='none'; document.getElementById('weddingSubGrid').style.display='grid';">
+                 <span>💍 Cưới</span> <span>›</span>
+             </button>
+             <button class="btn ghost" style="justify-content:flex-start; padding:16px; font-size:15px; border:1px solid var(--line)" onclick="window.proceedWithEventType('Pre-wedding', '')">🖼️ Chụp cổng - Prewedding</button>
+             <button class="btn ghost" style="justify-content:flex-start; padding:16px; font-size:15px; border:1px solid var(--line)" onclick="window.proceedWithEventType('Sự kiện', '')">🎉 Sự kiện</button>
+             <button class="btn ghost" style="justify-content:flex-start; padding:16px; font-size:15px; border:1px solid var(--line)" onclick="window.proceedWithEventType('Tết', '')">🧧 Tết</button>
+         </div>
+         
+         <div id="weddingSubGrid" style="display:none; gap:12px;">
+             <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px; color:var(--muted); font-weight:700; cursor:pointer;" onclick="document.getElementById('weddingSubGrid').style.display='none'; document.getElementById('mainTypeGrid').style.display='grid';">
+                 ‹ Quay lại
+             </div>
+             <button class="btn ghost" style="justify-content:flex-start; padding:14px; font-size:14.5px; border:1px solid var(--line); color:#991b1b; background:#fef2f2; border-color:#fecaca;" onclick="window.proceedWithEventType('Cưới', 'Dạm Ngõ')">Dạm Ngõ</button>
+             <button class="btn ghost" style="justify-content:flex-start; padding:14px; font-size:14.5px; border:1px solid var(--line); color:#92400e; background:#fffbeb; border-color:#fde68a;" onclick="window.proceedWithEventType('Cưới', 'Đám Nối')">Đám Nối</button>
+             <button class="btn ghost" style="justify-content:flex-start; padding:14px; font-size:14.5px; border:1px solid var(--line); color:#9d174d; background:#fdf2f8; border-color:#fbcfe8;" onclick="window.proceedWithEventType('Cưới', 'Vu Quy')">Vu Quy</button>
+             <button class="btn ghost" style="justify-content:flex-start; padding:14px; font-size:14.5px; border:1px solid var(--line); color:#1e40af; background:#eff6ff; border-color:#bfdbfe;" onclick="window.proceedWithEventType('Cưới', 'Rước Dâu')">Rước Dâu (Thành hôn)</button>
+             <button class="btn ghost" style="justify-content:flex-start; padding:14px; font-size:14.5px; border:1px solid var(--line); color:#5b21b6; background:#f5f3ff; border-color:#ddd6fe;" onclick="window.proceedWithEventType('Cưới', 'Xuất Giá')">Xuất Giá (16h - 22h)</button>
+         </div>
+     </div>
+  </div>
+</div>
+
+<!-- Modal Nhập Nhanh (Smart Paste) -->
+<div class="modal-backdrop" id="smartPasteModal">
+  <div class="modal" style="width:min(500px, 100%)">
+    <div class="modal-head">
+      <div class="modal-title" style="display:flex; align-items:center; gap:8px;"><span style="font-size:24px;">⚡</span> Nhập nhanh từ Zalo</div>
+      <button type="button" class="icon-btn" aria-label="Đóng" onclick="window.smoothClose('smartPasteModal')" style="border:0;background:#f4f4f5;border-radius:50%">✕</button>
+    </div>
+    <div class="modal-body">
+      <p style="font-size:13.5px; color:var(--muted); margin-top:0;">Dán nội dung tin nhắn chốt khách vào đây, hệ thống sẽ tự động bóc tách Ngày, Giờ, Tên, Số điện thoại và Tiền bạc.</p>
+      <label for="smartPasteInput" style="display:none">Nhập tin nhắn Zalo</label>
+      <textarea id="smartPasteInput" class="field" rows="5" placeholder="VD: Đám cưới Minh Lan ngày 20/11 lúc 7h nhà gái. Sđt 0901234567. Giá 5tr cọc 1tr..." style="width:100%; resize:none; font-weight:normal; line-height:1.6; padding:16px; border: 1px solid var(--line);"></textarea>
+      <button type="button" class="btn primary" style="width:100%; margin-top:20px; padding:16px; font-size:15px; box-shadow: 0 4px 14px rgba(59, 130, 246, 0.3); background: var(--blue); color: #fff;" onclick="window.runSmartPaste()">Phân tích & Thêm lịch</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Thêm/Sửa Sự Kiện -->
+<div class="modal-backdrop" id="eventModal">
+  <div class="modal">
+    <div class="modal-head"><div class="modal-title" id="eventModalTitle">Thêm lịch</div><button type="button" class="icon-btn" aria-label="Đóng" onclick="window.smoothClose('eventModal')" style="border:0;background:#f4f4f5;border-radius:50%">✕</button></div>
+    <div class="modal-body">
+      <form id="eventForm">
+        <input type="hidden" id="eventId">
+        <input type="hidden" id="eventIsRuocDau" value="false">
+        
+        <div class="form-grid">
+          <div class="form-group full">
+              <label for="eventName">Tên lịch / Khách hàng</label>
+              <input id="eventName" required placeholder="VD: Đám cưới Minh & Linh" onkeyup="window.updateModalVisibility()" onchange="window.updateModalVisibility()">
+          </div>
+          
+          <div class="form-group"><label for="eventDate">Ngày</label><input id="eventDate" type="date" required onchange="window.updateModalVisibility(); window.checkConflict();"></div>
+          
+          <div class="form-group">
+              <label for="eventType">Gói Dịch Vụ</label>
+              <select id="eventType" onchange="window.updateModalVisibility(); window.renderEventStaffList();">
+                  <option value="Cưới">💍 Cưới (Hỏi, Vu Quy, Rước Dâu...)</option>
+                  <option value="Pre-wedding">🖼 Chụp cổng - Prewedding</option>
+                  <option value="Tốt nghiệp">🎓 Tốt nghiệp</option>
+                  <option value="Concept">✨ Concept</option>
+                  <option value="Sự kiện">🎉 Sự kiện / Tiệc</option>
+                  <option value="Tết">🧧 Tết</option>
+                  <option value="Khác">Khác</option>
+              </select>
+          </div>
+
+          <div class="form-group normal-time"><label for="eventStart">Giờ bắt đầu</label><input id="eventStart" type="time" onchange="window.checkConflict();"></div>
+          
+          <div class="form-group full ruocdau-time" style="display:none;">
+              <div style="display:flex; gap:24px; flex-wrap:wrap;">
+                  <div style="flex:1; min-width:200px;">
+                      <label for="eventStartTrai" style="color:#0369a1; font-size:14.5px;">⏰ Giờ Nhà Trai</label>
+                      <input id="eventStartTrai" type="time" onchange="window.checkConflict();" style="width:100%; margin-top:8px;">
+                  </div>
+                  <div style="flex:1; min-width:200px;">
+                      <label for="eventStartGai" style="color:#be185d; font-size:14.5px;">⏰ Giờ Nhà Gái</label>
+                      <input id="eventStartGai" type="time" onchange="window.checkConflict();" style="width:100%; margin-top:8px;">
+                  </div>
+              </div>
+          </div>
+
+          <div class="form-group"><label for="eventEnd">Giờ kết thúc chung</label><input id="eventEnd" type="time" required onchange="window.updateModalVisibility(); window.checkConflict();"></div>
+          
+          <div class="form-group">
+              <label for="eventStatus">Trạng thái</label>
+              <select id="eventStatus" onchange="window.updateModalVisibility()">
+                  <option value="pending">Chờ xác nhận</option>
+                  <option value="confirmed">Đã chốt</option>
+                  <option value="done">Hoàn thành</option>
+                  <option value="cancelled">Đã hủy</option>
+              </select>
+          </div>
+
+          <div class="form-group full step2-item" style="display:none; padding-top:20px; border-top:1px solid var(--line);">
+            <div class="admin-only" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; flex-wrap:wrap; gap:10px" id="adminStaffLabel">
+              <label style="font-size:15px; color:#0f172a;">Phân công nhân sự</label>
+              <button type="button" id="btnShowFreelance" class="btn ghost" style="padding:8px 16px; font-size:12.5px; border:1px solid #cbd5e1; color: var(--text)" onclick="document.getElementById('freelanceForm').style.display='flex'">+ Thêm Freelance</button>
+            </div>
+            <label id="guestStaffLabel" style="margin-bottom:8px; font-size:14.5px; font-weight:800; color:var(--text); display:none;">Nhân sự tham gia</label>
+            
+            <div id="freelanceForm" style="display:none; gap:10px; margin-bottom:16px; padding:20px; background:#f8fafc; border-radius:20px; align-items:center; font-size:13px; border: 1px solid var(--line); flex-wrap:wrap">
+              <label for="newFreeName" style="display:none;">Tên Freelance</label>
+              <input type="text" id="newFreeName" placeholder="Tên thợ Freelance" style="flex:1; min-width: 140px; background:#fff;">
+              <label for="newFreeRole" style="display:none;">Bộ phận</label>
+              <select id="newFreeRole" style="background:#fff; min-width: 120px;">
+                  <option value="Chụp">Chụp</option>
+                  <option value="Quay">Quay</option>
+                  <option value="Makeup">Makeup</option>
+                  <option value="Khác">Khác</option>
+              </select>
+              <button type="button" class="btn primary" style="padding:12px 24px; font-size:13.5px" onclick="window.saveFreelanceQuick()">Thêm</button>
+              <button type="button" class="btn ghost" style="padding:12px 20px; font-size:13.5px;" onclick="document.getElementById('freelanceForm').style.display='none'">Hủy</button>
+            </div>
+
+            <div id="staffFiltersContainer" style="display:flex; gap:16px; margin-bottom:16px; align-items:center; font-size:13.5px; font-weight:600; padding:16px 20px; background:#f8fafc; border-radius:16px; flex-wrap:wrap; border: 1px solid var(--line);">
+              <span style="color:var(--muted)">Lọc theo Tag Vị trí:</span>
+              <label for="f_chup" style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="f_chup" onchange="window.filterStaffModal()" style="accent-color:var(--primary);width:18px;height:18px">📷 Chụp</label>
+              <label for="f_quay" style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="f_quay" onchange="window.filterStaffModal()" style="accent-color:var(--primary);width:18px;height:18px">🎥 Quay</label>
+              <label for="f_makeup" style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="f_makeup" onchange="window.filterStaffModal()" style="accent-color:var(--primary);width:18px;height:18px">💄 Makeup</label>
+              <label for="f_khac" style="display:flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="f_khac" onchange="window.filterStaffModal()" style="accent-color:var(--primary);width:18px;height:18px">⚙ Khác/Free</label>
+            </div>
+            
+            <div id="eventStaff" class="staff-picker" style="padding:0; border:none; background:transparent;"></div>
+          </div>
+          
+          <!-- ĐỊA ĐIỂM ĐỘNG -->
+          <div class="form-group full step2-item normal-loc loc-group-wrapper" style="display:none">
+            <label for="eventLocation">Địa điểm</label>
+            <div style="position:relative; width: 100%;">
+                <input id="eventLocation" placeholder="Tên đường hoặc Link Google Maps..." autocomplete="off" style="width:100%;">
+                <div class="autocomplete-suggestions"></div>
+            </div>
+          </div>
+
+          <div class="form-group full step2-item ruocdau-loc loc-group-wrapper" style="display:none">
+            <div style="display:flex; gap:24px; flex-wrap:wrap;">
+                <div style="flex:1; min-width:200px; position:relative;">
+                    <label for="eventLocationTrai" style="color:#0369a1; font-size:14.5px;">📍 Địa điểm Nhà Trai</label>
+                    <input id="eventLocationTrai" placeholder="Link Map / Tên đường..." autocomplete="off" style="width:100%; margin-top:8px;">
+                    <div class="autocomplete-suggestions"></div>
+                </div>
+                <div style="flex:1; min-width:200px; position:relative;">
+                    <label for="eventLocationGai" style="color:#be185d; font-size:14.5px;">📍 Địa điểm Nhà Gái</label>
+                    <input id="eventLocationGai" placeholder="Link Map / Tên đường..." autocomplete="off" style="width:100%; margin-top:8px;">
+                    <div class="autocomplete-suggestions"></div>
+                </div>
+            </div>
+          </div>
+
+          <!-- SĐT ĐỘNG -->
+          <div class="form-group full step2-item normal-phone" style="display:none">
+            <label for="eventPhone">Số điện thoại khách</label>
+            <input id="eventPhone" placeholder="090...">
+          </div>
+
+          <div class="form-group full step2-item ruocdau-phone" style="display:none">
+            <div style="display:flex; gap:24px; flex-wrap:wrap;">
+                <div style="flex:1; min-width:200px;">
+                    <label for="eventPhoneTrai" style="color:#0369a1; font-size:14.5px;">📞 SĐT Nhà Trai</label>
+                    <input id="eventPhoneTrai" placeholder="090..." style="width:100%; margin-top:8px;">
+                </div>
+                <div style="flex:1; min-width:200px;">
+                    <label for="eventPhoneGai" style="color:#be185d; font-size:14.5px;">📞 SĐT Nhà Gái</label>
+                    <input id="eventPhoneGai" placeholder="090..." style="width:100%; margin-top:8px;">
+                </div>
+            </div>
+          </div>
+          
+          <!-- NHÓM TIỀN BẠC NẰM CHUNG HÀNG -->
+          <div class="form-group full step3-item" style="display:none; padding-top:20px; border-top:1px solid var(--line);" id="financeGroup">
+            <div style="display:flex; gap:24px; flex-wrap:wrap;">
+                <div style="flex:1; min-width:200px;">
+                    <label for="eventPrice">Giá trị booking</label>
+                    <div class="currency-wrap" style="margin-top:8px;">
+                      <input id="eventPrice" type="text" inputmode="numeric" oninput="window.formatMoneyInput(this); window.updateDepositLabel()" placeholder="1.200">
+                    </div>
+                </div>
+                <div style="flex:1; min-width:200px;">
+                    <label for="eventDeposit" id="depositLabel">Đã cọc</label>
+                    <div class="currency-wrap" style="margin-top:8px;">
+                      <input id="eventDeposit" type="text" inputmode="numeric" oninput="window.formatMoneyInput(this); window.updateDepositLabel()" placeholder="300">
+                    </div>
+                </div>
+            </div>
+          </div>
+          
+          <div class="form-group full step3-item" style="display:none"><label for="eventNote">Ghi chú chung / Yêu cầu</label><textarea id="eventNote" placeholder="Trang phục, concept, thiết bị, thời gian di chuyển..."></textarea></div>
+
+          <div class="form-group full step3-item admin-only admin-only-block" id="productsSection" style="display:none; margin-top:16px; border-top:1px solid var(--line); padding-top:24px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;">
+                <label style="font-size:15px; color:#0f172a; display:flex; align-items:center; gap:8px; margin:0;">
+                    📦 Bàn giao ảnh / clip
+                </label>
+                <div style="display:flex; gap:8px;">
+                    <button type="button" class="btn ghost admin-only admin-only-flex" style="padding:8px 15px; font-size:12.5px; border:1px solid var(--blue); color:var(--blue); font-weight:700;" onclick="window.generateClientLink()">🔗 Gửi tất cả</button>
+                    <button type="button" id="btnAddProduct" class="btn ghost admin-only admin-only-flex" style="padding:8px 15px; font-size:13px; border:1px solid #cbd5e1;" onclick="window.addProductRow()">+ Thêm thư mục / clip</button>
+                </div>
+            </div>
+            <div id="eventProductsList" style="display:flex; flex-direction:column; gap:12px;"></div>
+          </div>
+
+        </div>
+      </form>
+    </div>
+    <div class="modal-foot" style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+      <div style="display: flex; gap: 10px;">
+          <button type="button" class="btn danger admin-only admin-only-flex" id="deleteEvent" style="display:none;">Xóa lịch</button>
+          <button type="button" class="btn admin-only admin-only-flex" id="fullPaidBtn" style="color:#047857;background:var(--bg-green);border-color:#a7f3d0;display:none; box-shadow:none;">💰 Đã thanh toán</button>
+      </div>
+      <div style="display:flex;gap:12px">
+        <button type="button" class="btn ghost" onclick="window.smoothClose('eventModal')" id="cancelEvent">Hủy</button>
+        <button type="button" class="btn primary admin-only admin-only-flex" id="saveEvent" style="display:none;">Lưu lịch</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Cập Nhật Lương -->
+<div class="modal-backdrop" id="payrollModal">
+  <div class="modal" style="width:min(450px,100%)">
+    <div class="modal-head"><div class="modal-title" id="payrollModalTitle">Thanh toán lương</div><button type="button" class="icon-btn" aria-label="Đóng" onclick="window.smoothClose('payrollModal')" style="border:0;background:#f4f4f5;border-radius:50%">✕</button></div>
+    <div class="modal-body">
+      <input type="hidden" id="payrollStaffId">
+      <input type="hidden" id="payrollMonth">
+      <div class="form-grid" style="grid-template-columns:1fr; gap:20px;">
+        <div class="form-group">
+          <label for="payrollAdvance">Đã ứng trong tháng</label>
+          <div class="currency-wrap">
+            <input type="text" inputmode="numeric" id="payrollAdvance" placeholder="0" oninput="window.formatMoneyInput(this)">
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="payrollPaid">Đã thanh toán cuối tháng</label>
+          <div class="currency-wrap">
+            <input type="text" inputmode="numeric" id="payrollPaid" placeholder="0" oninput="window.formatMoneyInput(this)">
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-foot" style="justify-content:flex-end; gap:10px;">
+      <button type="button" class="btn ghost" onclick="window.smoothClose('payrollModal')">Hủy</button>
+      <button type="button" class="btn primary" id="savePayrollBtn">Lưu thanh toán</button>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Đội Ngũ -->
+<div class="modal-backdrop" id="staffModal">
+  <div class="modal" style="width:min(640px,100%)">
+    <div class="modal-head"><div class="modal-title">Đội ngũ & Truy cập</div><button type="button" class="icon-btn" aria-label="Đóng" onclick="window.smoothClose('staffModal')" style="border:0;background:#f4f4f5;border-radius:50%">✕</button></div>
+    <div class="modal-body">
+      <div class="form-grid" style="margin-bottom:32px; padding-bottom: 32px; border-bottom: 1px solid var(--line)">
+        <div class="form-group full"><label for="staffName">Tên thợ</label><input id="staffName" placeholder="VD: Bii"></div>
+        <div class="form-group full">
+            <fieldset style="border:none; padding:0; margin:0;">
+                <legend style="font-size: 13.5px; font-weight: 700; color: #475569; margin-bottom: 8px; padding:0;">Gắn Tag Vai Trò (Có thể chọn nhiều)</legend>
+                <div id="staffRoleChecks" style="display:grid; grid-template-columns:1fr 1fr; gap:10px; background:#f8fafc; padding:16px; border-radius:16px; border: 1px solid #e2e8f0;">
+                    <label for="role_chup" style="display:flex; gap:8px; align-items:center; font-weight:600;"><input id="role_chup" type="checkbox" value="Chụp" style="width:18px;height:18px;accent-color:var(--primary)"> Chụp</label>
+                    <label for="role_quay" style="display:flex; gap:8px; align-items:center; font-weight:600;"><input id="role_quay" type="checkbox" value="Quay" style="width:18px;height:18px;accent-color:var(--primary)"> Quay</label>
+                    <label for="role_makeup" style="display:flex; gap:8px; align-items:center; font-weight:600;"><input id="role_makeup" type="checkbox" value="Makeup" style="width:18px;height:18px;accent-color:var(--primary)"> Makeup</label>
+                    <label for="role_freelance" style="display:flex; gap:8px; align-items:center; font-weight:600;"><input id="role_freelance" type="checkbox" value="Freelance" style="width:18px;height:18px;accent-color:var(--primary)"> Freelance</label>
+                    <label for="role_editor" style="display:flex; gap:8px; align-items:center; font-weight:600;"><input id="role_editor" type="checkbox" value="Editor" style="width:18px;height:18px;accent-color:var(--primary)"> Editor</label>
+                    <label for="role_assistant" style="display:flex; gap:8px; align-items:center; font-weight:600;"><input id="role_assistant" type="checkbox" value="Assistant" style="width:18px;height:18px;accent-color:var(--primary)"> Assistant</label>
+                </div>
+            </fieldset>
+        </div>
+        <div class="form-group full"><button type="button" class="btn primary" id="addStaffBtn">＋ Thêm nhân sự</button></div>
+      </div>
+      <h4 style="margin:0 0 16px; font-size:16px; font-weight:800; color:var(--text)">Danh sách nhân sự</h4>
+      <div id="staffManageList" class="mini-list" style="margin-top:0"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal Cài đặt -->
+<div class="modal-backdrop" id="settingsModal">
+  <div class="modal" style="width:min(500px,100%)">
+    <div class="modal-head"><div class="modal-title">Cài đặt</div><button type="button" class="icon-btn" aria-label="Đóng" onclick="window.smoothClose('settingsModal')" style="border:0;background:#f4f4f5;border-radius:50%">✕</button></div>
+    <div class="modal-body">
+      
+      <p style="font-size:14.5px; color:var(--muted); line-height:1.6; margin-top:0">Hệ thống đồng bộ Thời gian thực. Nếu mất mạng, App tự động chuyển sang chế độ Offline.</p>
+      
+      <div style="margin-top:10px; border-top:1px solid var(--line); padding-top:24px;">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap">
+          <div>
+            <h3 style="margin:0;font-size:17px;font-weight:800;">Nhật ký hoạt động</h3>
+            <div style="font-size:12.5px;color:var(--muted);margin-top:5px;font-weight:600;">Theo dõi ai đã thêm, sửa, phân công, xóa hoặc thay đổi dữ liệu.</div>
+          </div>
+          <span class="pill blue">Admin Log</span>
+        </div>
+        <div class="audit-filter-row">
+          <button type="button" class="btn ghost" style="border: 1px solid #e2e8f0;" data-audit-filter="all">Tất cả</button>
+          <button type="button" class="btn ghost" style="border: 1px solid #e2e8f0;" data-audit-filter="booking">Lịch</button>
+          <button type="button" class="btn ghost" style="border: 1px solid #e2e8f0;" data-audit-filter="staff">Nhân sự</button>
+          <button type="button" class="btn ghost" style="border: 1px solid #e2e8f0;" data-audit-filter="source">Source</button>
+          <button type="button" class="btn ghost" style="border: 1px solid #e2e8f0;" data-audit-filter="payroll">Lương</button>
+        </div>
+        <label for="auditSearchInput" style="display:none">Tìm nhật ký</label>
+        <input id="auditSearchInput" class="field" placeholder="Tìm trong nhật ký..." style="width:100%;margin-top:12px;">
+        <div id="auditLogList" class="audit-log-list"></div>
+      </div>
+      <div style="display:grid;gap:16px; margin-top: 24px">
+        <button type="button" class="btn danger" id="clearAll" style="justify-content:center;">⚠️ Làm sạch dữ liệu lịch / thợ / lương</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="./assets/js/main.js"></script>
+
+<script src="./assets/js/enhancement-01.js" id="amorri-space-play-pause"></script>
+
+<!-- Footer credit: follows page content, never overlays navigation -->
+<div class="studio-credit" aria-label="Design by AmorriStudio">
+    <div class="studio-credit-pill">
+        <span class="studio-credit-dot" aria-hidden="true"></span>
+        <span>Design by <strong>AmorriStudio</strong></span>
+    </div>
+    <div id="panda-mascot-container" aria-hidden="true">
+        <div id="panda-mascot"></div>
+    </div>
+</div>
+<script src="./assets/js/enhancement-02.js" id="amorri-v529-mobile-gesture-nav"></script>
+
+<script src="./assets/js/enhancement-03.js" id="amorri-v570-native-frame-ambient"></script>
+
+<script src="./assets/js/enhancement-04.js" id="amorri-v563-unified-ambient-controller"></script>
+<script src="./assets/js/enhancement-05.js" id="amorri-v565-mobile-calendar"></script>
+
+<script src="./assets/js/enhancement-06.js" id="amorri-v570-one-active-player"></script>
+<script type="module" src="./assets/vnext/media-stability.js"></script>
+</body>
+</html>

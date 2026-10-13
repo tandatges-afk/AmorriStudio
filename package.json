@@ -1,0 +1,43 @@
+{
+  "name": "amorri-studio-vnext-2",
+  "version": "2.9.0.3-firebase-app-hosting",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types --test tests/*.test.mjs",
+    "check:static": "node scripts/check-static.mjs && npm test",
+    "test:unit": "vitest run",
+    "test:e2e": "playwright test",
+    "test:legacy": "node --test tests/*.test.mjs",
+    "validate": "npm run typecheck && npm run test && npm run test:unit && npm run check:static",
+    "rules:proposal": "node scripts/prepare-rtdb-rules.mjs"
+  },
+  "engines": {
+    "node": ">=22.16.0"
+  },
+  "dependencies": {
+    "next": "^16.4.0",
+    "react": "^19.2.0",
+    "react-dom": "^19.2.0",
+    "firebase": "^12.4.0",
+    "firebase-admin": "^13.4.0",
+    "google-auth-library": "^10.0.0",
+    "lucide-react": "^0.468.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "eslint-config-next": "^16.4.0",
+    "tailwindcss": "^4.1.0",
+    "@tailwindcss/postcss": "^4.1.0",
+    "postcss": "^8.5.0",
+    "vitest": "^3.2.0",
+    "@playwright/test": "^1.56.0"
+  }
+}
