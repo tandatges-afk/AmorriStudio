@@ -201,9 +201,10 @@ export default async function handler(req,res) {
       if(meta.capabilities?.canDownload===false)return sendError(res,403,'Download not permitted');
       if(!Number.isSafeInteger(Number(meta.size))||Number(meta.size)<=0)return sendError(res,422,'Missing video size');
       if(!await authorized(clientGallery,productId,id,token,meta,event))return sendError(res,403,'Video does not belong to this client gallery/product');
-      // A public redirect is allowed only for an explicitly allowlisted TEST video.
-      // Probe without Google credentials; if the browser cannot fetch a one-byte
-      // video Range anonymously, preserve private Vercel -> Drive streaming.
+      // Redirect requires delivery capability, verified gallery membership, explicit
+      // deployment opt-in and a successful anonymous one-byte video Range probe.
+      // In verified-public-auto mode the file ID is discovered automatically
+      // from the authorized gallery; private files always stay on the proxy.
       let directUrl=null;
       if(payload.deliveryToken && payload.playbackMode!=='proxy' && isDirectRedirectEnabled(id)) {
         const candidate=String(meta.webContentLink||'');

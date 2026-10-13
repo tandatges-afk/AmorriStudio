@@ -7,6 +7,7 @@ import { validateBooking, type BookingInput } from '@/lib/domain/booking';
 import {defaultStaffTask, taskOptionsFor} from '@/lib/domain/staff-task';
 import {MapLocationInput} from '@/lib/ui/MapLocationInput';
 import {VndInput} from '@/lib/ui/VndInput';
+import {useStaffAvailability} from '@/lib/ui/useStaffAvailability';
 
 type Props = {open:boolean; onClose:()=>void; onCreated:()=>void; user:User;staff:Staff[]};
 const today = () => new Date(Date.now()+7*60*60*1000).toISOString().slice(0,10);
@@ -20,12 +21,14 @@ export function NewBookingDialog({open,onClose,onCreated,user,staff}:Props){
  const weddingTypes=['Dạm Ngõ','Đám Nối','Vu Quy','Rước Dâu','Xuất Giá'] as const;
  const [status,setStatus]=useState<BookingInput['status']>('pending'),[price,setPrice]=useState('0'),[deposit,setDeposit]=useState('0');
  const [busy,setBusy]=useState(false),[error,setError]=useState('');
+ const [hideBusy,setHideBusy]=useState(false);
  const [assignments,setAssignments]=useState<Assignment[]>([]),[isRuocDau,setIsRuocDau]=useState(false);
  const [startTrai,setStartTrai]=useState('08:00'),[startGai,setStartGai]=useState('08:00');
  const [locTrai,setLocTrai]=useState(''),[locGai,setLocGai]=useState(''),[phoneTrai,setPhoneTrai]=useState(''),[phoneGai,setPhoneGai]=useState('');
  const toggleStaff=(staffId:string,enabled:boolean)=>setAssignments(prev=>enabled?[...prev,{id:staffId,task:defaultStaffTask(staff.find(s=>s.id===staffId)?.role||'',eventType),cost:0,locType:isRuocDau?'Nhà trai':''}]:prev.filter(a=>a.id!==staffId));
  const changeAssignment=(staffId:string,key:'task'|'cost'|'locType',value:string|number)=>setAssignments(prev=>prev.map(a=>a.id===staffId?{...a,[key]:value}:a));
- useEffect(()=>{if(open){setId(crypto.randomUUID());setError('');setAssignments([]);setStep('main');setWeddingSubtype('');setName('');setEventType('Cưới');setIsRuocDau(false);setStart('08:00');setEnd('17:00');}},[open]);
+ const availability=useStaffAvailability(user,{date,start,end,isRuocDau,startTrai,startGai,status},open&&step==='form');
+ useEffect(()=>{if(open){setHideBusy(false);setId(crypto.randomUUID());setError('');setAssignments([]);setStep('main');setWeddingSubtype('');setName('');setEventType('Cưới');setIsRuocDau(false);setStart('08:00');setEnd('17:00');}},[open]);
  const chooseService=(type:string,subtype='')=>{
   if(type==='Cưới'&&!subtype){setStep('wedding');return;}
   const ruocDau=type==='Cưới'&&subtype==='Rước Dâu';
@@ -38,6 +41,8 @@ export function NewBookingDialog({open,onClose,onCreated,user,staff}:Props){
  if(!open)return null;
  async function submit(e:FormEvent){
    e.preventDefault();if(busy)return;
+   const busyNames=availability.ready?assignments.filter(a=>availability.busy[a.id]).map(a=>staff.find(s=>s.id===a.id)?.name||a.id):[];
+   if(busyNames.length){setError(`${busyNames.join(', ')} đã có lịch hoặc đã báo nghỉ. Bỏ phân công này hoặc đổi giờ/ngày.`);return;}
    const checked=validateBooking({id,name,date,start,end,eventType,location,phone,note,status,price:Number(price),deposit:Number(deposit),assignments,isRuocDau,
      startTrai:isRuocDau?startTrai:'',startGai:isRuocDau?startGai:'',locTrai:isRuocDau?locTrai:'',locGai:isRuocDau?locGai:'',phoneTrai:isRuocDau?phoneTrai:'',phoneGai:isRuocDau?phoneGai:''});
    if(!checked.ok){setError(checked.message);return;}
@@ -86,13 +91,14 @@ export function NewBookingDialog({open,onClose,onCreated,user,staff}:Props){
       <label className={lab}>Đã cọc (VND)<VndInput className={field} value={Number(deposit)} onValueChange={v=>setDeposit(String(v))}/></label>
       <label className={`${lab} sm:col-span-2`}>Ghi chú<textarea rows={2} maxLength={1000} className={field} value={note} onChange={e=>setNote(e.target.value)}/></label>
       <fieldset className="sm:col-span-2 rounded-xl border border-indigo-100 bg-indigo-50/40 p-4"><legend className="px-2 text-sm font-bold text-slate-800">Phân công nhân sự ngay khi tạo lịch ({assignments.length})</legend>
+       <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs"><span className="font-semibold text-indigo-800">{availability.loading?'Đang kiểm tra lịch bận…':availability.error?`Chưa kiểm tra được: ${availability.error}`:availability.ready?`${Object.keys(availability.busy).length} nhân sự bận trong khung giờ này`:'Chọn giờ để kiểm tra nhân sự'}</span><label className="flex items-center gap-2 text-slate-700"><input type="checkbox" checked={hideBusy} onChange={e=>setHideBusy(e.target.checked)}/> Ẩn người đã bận</label></div>
        {staff.filter(s=>s.active!==false).length===0&&<p className="text-sm text-slate-500">Chưa có nhân sự. Vào mục Đội ngũ để thêm nhân sự.</p>}
-       <div className="max-h-80 space-y-2 overflow-y-auto">{staff.filter(s=>s.active!==false).map(st=>{const a=assignments.find(a=>a.id===st.id);return <div key={st.id} className="rounded-lg border bg-white p-3"><label className="flex items-center gap-2 text-xs font-semibold"><input type="checkbox" checked={!!a} onChange={e=>toggleStaff(st.id,e.target.checked)}/>{st.name} <span className="font-normal text-slate-500">{st.role}</span></label>{a&&<div className="mt-2 grid gap-2 sm:grid-cols-2">
+       <div className="max-h-80 space-y-2 overflow-y-auto">{staff.filter(s=>s.active!==false).map(st=>{const a=assignments.find(a=>a.id===st.id);const conflict=availability.busy[st.id];if(hideBusy&&conflict&&!a)return null;return <div key={st.id} className={`rounded-lg border bg-white p-3 ${conflict?'border-amber-300 bg-amber-50/60':''}`}><label className="flex items-center gap-2 text-xs font-semibold"><input type="checkbox" checked={!!a} disabled={!!conflict&&!a} onChange={e=>toggleStaff(st.id,e.target.checked)}/>{st.name} <span className="font-normal text-slate-500">{st.role}</span>{conflict&&<span className="ml-auto rounded bg-amber-100 px-2 py-1 text-[11px] font-bold text-amber-800" title={conflict.eventId||''}>{conflict.label}</span>}</label>{a&&<div className="mt-2 grid gap-2 sm:grid-cols-2">
          {taskOptionsFor(st.role,eventType).length>0&&<label className={lab}>Công việc cưới<select className={field} value={a.task} onChange={e=>changeAssignment(st.id,'task',e.target.value)}>{taskOptionsFor(st.role,eventType).map(t=><option key={t} value={t}>{t}</option>)}</select></label>}
          <label className={lab}>Chi phí (VND)<VndInput className={field} value={a.cost} onValueChange={v=>changeAssignment(st.id,'cost',v)}/></label>
          {isRuocDau&&<label className={lab}>Vị trí rước dâu<select className={field} value={a.locType||'Nhà trai'} onChange={e=>changeAssignment(st.id,'locType',e.target.value)}><option value="Nhà trai">Nhà trai</option><option value="Nhà gái">Nhà gái</option></select></label>}
        </div>}</div>})}</div>
-       <p className="mt-2 text-xs text-indigo-800">Backend sẽ từ chối khi nhân sự có lịch trùng giờ hoặc đã báo nghỉ.</p>
+       <p className="mt-2 text-xs text-indigo-800">Người đã có lịch được đánh dấu và không thể chọn trùng giờ. Nếu thay đổi khung giờ, danh sách sẽ tự kiểm tra lại; server kiểm tra lần cuối khi lưu.</p>
       </fieldset>
       <p className="sm:col-span-2 rounded-xl bg-slate-50 px-4 py-3 text-xs leading-relaxed text-slate-500">Bạn đã có thể phân công ngay trong form. Sau khi tạo, mở lịch để bổ sung link sản phẩm, chỉnh sửa và kiểm tra lịch nhân sự. Một số nghiệp vụ nâng cao vẫn đang được chuyển đổi.</p>
       {error&&<p role="alert" className="sm:col-span-2 rounded-lg bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</p>}

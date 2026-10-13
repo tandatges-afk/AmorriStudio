@@ -9,6 +9,7 @@ import type { EditableChanges } from '@/lib/domain/event-management';
 import {defaultStaffTask,taskOptionsFor,taskForService} from '@/lib/domain/staff-task';
 import {MapLocationInput} from '@/lib/ui/MapLocationInput';
 import {VndInput} from '@/lib/ui/VndInput';
+import {useStaffAvailability} from '@/lib/ui/useStaffAvailability';
 import {isEventReleased} from '@/lib/domain/event-release';
 
 type Detail = Omit<StudioEvent,'products'> & {sourceLinks?:Record<string,string>;products:{id:string;name:string;url:string;mediaType:string}[];phone?:string;note?:string;isRuocDau?:boolean;startTrai?:string;startGai?:string;locTrai?:string;locGai?:string;phoneTrai?:string;phoneGai?:string};
@@ -35,6 +36,8 @@ export function EventEditor({id,staff,user,onClose,onChanged,onDataUpdated}:Prop
  const [productId,setProductId]=useState(''),[productName,setProductName]=useState(''),[productUrl,setProductUrl]=useState(''),[productType,setProductType]=useState('auto');
  const [productNotice,setProductNotice]=useState('');
  const [now,setNow]=useState(()=>Date.now());
+ const [hideBusy,setHideBusy]=useState(false);
+ const availability=useStaffAvailability(user,{date:form.date||'',start:form.start||'',end:form.end||'',isRuocDau:detail?.isRuocDau===true,startTrai:form.startTrai||'',startGai:form.startGai||'',excludeId:id||'',status:form.status||'pending'},Boolean(id&&detail));
  useEffect(()=>{const timer=setInterval(()=>setNow(Date.now()),30_000);return()=>clearInterval(timer);},[]);
  useEffect(()=>{
    if(!id){setDetail(null);setVersion('');setError('');setConfirmName('');return;}
@@ -81,6 +84,8 @@ export function EventEditor({id,staff,user,onClose,onChanged,onDataUpdated}:Prop
   e.preventDefault();if(!detail||busy)return;
   setBusy(true);setError('');
   try{
+   const busyNames=availability.ready?(form.assignments||[]).filter(a=>availability.busy[a.id]).map(a=>staff.find(s=>s.id===a.id)?.name||a.id):[];
+   if(busyNames.length){setError(`${busyNames.join(', ')} bị trùng lịch hoặc đã báo nghỉ. Bỏ chọn hoặc điều chỉnh thời gian.`);setBusy(false);return;}
    // Submit ONLY edited fields. The old implementation submitted every field,
    // including old blank times and unchanged staff, falsely triggering
    // validation failures, unnecessary schedule locks and 409 conflicts.
@@ -215,7 +220,8 @@ export function EventEditor({id,staff,user,onClose,onChanged,onDataUpdated}:Prop
       <label className={label}>Tiền cọc (VND)<VndInput className={input} value={form.deposit??0} onValueChange={v=>set('deposit',v)}/></label>
       <label className={`${label} sm:col-span-2`}>Ghi chú<textarea className={input} rows={2} maxLength={1000} value={form.note||''} onChange={e=>set('note',e.target.value)}/></label>
       <fieldset className="col-span-full rounded-xl border border-slate-200 p-4"><legend className="px-2 text-sm font-bold text-slate-800">Phân công nhân sự ({assignments.length})</legend>
-        <div className="space-y-3">{roster.map(s=>{const a=assignments.find(a=>a.id===s.id);return <div key={s.id} className="rounded-lg bg-slate-50 p-3"><label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={!!a} onChange={e=>toggleStaff(s.id,e.target.checked)}/>{s.name} <span className="text-xs font-normal text-slate-400">{s.role}</span></label>{a&&<><div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">{taskOptionsFor(s.role,String(form.eventType||'')).length>0&&<label className={label}>Công việc cưới<select className={input} value={a.task} onChange={e=>editAssignment(s.id,'task',e.target.value)}>{!taskOptionsFor(s.role,String(form.eventType||'')).includes(a.task)&&<option value={a.task}>{a.task||'Chưa phân loại (legacy)'}</option>}{taskOptionsFor(s.role,String(form.eventType||'')).map(t=><option key={t} value={t}>{t}</option>)}</select></label>}
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs"><span className="font-semibold text-slate-600">{availability.loading?'Đang kiểm tra lịch bận…':availability.error?`Chưa kiểm tra được: ${availability.error}`:availability.ready?`${Object.keys(availability.busy).length} nhân sự đang bận`:'Chưa có dữ liệu lịch bận'}</span><label className="flex items-center gap-2"><input type="checkbox" checked={hideBusy} onChange={e=>setHideBusy(e.target.checked)}/> Ẩn người đã bận</label></div>
+        <div className="space-y-3">{roster.map(s=>{const a=assignments.find(a=>a.id===s.id);const conflict=availability.busy[s.id];if(hideBusy&&conflict&&!a)return null;return <div key={s.id} className={`rounded-lg p-3 ${conflict?'bg-amber-50 ring-1 ring-amber-200':'bg-slate-50'}`}><label className="flex cursor-pointer items-center gap-2 text-sm font-semibold text-slate-700"><input type="checkbox" checked={!!a} disabled={!!conflict&&!a} onChange={e=>toggleStaff(s.id,e.target.checked)}/>{s.name} <span className="text-xs font-normal text-slate-400">{s.role}</span>{conflict&&<span className="ml-auto rounded bg-amber-100 px-2 py-1 text-[11px] text-amber-800" title={conflict.eventId||''}>{conflict.label}</span>}</label>{a&&<><div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-3">{taskOptionsFor(s.role,String(form.eventType||'')).length>0&&<label className={label}>Công việc cưới<select className={input} value={a.task} onChange={e=>editAssignment(s.id,'task',e.target.value)}>{!taskOptionsFor(s.role,String(form.eventType||'')).includes(a.task)&&<option value={a.task}>{a.task||'Chưa phân loại (legacy)'}</option>}{taskOptionsFor(s.role,String(form.eventType||'')).map(t=><option key={t} value={t}>{t}</option>)}</select></label>}
          <label className={label}>Chi phí (VND)<VndInput className={input} value={a.cost} onValueChange={v=>editAssignment(s.id,'cost',v)}/></label>
          {detail.isRuocDau&&<label className={label}>Vị trí rước dâu<select className={input} value={a.locType||'Nhà trai'} onChange={e=>editAssignment(s.id,'locType',e.target.value)}><option value="Nhà trai">Nhà trai</option><option value="Nhà gái">Nhà gái</option>{a.locType&&!['Nhà trai','Nhà gái'].includes(a.locType)&&<option value={a.locType}>{a.locType} (legacy)</option>}</select></label>}</div><div className="mt-2 rounded-lg border border-dashed border-slate-200 bg-white p-2">{!released&&<p className="text-xs font-semibold text-amber-800">Source chỉ mở sau {form.date||detail.date} lúc {form.end||detail.end}.</p>}{released&&<><label className={label}>Link Source nhân sự (http/https)<input className={input} type="url" value={sourceDrafts[s.id]||''} onChange={e=>setSourceDrafts(v=>({...v,[s.id]:e.target.value}))} placeholder="Dán link thư mục Source của thợ" maxLength={1500}/></label><button className="mt-2 rounded-lg border bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800 disabled:opacity-40" type="button" disabled={busy||sourceDrafts[s.id]===(detail.sourceLinks?.[s.id]||'')} onClick={()=>void saveSource(s.id)}>Lưu link Source</button></>}</div></>}</div>})}</div>
       </fieldset>
