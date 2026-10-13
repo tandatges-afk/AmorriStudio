@@ -3,10 +3,11 @@ import {randomUUID} from 'node:crypto';
 import { adminDatabase, authenticatedAdmin, publicAuthFailure } from '@/lib/server/firebase-admin';
 import { normaliseAudit, normaliseEvents, normalisePayroll, normaliseStaff } from '@/lib/domain/studio';
 import type { DashboardData } from '@/lib/domain/types';
+import { classifyFirebaseError } from '@/lib/server/dashboard-errors';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-const RELEASE='firebase-apphosting-20261013-r1';
+const RELEASE='dashboard-db-diagnostics-20261013-r1';
 const NO_CACHE = { 'Cache-Control': 'private, no-store, max-age=0', 'X-Amorri-Auth-Version': RELEASE };
 const errorResponse=(body:{error:string;code:string},status:number,id:string)=>NextResponse.json({...body,release:RELEASE,requestId:id},{status,headers:{...NO_CACHE,'X-Amorri-Request-Id':id}});
 const yyyyMM = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -26,10 +27,28 @@ export async function GET(request: Request) {
   const fallbackMonth = `${vnParts.find(p=>p.type==='year')?.value}-${vnParts.find(p=>p.type==='month')?.value}`;
   const month = url.searchParams.get('month') || fallbackMonth;
   if (!yyyyMM.test(month)) return errorResponse({error:'Tháng không hợp lệ',code:'INVALID_MONTH'},400,requestId);
+  // The front-end and server must point to the SAME RTDB instance.
+  // Do not print the URLs: query strings or usernames could contain secrets.
+  const serverUrl=process.env.FIREBASE_DATABASE_URL?.trim();
+  const clientUrl=process.env.NEXT_PUBLIC_FIREBASE_DATABASE_URL?.trim();
+  if (serverUrl && clientUrl) {
+    try {
+      const server=new URL(serverUrl);
+      const client=new URL(clientUrl);
+      if (server.origin !== client.origin || server.pathname.replace(/\/+$/,'') !== client.pathname.replace(/\/+$/,'')) {
+        console.error('[dashboard]',{requestId,code:'DASHBOARD_DATABASE_MISMATCH'});
+        return errorResponse({error:'FIREBASE_DATABASE_URL khác NEXT_PUBLIC_FIREBASE_DATABASE_URL. Cần dùng cùng URL Realtime Database.',code:'DASHBOARD_DATABASE_MISMATCH'},503,requestId);
+      }
+    } catch {
+      console.error('[dashboard]',{requestId,code:'DASHBOARD_DATABASE_URL_INVALID'});
+      return errorResponse({error:'Định dạng URL Realtime Database không hợp lệ. Hãy kiểm tra các biến FIREBASE_DATABASE_URL.',code:'DASHBOARD_DATABASE_URL_INVALID'},503,requestId);
+    }
+  }
   try {
     const base = adminDatabase().ref('studioPlanner_v1');
-    const [eventsSnap, staffSnap, payrollSnap, auditSnap, deliveryStateSnap,productStateSnap] = await Promise.all([
-      // Date indexed query when Firebase RTDB indexOn=["date"] is configured.
+    const labels=['events','staff','payroll','auditLogs','deliveryState','deliveryProductState'] as const;
+    // Query all branches; one failing read must not hide which branch caused it.
+    const settled=await Promise.allSettled([
       base.child('events').orderByChild('date').startAt(month+'-01').endAt(month+'-31').limitToFirst(1001).once('value'),
       base.child('staff').once('value'),
       base.child('payroll').child(month).once('value'),
@@ -37,22 +56,43 @@ export async function GET(request: Request) {
       base.child('deliveryState').once('value'),
       base.child('deliveryProductState').once('value')
     ]);
-    const deliveryState=(deliveryStateSnap.val()||{}) as Record<string,{completedAt?:unknown}>;
-    const productState=(productStateSnap.val()||{}) as Record<string,Record<string,{completedAt?:unknown}>>;
-    const events = normaliseEvents(eventsSnap.val()).map(event=>({
-      ...event,
-      deliveryCompleted:Boolean((deliveryState[event.id]||{}).completedAt),
-      completedProductIds:Object.entries(productState[event.id]||{}).filter(([,v])=>Boolean(v?.completedAt)).map(([id])=>id)
-    }));
-    const payload: DashboardData = {
-      month, events, staff: normaliseStaff(staffSnap.val()),
-      payroll: normalisePayroll(payrollSnap.val()), audit: normaliseAudit(auditSnap.val()),
-      eventLimitReached: events.length >= 1001, generatedAt: new Date().toISOString()
+    const errors=settled.flatMap((result,index)=>result.status==='rejected'
+      ? [{source:labels[index],reason:classifyFirebaseError(result.reason)}]
+      : []);
+    if(errors.length){
+      // Static branch names and classification only. Never log raw SDK errors or data.
+      console.error('[dashboard-read]',{requestId,failures:errors});
+      return errorResponse({
+        error:`Không thể đọc Firebase tại: ${errors.map(x=>x.source).join(', ')} (${errors.map(x=>x.reason).join(', ')}). Kiểm tra database URL, IAM hoặc index theo loại lỗi.`,
+        code:'DASHBOARD_READ_FAILED'
+      },503,requestId);
+    }
+    const snapshot=(index:number)=>{
+      const result=settled[index];
+      if(result.status==='rejected') throw new Error('Unexpected rejected RTDB snapshot');
+      return result.value;
     };
-    return NextResponse.json(payload,{headers:{...NO_CACHE,'X-Amorri-Request-Id':requestId}});
+    try {
+      const deliveryState=(snapshot(4).val()||{}) as Record<string,{completedAt?:unknown}>;
+      const productState=(snapshot(5).val()||{}) as Record<string,Record<string,{completedAt?:unknown}>>;
+      const events=normaliseEvents(snapshot(0).val()).map(event=>({
+        ...event,
+        deliveryCompleted:Boolean((deliveryState[event.id]||{}).completedAt),
+        completedProductIds:Object.entries(productState[event.id]||{}).filter(([,v])=>Boolean(v?.completedAt)).map(([id])=>id)
+      }));
+      const payload: DashboardData = {
+        month, events, staff: normaliseStaff(snapshot(1).val()),
+        payroll: normalisePayroll(snapshot(2).val()), audit: normaliseAudit(snapshot(3).val()),
+        eventLimitReached: events.length >= 1001, generatedAt: new Date().toISOString()
+      };
+      return NextResponse.json(payload,{headers:{...NO_CACHE,'X-Amorri-Request-Id':requestId}});
+    } catch(err) {
+      console.error('[dashboard-parse]',{requestId,code:'DASHBOARD_DATA_INVALID',kind:err instanceof Error?err.name:'unknown'});
+      return errorResponse({error:'Đã đọc Firebase nhưng không xử lý được dữ liệu Dashboard. Kiểm tra cấu trúc bản ghi.',code:'DASHBOARD_DATA_INVALID'},503,requestId);
+    }
   } catch(err) {
-    // Do not log raw exceptions: Firebase SDK errors may contain sensitive paths or URLs.
-    console.error('[dashboard]',{requestId,code:'DASHBOARD_READ_FAILED',kind:err instanceof Error?err.name:'unknown'});
-    return errorResponse({error:'Không thể đọc dữ liệu Firebase. Kiểm tra quyền service account, database URL và index.',code:'DASHBOARD_READ_FAILED'},503,requestId);
+    console.error('[dashboard-init]',{requestId,code:'DASHBOARD_CONNECTION_FAILED',reason:classifyFirebaseError(err)});
+    return errorResponse({error:'Không khởi tạo được kết nối Firebase Realtime Database. Kiểm tra cấu hình và quyền service account.',code:'DASHBOARD_CONNECTION_FAILED'},503,requestId);
   }
 }
+

@@ -5,8 +5,8 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   return NextResponse.json({
     ok: true,
-    app: 'Amorri Studio VNext 2.9.0.3',
-    release: 'firebase-apphosting-20261013-r1',
+    app: 'Amorri Studio VNext 2.9.0.4',
+    release: 'dashboard-db-diagnostics-20261013-r1',
     authApi: 'diagnostic-codes-enabled',
     deliveryApi: 'capability-tokens-enabled',
     streamingApi: 'google-drive-only',
