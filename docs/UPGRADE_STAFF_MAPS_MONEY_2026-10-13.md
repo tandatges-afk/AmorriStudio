@@ -11,7 +11,7 @@
 
 ## Cấu hình Google Places
 
-Trên Google Cloud Console, bật Places API (New), bật billing, tạo API key chỉ cho Places API (New) và giới hạn server-side theo IP VPS khi thích hợp. Cấu hình `GOOGLE_MAPS_API_KEY` trong môi trường chạy Next.js (**không** dùng `NEXT_PUBLIC_`, không commit key vào repo). Trên Coolify: Environment Variables, thêm `GOOGLE_MAPS_API_KEY`, sau đó redeploy. Chọn input địa điểm thủ công và dán Maps vẫn hoạt động nếu không cấu hình API; danh sách gợi ý thì không.
+Trên Google Cloud Console, bật Places API (New), bật billing, tạo API key chỉ cho Places API (New) và giới hạn server-side theo IP VPS khi thích hợp. Cấu hình `GOOGLE_MAPS_API_KEY` trong môi trường chạy Next.js (**không** dùng `NEXT_PUBLIC_`, không commit key vào repo). Trên Vercel: Project > Settings > Environment Variables > chọn Production, thêm `GOOGLE_MAPS_API_KEY` rồi tạo deployment mới (Redeploy). Trên Coolify/VPS, đặt biến tương ứng trong môi trường server. Chọn input địa điểm thủ công và dán Maps vẫn hoạt động nếu không cấu hình API; danh sách gợi ý thì không.
 
 API server `/api/places?input=...` chỉ chấp nhận Firebase **Admin token**, có debounce 350ms trên UI. Gọi Places Autocomplete (New) (có thể phát sinh phí theo chính sách Google).
 
