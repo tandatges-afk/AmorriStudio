@@ -66,18 +66,20 @@ test('v3.0 diagnostics endpoint requires Admin and does not write to Realtime Da
   assert.match(route,/X-Amorri-Request-Id/);
   assert.doesNotMatch(route,/console\.warn\([^\n]*(?:env|error\.message|raw)/);
 });
-test('v3.0 system diagnostics renders even when dashboard data is unavailable',()=>{
-  const src=read('components/Dashboard.tsx');
-  assert.match(src,/tab==='system'&&<SystemHealth user=\{user\}\/>/);
-  assert.match(src,/\{data && tab!=='system'/);
-  assert.match(src,/Kiểm tra hệ thống/);
-  assert.match(read('components/SystemHealth.tsx'),/\/api\/system\/diagnostics/);
+test('V3.0.1 System panel diagnostics render independently of dashboard data',()=>{
+ const src=read('components/Dashboard.tsx');
+ assert.match(src,/tab==='system'&&<section/);
+ assert.match(src,/systemSection==='health'&&<SystemHealth user=\{user\}/);
+ assert.match(src,/\{data && tab!=='system'/);
+ assert.match(src,/Mở Hệ thống/);
+ assert.match(read('components/SystemHealth.tsx'),/\/api\/system\/diagnostics/);
 });
-test('v3.0 keeps all customer delivery and staff legacy links',()=>{
-  assert.match(read('app/page.tsx'),/params\.client_gallery \|\| params\.staff/);
-  assert.match(read('components/Dashboard.tsx'),/DeliveryProductGroup/);
-  assert.match(read('app/api/health/route.ts'),/studio-os-3-0-0-20261013-r1/);
-  assert.match(read('components/CalendarPlanner.tsx'),/amorri:v3:calendar-view/);
+test('V3.0.1 redirects old root customer links to new secured pages',()=>{
+ assert.match(read('app/page.tsx'),/params\.client_gallery/);
+ assert.match(read('app/page.tsx'),/params\.staff/);
+ assert.match(read('app/studio/page.tsx'),/redirect/);
+ assert.match(read('components/Dashboard.tsx'),/DeliveryProductGroup/);
+ assert.match(read('app/api/health/route.ts'),/studio-os-3-0-1-20261013-r1/);
 });
 test('v3.0 editor review applies the same long-video timecode as the client playback',()=>{
   const src=read('components/DeliveryReviewManager.tsx');

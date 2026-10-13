@@ -52,9 +52,9 @@ test('Video player distinguishes proxy from decoder failures and retries ticket'
  assert.match(src,/method:'HEAD'/);
  assert.doesNotMatch(src,/Trình duyệt không phát được MP4/);
 });
-test('All preexisting key API files preserved',()=>{
- for(const path of ['app/api/staff/route.ts','app/api/staff/agenda/route.ts','app/api/payroll/route.ts','app/api/delivery/[eventId]/reviews/route.ts','pages/api/drive-video.js','public/legacy/index.html'])
- assert.ok(existsSync(new URL('../'+path,import.meta.url)),path);
+test('Current workflow APIs survive workspace cutover',()=>{
+ const files=['app/api/staff/route.ts','app/api/staff/agenda/route.ts','app/api/payroll/route.ts','app/api/delivery/[eventId]/reviews/route.ts','pages/api/drive-video.js','app/api/events/[id]/source/route.ts'];
+ for(const file of files)assert.equal(existsSync(new URL('../'+file,import.meta.url)),true,file);
 });
 test('Main dashboard now includes admin feedback review management',()=>{
  const dashboard=r('components/Dashboard.tsx');
@@ -71,11 +71,8 @@ test('Admin, not client, copies selected photo filenames',()=>{
  assert.match(admin,/navigator\.clipboard\.writeText\(selectedNames\.join/);
  assert.match(admin,/Copy tên ảnh/);
 });
-test('Legacy interface no longer issues Staff ID only links',()=>{
- const src=r('public/assets/js/main.js');
- const start=src.indexOf('window.copyStaffLink = function(id)');
- const end=src.indexOf('function renderStaffManage()',start);
- assert.ok(start>=0&&end>start);
- assert.doesNotMatch(src.slice(start,end),/window\.copyText\(url\)/);
- assert.match(src.slice(start,end),/Đội ngũ/);
+test('Retired workspace cannot issue unscoped staff links',()=>{
+ assert.equal(existsSync(new URL('../public/assets/js/main.js',import.meta.url)),false);
+ const manager=r('components/StaffManager.tsx');
+ assert.match(manager,/Copy link/);
 });

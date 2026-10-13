@@ -23,11 +23,12 @@ test('Secret Manager keeps Firebase and Drive private keys outside source',()=>{
  }
  assert.match(read('.gitignore'),/service-account\*\.json/);
 });
-test('Migration keeps routes and identifies deployed revision',()=>{
- assert.match(read('app/api/health/route.ts'),/studio-os-3-0-0-20261013-r1/);
- assert.match(read('next.config.ts'),/source: '\/studio', destination: '\/legacy\/index.html'/);
+test('Native Next.js routes survive after retiring old workspace',()=>{
+ assert.match(read('app/api/health/route.ts'),/studio-os-3-0-1-20261013-r1/);
+ assert.doesNotMatch(read('next.config.ts'),/source: '\/studio'/);
  assert.ok(existsSync(file('pages/api/drive-video.js')));
- assert.ok(existsSync(file('pages/api/get-drive-images.js')));
+ assert.ok(existsSync(file('app/studio/page.tsx')));
+ assert.ok(!existsSync(file('public/legacy/index.html')));
 });
 test('Deployment documentation requires a real lockfile and migration of link encryption keys',()=>{
  const docs=read('docs/FIREBASE_APP_HOSTING_MIGRATION_2_9_0_3.md');

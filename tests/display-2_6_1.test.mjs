@@ -14,7 +14,7 @@ test('secure delivery button renders JSX icon instead of literal HTML text',()=>
 test('release labels match VNext 3.0.0 and avoid the obsolete delivery 2.5 label',()=>{
   const dashboard=read('components/Dashboard.tsx');
   const grants=read('components/DeliveryGrantManager.tsx');
-  assert.match(dashboard,/AMORRI STUDIO \/ STUDIO OS 3\.0\.0/);
+  assert.match(dashboard,/AMORRI STUDIO \/ STUDIO OS 3\.0\.1/);
   assert.doesNotMatch(dashboard,/AMORRI STUDIO \/ VNEXT 2\.5/);
   assert.doesNotMatch(grants,/Link an toàn 2\.5/);
 });

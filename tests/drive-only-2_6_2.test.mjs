@@ -22,7 +22,7 @@ test('Cloudflare APIs and credentials have been removed from deployable app',()=
    assert.equal(existsSync(new URL('../'+path,import.meta.url)),false,path);
  for(const path of ['.env.example','package.json'])assert.doesNotMatch(read(path),/CF_STREAM_[A-Z_]+|AMORRI_STREAM_TOKEN_TTL_SECONDS|hls\.js/);
  const health=read('app/api/health/route.ts');
- assert.match(health,/studio-os-3-0-0-20261013-r1/);
+ assert.match(health,/studio-os-3-0-1-20261013-r1/);
  assert.match(health,/google-drive-only/);
 });
 test('Old cached 2.6 playback clients receive authorized Drive-only response',()=>{
@@ -33,7 +33,8 @@ test('Old cached 2.6 playback clients receive authorized Drive-only response',()
  assert.match(src,/provider:'drive'/);
  assert.doesNotMatch(src,/Cloudflare|signedHlsUrl|streamBinding/);
 });
-test('Preserve all existing Google Drive delivery and feedback API routes',()=>{
- for(const path of ['pages/api/drive-video.js','pages/api/get-drive-images.js','app/api/delivery/[eventId]/reviews/route.ts','app/api/delivery/[eventId]/selections/route.ts'])
+test('Native Drive delivery and feedback APIs remain while obsolete legacy image endpoint retires',()=>{
+ for(const path of ['pages/api/drive-video.js','app/api/delivery/[eventId]/media/route.ts','app/api/delivery/[eventId]/reviews/route.ts','app/api/delivery/[eventId]/selections/route.ts'])
    assert.ok(existsSync(new URL('../'+path,import.meta.url)),path);
+ assert.equal(existsSync(new URL('../pages/api/get-drive-images.js',import.meta.url)),false);
 });

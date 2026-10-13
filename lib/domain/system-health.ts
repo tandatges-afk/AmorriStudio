@@ -76,10 +76,13 @@ export function localSystemChecks(env:EnvValues):HealthCheck[]{
     adminUid?'Có cấu hình UID Admin. Đặc quyền custom claim vẫn có thể áp dụng.':'Chưa đặt AMORRI_ADMIN_UIDS; chỉ tài khoản có custom claim admin=true mới vào quản trị.',
     'Kiểm tra AMORRI_ADMIN_UIDS khi tài khoản đăng nhập được nhưng nhận ADMIN_REQUIRED.');
 
-  const compatibility=result('legacy-workspace','Workspace /studio cũ','warning',
-    'Workspace legacy còn được giữ để đối chiếu. Chưa xác nhận mọi đường ghi sử dụng chung cơ chế khóa phiên bản.',
-    'Không chỉnh cùng một lịch trong /studio và VNext đồng thời; di trú từng tính năng sau khi kiểm thử.');
-  return [project,admin,database,drive,video,delivery,staff,archive,roles,compatibility];
+  const compatibility=result('legacy-workspace','Workspace cũ đã gỡ','warning',
+    'Giao diện /studio đã ngừng hoạt động và chuyển hướng sang Studio OS. Link bàn giao legacy có thể cần cấp lại.',
+    'Kiểm tra link khách/thợ đã gửi trước V3.0 trên Preview, rồi thông báo khách nếu cần cấp link mới.');
+  const mediaCache=result('delivery-cache','Cache bàn giao ảnh và video','ok',
+    'Metadata Drive được cache mã hóa trên RTDB tối đa 15 phút; thumbnail riêng Admin được cache trên thiết bị tối đa 6 giờ.',
+    'Nếu vừa đổi thư mục hoặc file Drive, vào Bàn giao sản phẩm và nhấn Làm mới Drive.');
+  return [project,admin,database,drive,video,delivery,staff,archive,roles,mediaCache,compatibility];
 }
 
 export function healthTotals(checks:HealthCheck[]){

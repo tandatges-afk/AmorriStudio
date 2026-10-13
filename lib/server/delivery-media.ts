@@ -1,10 +1,25 @@
 import {GoogleAuth} from 'google-auth-library';
 import {parseDriveSource,DRIVE_ID,type DeliveryMedia} from '@/lib/domain/delivery';
 import {DeliveryError} from './delivery-access';
+import {mediaCacheKey,MEDIA_CACHE_ROOT,openMetadata,sealMetadata} from './delivery-media-cache';
+import {adminDatabase} from './firebase-admin';
 
 const DRIVE='https://www.googleapis.com/drive/v3/files';
 const fields='id,name,mimeType,thumbnailLink,webViewLink,size,shortcutDetails,videoMediaMetadata,imageMediaMetadata';
 const mediaCache=new Map<string,{expiry:number;items:DeliveryMedia[]}>();
+// Only the encrypted metadata is persisted to Realtime Database.
+// Authorization is checked by each API route before this helper is called.
+async function sharedMedia(key:string):Promise<DeliveryMedia[]|null>{
+  try{const snap=await adminDatabase().ref(`${MEDIA_CACHE_ROOT}/${key}`).once('value');
+    return openMetadata(snap.val(),process.env.DRIVE_SERVICE_ACCOUNT_JSON||'',key);
+  }catch{/* Cache unavailable: read directly from Drive. */}
+  return null;
+}
+async function persistMedia(key:string,items:DeliveryMedia[]):Promise<void>{
+  if(items.length>1500||JSON.stringify(items).length>750_000)return;
+  try{await adminDatabase().ref(`${MEDIA_CACHE_ROOT}/${key}`).set(sealMetadata(items,process.env.DRIVE_SERVICE_ACCOUNT_JSON||'',key));}
+  catch{/* Optional metadata cache failure must not prevent delivery. */}
+}
 function remember(key:string,items:DeliveryMedia[]){if(mediaCache.size>150)mediaCache.clear();mediaCache.set(key,{expiry:Date.now()+30_000,items});return items;}
 let auth:GoogleAuth|undefined;
 async function headers():Promise<Record<string,string>>{
@@ -44,14 +59,16 @@ export function productSource(product:Record<string,unknown>){return parseDriveS
 /** Re-list the actual linked Drive folder on each save so guests cannot submit arbitrary file IDs. */
 export async function listDeliveryMedia(product:Record<string,unknown>,forceRefresh=false):Promise<DeliveryMedia[]>{
   const source=productSource(product);
-  if(!source)return []; // Non-Drive media remains available in the compatible workspace.
+  if(!source)return []; // Only Google Drive links are supported by the current client delivery flow.
   const cacheKey=`${source.type}:${source.id}`;const cached=mediaCache.get(cacheKey);
   if(!forceRefresh && cached && cached.expiry>Date.now())return cached.items;
+  const sharedKey=mediaCacheKey(source);
+  if(!forceRefresh){const shared=await sharedMedia(sharedKey);if(shared)return remember(cacheKey,shared);}
   const hdr=await headers();
   if(source.type==='file'){
     const params=new URLSearchParams({fields,supportsAllDrives:'true'});
     const doc=await getJson(`${DRIVE}/${source.id}?${params}`,hdr);
-    const item=mediaFromDrive(doc);return remember(cacheKey,item?[item]:[]);
+    const item=mediaFromDrive(doc);const items=item?[item]:[];await persistMedia(sharedKey,items);return remember(cacheKey,items);
   }
   const files:Record<string,unknown>[]=[];
   let pageToken='';
@@ -78,7 +95,8 @@ export async function listDeliveryMedia(product:Record<string,unknown>,forceRefr
       }catch{return {...f,id:details!.targetId,mimeType:String(details?.targetMimeType||'')};}
     }));resolved.push(...chunk);
   }
-  return remember(cacheKey,resolved.map(mediaFromDrive).filter((v):v is DeliveryMedia=>Boolean(v)));
+  const items=resolved.map(mediaFromDrive).filter((v):v is DeliveryMedia=>Boolean(v));
+  await persistMedia(sharedKey,items);return remember(cacheKey,items);
 }
 
 /** Download only a Google-generated thumbnail, never the full source image/video. */

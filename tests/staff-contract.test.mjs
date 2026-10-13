@@ -15,6 +15,8 @@ test('event schedule validation executes inside write lease',()=>{
 test('new modern portal + admin staff UI exist',()=>{
  for(const f of ['app/staff/page.tsx','components/StaffPortal.tsx','components/StaffManager.tsx'])assert.ok(existsSync(new URL('../'+f,import.meta.url)));
 });
-test('legacy endpoints and gallery are preserved',()=>{
- for(const f of ['pages/api/drive-video.js','pages/api/get-drive-images.js','public/legacy/index.html'])assert.ok(existsSync(new URL('../'+f,import.meta.url)));
+test('Native shared-staff page and secured video route remain',()=>{
+ for(const path of ['app/staff/page.tsx','app/api/staff/shared/route.ts','pages/api/drive-video.js'])
+   assert.equal(existsSync(new URL('../'+path,import.meta.url)),true,path);
+ assert.equal(existsSync(new URL('../public/legacy/index.html',import.meta.url)),false);
 });

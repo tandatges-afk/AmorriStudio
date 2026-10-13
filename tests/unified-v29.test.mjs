@@ -33,8 +33,9 @@ test('2.9 instrumentation returns diagnostic request IDs without client fields',
  assert.match(dashboard,/kind:err instanceof Error\?err.name:'unknown'/);
  assert.match(source('components/Dashboard.tsx'),/Mã tra cứu/);
 });
-test('2.9 retains legacy and Google Drive-only delivery',()=>{
- assert.match(source('next.config.ts'),/source: '\/studio'/);
+test('V3.0.1 retires legacy UI while preserving Google Drive streaming',()=>{
+ assert.doesNotMatch(source('next.config.ts'),/source: '\/studio'/);
+ assert.match(source('app/studio/page.tsx'),/redirect\('\/'\)/);
  assert.match(source('app/api/health/route.ts'),/google-drive-only/);
  assert.match(source('components/Dashboard.tsx'),/DeliveryProductGroup/);
 });

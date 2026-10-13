@@ -1,26 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync, existsSync } from 'node:fs';
-const read=x=>readFileSync(new URL('../'+x,import.meta.url),'utf8');
-test('Firebase App Hosting Next.js config with private secret references',()=>{
-  const conf=read('apphosting.yaml');
-  assert.match(conf,/runConfig:/);
-  assert.match(conf,/secret: amorriFirebaseAdminJson/);
-  assert.match(conf,/secret: amorriDriveServiceAccountJson/);
-  assert.match(conf,/secret: amorriDriveVideoSigningSecret/);
-  assert.ok(!existsSync(new URL('../vercel.json',import.meta.url)));
+import {readFileSync,existsSync} from 'node:fs';
+const read=f=>readFileSync(new URL('../'+f,import.meta.url),'utf8');
+const exists=f=>existsSync(new URL('../'+f,import.meta.url));
+test('Legacy /studio UI and assets retired; route redirects instead of mounting old HTML',()=>{
+  assert.ok(exists('app/studio/page.tsx'));
+  assert.doesNotMatch(read('next.config.ts'),/legacy\/index/);
+  assert.ok(!exists('public/legacy/index.html'));
+  assert.ok(!exists('public/assets/js/main.js'));
 });
-test('legacy gateway rewrite',()=>assert.match(read('next.config.ts'),/source: '\/studio', destination: '\/legacy\/index\.html'/));
-test('old shared URLs preserved',()=>assert.match(read('app/page.tsx'),/params\.client_gallery \|\| params\.staff/));
-test('new admin API checks verified server auth',()=>assert.match(read('app/api/dashboard/route.ts'),/authenticatedAdmin\(request\)/));
-test('legacy includes all media/review scripts',()=>{
-  const h=read('public/legacy/index.html');for(let i=1;i<=6;i++)assert.ok(h.includes(`enhancement-0${i}.js`));
-  assert.ok(h.includes('clientGalleryView'));assert.ok(h.includes('payrollModal'));assert.ok(h.includes('eventModal'));
+test('Legacy customer root bookmarks redirect to new routes',()=>{
+ assert.match(read('app/page.tsx'),/params.client_gallery/);
+ assert.match(read('app/page.tsx'),/params.staff/);
 });
-test('original API paths still exist',()=>{
-  assert.ok(existsSync(new URL('../pages/api/drive-video.js',import.meta.url)));
-  assert.ok(existsSync(new URL('../pages/api/get-drive-images.js',import.meta.url)));
+test('Native studio API and Google Drive streaming remain',()=>{
+ for(const p of ['app/api/dashboard/route.ts','app/api/events/route.ts','app/api/staff/route.ts','app/api/delivery/[eventId]/media/route.ts','pages/api/drive-video.js'])assert.ok(exists(p),p);
+ assert.match(read('app/api/dashboard/route.ts'),/authenticatedAdmin\(request\)/);
+ assert.ok(!exists('pages/api/get-drive-images.js'));
 });
-
-test('native create booking protected by server role',()=>assert.match(read('app/api/events/route.ts'),/authenticatedAdmin\(request\)/));
-test('legacy gallery & staff remain available at /studio',()=>assert.ok(existsSync(new URL('../public/legacy/index.html',import.meta.url))));

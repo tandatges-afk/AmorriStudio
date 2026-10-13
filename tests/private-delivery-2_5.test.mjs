@@ -42,13 +42,13 @@ test('guest APIs require server-side grant and validate Drive membership before 
  assert.match(upload,/applyPhotoSelection/);
  assert.match(source('app/api/delivery/[eventId]/route.ts'),/Strict allowlist/);
 });
-test('legacy shared links remain staged and strict mode stops legacy ticket issuance',()=>{
+test('Legacy video endpoint has strict authorization and obsolete image endpoint is retired',()=>{
  assert.match(source('pages/api/drive-video.js'),/AMORRI_LEGACY_DELIVERY_ACCESS==='strict'/);
- assert.match(source('pages/api/get-drive-images.js'),/AMORRI_LEGACY_DELIVERY_ACCESS==='strict'/);
  assert.match(source('pages/api/drive-video.js'),/verifyDeliveryGrant\(clientGallery,payload\.deliveryToken,false\)/);
+ assert.match(source('app/api/delivery/[eventId]/media/route.ts'),/deliveryEvent\(request,eventId,false,productId\)/);
 });
 test('new admin link creation and client route ship in package',()=>{
  assert.match(source('components/Dashboard.tsx'),/<DeliveryGrantManager eventId=\{event.id\} productId=\{product.id\} user=\{user\}\/>/);
- assert.match(source('app/api/health/route.ts'),/studio-os-3-0-0-20261013-r1/);
+ assert.match(source('app/api/health/route.ts'),/studio-os-3-0-1-20261013-r1/);
  assert.match(source('components/ClientDelivery.tsx'),/x-amorri-delivery-token/);
 });

@@ -56,8 +56,8 @@ export async function issueDeliveryGrant(eventId:string,adminUid:string,days:num
 }
 /**
  * One reusable share link per event. Concurrent clicks are serialized by an
- * RTDB transaction. Older hash-only grants cannot be reconstructed; only on
- * the first use they are replaced and revoked atomically.
+ * RTDB transaction. Older hash-only grants cannot be reconstructed. For
+ * safety, they must be manually revoked before a new share link is issued.
  */
 export async function ensureDeliveryGrant(eventId:string,adminUid:string,days=30,productId=''){
   if(!validId(eventId))throw new DeliveryError(400,'DELIVERY_BAD_ID','Mã lịch không hợp lệ');
@@ -71,8 +71,16 @@ export async function ensureDeliveryGrant(eventId:string,adminUid:string,days=30
   const now=Date.now(),expiresAt=now+days*86_400_000;
   const candidate:GrantRecord={hash:digest(secret),encryptedToken:encryptToken(token),scope:'review',expiresAt,createdAt:now,createdBy:adminUid,...(productId?{productId}:{})};
   const rootRef=adminDatabase().ref(`${root}/${eventId}`);
+  let keyMismatch=false;
+  let legacyUnrecoverable=false;
   const tx=await rootRef.transaction((raw:Record<string,GrantRecord>|null)=>{
     const records={...(raw||{})};
+    // If a key changed, do not silently revoke active links already sent to clients.
+    keyMismatch=Object.entries(records).some(([id,v])=>v&&!v.revokedAt&&v.scope==='review'&&String(v.productId||'')===productId&&Number(v.expiresAt)>now&&
+      typeof v.encryptedToken==='string'&&!validGrantToken(decryptToken(v.encryptedToken)));
+    legacyUnrecoverable=Object.entries(records).some(([,v])=>v&&!v.revokedAt&&v.scope==='review'&&String(v.productId||'')===productId&&Number(v.expiresAt)>now&&
+      typeof v.encryptedToken!=='string');
+    if(keyMismatch||legacyUnrecoverable)return;
     // Keep the newest recoverable link, if one exists. Do not rotate each click.
     const eligible=Object.entries(records).filter(([id,v])=>v && !v.revokedAt && v.scope==='review' && String(v.productId||'')===productId && Number(v.expiresAt)>now &&
       typeof v.encryptedToken==='string' && validGrantToken(decryptToken(v.encryptedToken)) && /^[a-f0-9]{24}$/.test(id))
@@ -85,7 +93,11 @@ export async function ensureDeliveryGrant(eventId:string,adminUid:string,days=30
     if(chosen===grantId)records[grantId]=candidate;
     return records;
   },undefined,false);
-  if(!tx.committed)throw new DeliveryError(409,'DELIVERY_GRANT_CONFLICT','Không thể thiết lập link dùng chung');
+  if(!tx.committed){
+    if(keyMismatch)throw new DeliveryError(409,'DELIVERY_RECOPY_KEY_MISMATCH','Không giải mã được link đang hoạt động. Hãy khôi phục khóa mã hóa link cũ; hệ thống chưa thu hồi link khách hàng.');
+    if(legacyUnrecoverable)throw new DeliveryError(409,'DELIVERY_LEGACY_LINK_ACTIVE','Có link cũ vẫn đang hoạt động nhưng không lưu khóa có thể copy lại. Hãy giữ link khách hoặc chủ động thu hồi link cũ rồi cấp link mới.');
+    throw new DeliveryError(409,'DELIVERY_GRANT_CONFLICT','Không thể thiết lập link dùng chung');
+  }
   const records=tx.snapshot.val() as Record<string,GrantRecord>;
   const entry=Object.entries(records).filter(([,v])=>v&&String(v.productId||'')===productId&&!v.revokedAt&&Number(v.expiresAt)>now)
     .sort((a,b)=>Number(b[1].createdAt)-Number(a[1].createdAt))[0];

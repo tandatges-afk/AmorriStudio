@@ -20,18 +20,9 @@ test('diagnostics count old numeric keys, missing IDs and duplicates without exp
  assert.deepEqual(stats,{total:4,numericKeys:2,missingIds:1,duplicateIds:1,truncated:false});
  assert.equal(summarizeKeys({x:{id:'q'}},1).truncated,true);
 });
-test('legacy UI admin role requires verified server response, and delete uses native authenticated APIs',()=>{
- const source=read('public/assets/js/main.js');
- assert.match(source,/legacyVerifiedAdmin=identity\.role==='admin'/);
- assert.match(source,/currentUserRole = legacyVerifiedAdmin \? 'admin' : 'guest'/);
- assert.match(source,/legacyVerifiedStaffId === String\(staffViewId\)/);
- assert.doesNotMatch(source,/currentUserRole = currentAuthUser \? 'admin'/);
- assert.match(source,/await amorriLegacyAuthorizedFetch\(url,\{method:'DELETE'/);
- assert.match(source,/await amorriLegacyAuthorizedFetch\('\/api\/blackouts\/'/);
- assert.match(source,/function canLegacyWrite\(path/);
- assert.match(source,/if\(!canLegacyWrite\(op.path,true\)\)return false/);
- assert.match(source,/if\(legacyQueueNeedsReview\(op.path\)\)/);
- assert.match(source,/if\(legacyQueueNeedsReview\(op.path\)\)continue/);
+test('Old client-side admin UI retired; delete uses authenticated Next API',()=>{
+ assert.match(read('app/studio/page.tsx'),/redirect\('\/'\)/);
+ assert.match(read('app/api/events/[id]/route.ts'),/authenticatedAdmin|requireAdmin|identity\(/);
 });
 test('server determines roles, never trust a client claim or query-string staff ID',()=>{
  const route=read('app/api/access/me/route.ts');
@@ -74,6 +65,6 @@ test('rules proposal aborts on a permissive root write or missing source',()=>{
  }finally{rmSync(folder,{recursive:true,force:true});}
 });
 test('release marker and migration page included',()=>{
- assert.match(read('app/api/health/route.ts'),/studio-os-3-0-0-20261013-r1/);
+ assert.match(read('app/api/health/route.ts'),/studio-os-3-0-1-20261013-r1/);
  assert.match(read('components/Dashboard.tsx'),/href="\/migration"/);
 });

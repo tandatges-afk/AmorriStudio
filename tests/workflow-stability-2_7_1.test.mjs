@@ -14,13 +14,13 @@ test('admin may recopy encrypted link, never replace hash validation',()=>{
  assert.match(route,/shareUrl:token/);
  assert.match(ui,/Copy link/);
 });
-test('admin owns photo selected-names copy and Drive mime classification',()=>{
+test('Admin copies selected photo names and Drive metadata can be force-refreshed',()=>{
  const admin=r('components/DeliveryAdminWorkspace.tsx');
  const endpoint=r('app/api/delivery/[eventId]/admin-media/route.ts');
  const client=r('components/ClientDelivery.tsx');
  const css=r('components/delivery.css');
  assert.match(endpoint,/await requireAdmin\(request\)/);
- assert.match(endpoint,/listDeliveryMedia\(p\)/);
+ assert.match(endpoint,/listDeliveryMedia\(p,refresh\)/);
  assert.match(endpoint,/savedSelectionIds/);
  assert.match(admin,/Copy tên ảnh/);
  assert.doesNotMatch(client,/Copy tên ảnh đã chọn/);
