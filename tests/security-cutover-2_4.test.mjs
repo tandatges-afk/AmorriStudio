@@ -74,6 +74,6 @@ test('rules proposal aborts on a permissive root write or missing source',()=>{
  }finally{rmSync(folder,{recursive:true,force:true});}
 });
 test('release marker and migration page included',()=>{
- assert.match(read('app/api/health/route.ts'),/firebase-apphosting-20261013-r1/);
+ assert.match(read('app/api/health/route.ts'),/dashboard-db-diagnostics-20261013-r1/);
  assert.match(read('components/Dashboard.tsx'),/href="\/migration"/);
 });

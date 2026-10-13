@@ -181,3 +181,8 @@ Nếu dùng `AMORRI_DELIVERY_LINK_KEY`, cần giữ nguyên khóa đủ mạnh (
 ## VNext 2.8.4.4 — Product Delivery & Review
 
 Mỗi sản phẩm là một thẻ / một link riêng, liên tiếp theo cùng một lịch; có nút Xóa link sản phẩm (giữ lịch sử), bảng góp ý clip riêng, nút copy tên ảnh riêng, thời gian bình luận `mm:ss` / `hh:mm:ss` và nhớ tên khách trên trình duyệt. Xem [hướng dẫn triển khai](docs/PRODUCT_DELIVERY_2_8_4_4.md).
+
+
+## v2.9.0.4 — Vercel Dashboard RTDB diagnostics
+
+The dashboard now returns safe details for a failed read branch and identifies mismatched RTDB URLs; it does not delete or migrate data. See `docs/DASHBOARD_FIREBASE_2_9_0_4.md`.

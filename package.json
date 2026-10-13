@@ -1,6 +1,6 @@
 {
   "name": "amorri-studio-vnext-2",
-  "version": "2.9.0.3-firebase-app-hosting",
+  "version": "2.9.0.4-dashboard-db-diagnostics",
   "private": true,
   "scripts": {
     "dev": "next dev",
