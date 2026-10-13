@@ -1,5 +1,5 @@
 import {randomUUID} from 'node:crypto';
-/** Correlates an API response with App Hosting Logs without logging tokens,
+/** Correlates an API response with Runtime Logs without logging tokens,
  * customer names, request bodies or Firebase data. */
 export async function withApiTrace(label:string,action:()=>Promise<Response>):Promise<Response>{
  const requestId=randomUUID();
@@ -11,6 +11,6 @@ export async function withApiTrace(label:string,action:()=>Promise<Response>):Pr
    return response;
  }catch(error){
    console.error('[amorri-api]',{requestId,route:label,status:503,kind:error instanceof Error?error.name:'unknown'});
-   return Response.json({error:'Tác vụ tạm thời thất bại. Kiểm tra mã tra cứu trong App Hosting Logs.',code:'API_UNEXPECTED',requestId},{status:503,headers:{'X-Amorri-Request-Id':requestId,'Cache-Control':'private, no-store'}});
+   return Response.json({error:'Tác vụ tạm thời thất bại. Kiểm tra mã tra cứu trong Runtime Logs.',code:'API_UNEXPECTED',requestId},{status:503,headers:{'X-Amorri-Request-Id':requestId,'Cache-Control':'private, no-store'}});
  }
 }

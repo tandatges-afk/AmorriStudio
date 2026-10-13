@@ -24,7 +24,7 @@ test('Secret Manager keeps Firebase and Drive private keys outside source',()=>{
  assert.match(read('.gitignore'),/service-account\*\.json/);
 });
 test('Migration keeps routes and identifies deployed revision',()=>{
- assert.match(read('app/api/health/route.ts'),/dashboard-db-diagnostics-20261013-r1/);
+ assert.match(read('app/api/health/route.ts'),/studio-os-3-0-0-20261013-r1/);
  assert.match(read('next.config.ts'),/source: '\/studio', destination: '\/legacy\/index.html'/);
  assert.ok(existsSync(file('pages/api/drive-video.js')));
  assert.ok(existsSync(file('pages/api/get-drive-images.js')));

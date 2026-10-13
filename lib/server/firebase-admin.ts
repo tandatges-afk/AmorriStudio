@@ -17,7 +17,7 @@ export class AdminAuthFailure extends Error {
 
 export function publicAuthFailure(err: unknown): { status: 401 | 503; code: AdminAuthCode; error: string } {
   if (err instanceof AdminAuthFailure) return { status: err.status, code: err.code, error: err.message };
-  return { status: 503, code: 'AUTH_SERVICE_UNAVAILABLE', error: 'Firebase Admin tạm thời không thể xác minh đăng nhập. Kiểm tra App Hosting Logs.' };
+  return { status: 503, code: 'AUTH_SERVICE_UNAVAILABLE', error: 'Firebase Admin tạm thời không thể xác minh đăng nhập. Kiểm tra Runtime Logs.' };
 }
 
 const APP_NAME = 'amorri-studio-admin';
@@ -72,7 +72,7 @@ function tokenError(error: unknown): AdminAuthFailure {
   if (['auth/invalid-id-token', 'auth/argument-error', 'auth/id-token-error', 'auth/invalid-argument'].includes(code))
     return new AdminAuthFailure('AUTH_TOKEN_INVALID', 401, 'Firebase ID token không hợp lệ. Kiểm tra dự án Firebase client và thử đăng nhập lại.');
   // Invalid credentials, revocation lookup failures and network errors must NOT be mislabeled as invalid user sessions.
-  return new AdminAuthFailure('AUTH_SERVICE_UNAVAILABLE', 503, 'Firebase Admin không xác minh được phiên đăng nhập. Kiểm tra App Hosting Logs và service account.');
+  return new AdminAuthFailure('AUTH_SERVICE_UNAVAILABLE', 503, 'Firebase Admin không xác minh được phiên đăng nhập. Kiểm tra Runtime Logs và service account.');
 }
 
 export async function authenticatedUser(request: Request): Promise<DecodedIdToken> {
