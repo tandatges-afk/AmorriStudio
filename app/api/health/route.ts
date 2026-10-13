@@ -5,11 +5,12 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   return NextResponse.json({
     ok: true,
-    app: 'Amorri Studio VNext 2.9.0.4',
-    release: 'dashboard-db-diagnostics-20261013-r1',
+    app: 'Amorri Studio VNext 3.0.0 — Studio OS',
+    release: 'studio-os-3-0-0-20261013-r1',
     authApi: 'diagnostic-codes-enabled',
     deliveryApi: 'capability-tokens-enabled',
     streamingApi: 'google-drive-only',
+    systemDiagnostics: 'admin-only',
     time: new Date().toISOString()
   }, { headers: { 'Cache-Control': 'no-store, max-age=0' } });
 }

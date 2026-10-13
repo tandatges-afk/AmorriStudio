@@ -1,3 +1,15 @@
+# Amorri Studio VNext 3.0.0 — Studio OS / Stability Foundation
+
+**Current rollout target:** Vercel (Next.js 16) + Firebase Spark + Google Drive. This is a complete **code** archive, not a pre-deployed app. It preserves customer links, data paths, the `/studio` compatibility workspace, and all existing media APIs.
+
+**New:** Admin-only System Health hub, safe Firebase/Drive/key configuration checks, RTDB read probe, editor timeline review filters/export, calendar-view preference, last-successful-sync timestamp. `/api/health` release: `studio-os-3-0-0-20261013-r1`.
+
+**Start here:** [`docs/VNEXT_3_0_RELEASE.md`](docs/VNEXT_3_0_RELEASE.md).
+
+**Important for current Codespaces/Vercel migration:** The source ZIP does not contain your GitHub `package-lock.json` or secrets. Apply the accompanying **patch ZIP** over your currently working GitHub repository, preserving the lockfile you already committed. Run `npm ci && npm test && npm run build` and deploy on Vercel Preview first.
+
+---
+
 # Amorri Studio VNext 2.9.0.3 — Firebase App Hosting migration
 
 **Hosting đã đổi từ Vercel sang Firebase App Hosting (Next.js server on Cloud Run).** Đây là bộ mã nguồn đầy đủ để cấu hình/triển khai, **không phải bản đã được triển khai trực tuyến**.

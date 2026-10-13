@@ -1,6 +1,6 @@
 {
   "name": "amorri-studio-vnext-2",
-  "version": "2.9.0.4-dashboard-db-diagnostics",
+  "version": "3.0.0-studio-os-foundation",
   "private": true,
   "scripts": {
     "dev": "next dev",

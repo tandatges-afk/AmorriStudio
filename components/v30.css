@@ -1,0 +1,44 @@
+/* Studio OS 3.0 foundation: scoped Admin-only system diagnostics. */
+.ops30-health{--health-ink:#1c2940;--health-muted:#60738b;display:grid;gap:18px;min-width:0}
+.ops30-health-hero{display:flex;align-items:center;gap:17px;border:1px solid #dde7f1;border-radius:18px;padding:23px;background:linear-gradient(125deg,#fff,#f4f8ff);color:var(--health-ink)}
+.ops30-health-icon{width:58px;height:58px;border-radius:15px;display:grid;place-items:center;flex-shrink:0;color:#4769ab;background:#e9eefb}
+.ops30-health-hero>div:nth-child(2){flex:1;min-width:0}
+.ops30-health-hero h2{font-size:21px;font-weight:800;letter-spacing:-.5px;margin:5px 0 5px}
+.ops30-health-hero p{font-size:12px;color:var(--health-muted);margin:0;line-height:1.65}
+.ops30-health-hero button{flex-shrink:0}
+.ops30-health-metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.ops30-health-metrics>div{background:#fff;border:1px solid #e2e8f2;border-radius:13px;padding:16px;display:flex;gap:10px;align-items:baseline}
+.ops30-health-metrics strong{font-size:28px;line-height:1.15;font-weight:850;color:#344e7d}
+.ops30-health-metrics span{color:#61738e;font-size:12px}
+.ops30-health-list{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.ops30-health-item{border:1px solid #e1e7f0;border-radius:14px;background:#fff;padding:18px;min-width:0;display:grid;gap:11px;align-content:start}
+.ops30-health-item-head{display:flex;align-items:center;gap:8px}
+.ops30-health-item-head svg{flex:0 0 auto;color:#278361}
+.ops30-health-warning .ops30-health-item-head svg{color:#c58a32}
+.ops30-health-error .ops30-health-item-head svg{color:#c55a5a}
+.ops30-health-item h3{font-size:13px;font-weight:800;color:var(--health-ink);flex:1}
+.ops30-health-item-head span{font-size:10px;font-weight:750;color:#297b59;background:#e5f5ef;padding:5px 8px;border-radius:99px;white-space:nowrap}
+.ops30-health-warning .ops30-health-item-head span{background:#fff3df;color:#a36b23}
+.ops30-health-error .ops30-health-item-head span{background:#fdeaea;color:#ae4747}
+.ops30-health-item>p{font-size:12px;line-height:1.6;color:var(--health-muted);margin:0}
+.ops30-health-action{display:flex;align-items:flex-start;gap:8px;color:#526b8c;background:#f5f8fc;border-radius:9px;padding:11px 12px;font-size:11px;line-height:1.55}
+.ops30-health-action svg{flex:0 0 auto;margin-top:2px}
+.ops30-health-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;color:#67788b;font-size:11px}
+.ops30-health-footer button{display:inline-flex;gap:7px;align-items:center;color:#365d9d;font-weight:750;border:1px solid #d6e1f2;padding:9px 12px;border-radius:9px}
+.ops30-health-footer button:hover{background:#f4f7fc}
+.ops30-health-disclaimer{margin:0;color:#7787a1;font-size:11px;line-height:1.6}
+.ops30-sync-badge{color:#4b658a;font-size:11px;background:#eaf0fa;border-radius:9px;padding:7px 9px}
+@media(max-width:850px){.ops30-health-list{grid-template-columns:1fr}}
+@media(max-width:640px){.ops30-health-hero{flex-wrap:wrap;padding:16px}.ops30-health-hero>div:nth-child(2){flex-basis:calc(100% - 80px)}.ops30-health-hero button{width:100%;justify-content:center}.ops30-health-metrics>div{padding:13px;display:grid;gap:4px}}
+@media(prefers-reduced-motion:reduce){.ops30-health-hero button{transition:none}}
+/* Editor-oriented timeline review — original video stays untouched. */
+.ops30-review-manager{min-width:0;max-height:min(75vh,720px);overflow:auto}
+.ops30-review-heading{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.ops30-review-heading>div{display:grid;gap:4px}.ops30-review-heading b{font-size:12px}.ops30-review-heading small{color:#7a8698;font-size:11px}
+.ops30-review-heading>button{width:28px;height:28px;display:grid;place-items:center;border-radius:8px;border:1px solid #e3e9f3}
+.ops30-review-controls{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center}
+.ops30-review-controls>div{display:flex;gap:2px;background:#eff3f9;border-radius:8px;padding:3px}
+.ops30-review-controls button{font-size:11px;border-radius:6px;padding:7px 9px;color:#50637f}
+.ops30-review-controls button.active{background:#fff;color:#2f538d;box-shadow:0 1px 4px #00000016;font-weight:750}
+.ops30-review-controls>button{display:inline-flex;align-items:center;gap:6px;border:1px solid #dbe5f1}
+.ops30-review-controls button:disabled{opacity:.5;cursor:not-allowed}

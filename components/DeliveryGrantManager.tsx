@@ -25,7 +25,7 @@ export function DeliveryGrantManager({eventId,user,productId}:{eventId:string;us
       // POST is idempotent server-side; do not send a second POST just because
       // its response is missing shareUrl. A second request masks the real error.
       const url=typeof body.shareUrl==='string'?body.shareUrl.trim():'';
-      if(!url)throw new Error('API không trả về link bàn giao. Vui lòng kiểm tra App Hosting Logs.');
+      if(!url)throw new Error('API không trả về link bàn giao. Vui lòng kiểm tra Runtime Logs.');
       try {await navigator.clipboard.writeText(url);setFeedback('Đã sao chép link bàn giao.');}
       catch {setManualLink(url);setFeedback('Trình duyệt chặn copy. Hãy chọn và sao chép link dưới đây.');}
     }catch(error){setFeedback(error instanceof Error?error.message:'Không sao chép được link');}
