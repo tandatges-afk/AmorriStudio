@@ -24,7 +24,7 @@ test('Secret Manager keeps Firebase and Drive private keys outside source',()=>{
  assert.match(read('.gitignore'),/service-account\*\.json/);
 });
 test('Native Next.js routes survive after retiring old workspace',()=>{
- assert.match(read('app/api/health/route.ts'),/studio-os-3-0-1-20261013-r1/);
+ assert.match(read('app/api/health/route.ts'),/drive-302-pilot-20261013-r1/);
  assert.doesNotMatch(read('next.config.ts'),/source: '\/studio'/);
  assert.ok(existsSync(file('pages/api/drive-video.js')));
  assert.ok(existsSync(file('app/studio/page.tsx')));

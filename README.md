@@ -1,3 +1,8 @@
+# VNext 3.0.2 — Google Drive HTTP 302 Redirect Pilot
+
+> **Mặc định tắt.** Chế độ redirect chỉ thử với **file video demo công khai được allowlist**; Google Drive riêng tư vẫn chạy proxy. Không thay hoặc phát tán OAuth token, service account, signing/encryption keys.
+> Hướng dẫn: [docs/VIDEO_302_PILOT_3_0_2.md](docs/VIDEO_302_PILOT_3_0_2.md).
+
 # Amorri Studio VNext 3.0.1 — System & Encrypted Delivery Cache
 
 Bản 3.0.1: metadata Google Drive được cache mã hóa trên RTDB tối đa 15 phút để giảm việc liệt kê lại folder sau F5; thumbnail Admin có cache trình duyệt tối đa 6 giờ; sidebar có một mục **Hệ thống** gồm Sức khỏe, Hoạt động, Kiểm tra dữ liệu. Giao diện `/studio` cũ được gỡ, giữ redirect cho bookmark cũ. Cơ chế cấp lại link chặn việc tự thu hồi link còn hiệu lực khi secret không khớp.

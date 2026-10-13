@@ -1,6 +1,6 @@
 {
   "name": "amorri-studio-vnext-2",
-  "version": "3.0.1-studio-os-foundation",
+  "version": "3.0.2-drive-redirect-pilot",
   "private": true,
   "scripts": {
     "dev": "next dev",

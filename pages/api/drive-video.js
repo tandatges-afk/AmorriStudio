@@ -15,6 +15,7 @@ import crypto from 'node:crypto';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { resolveRange } from '../../lib/server/legacy/range.js';
+import { isDirectRedirectEnabled, isAllowedPublicDriveUrl, probePublicDriveRange } from '../../lib/server/public-drive-redirect.mjs';
 import { GoogleAuth } from 'google-auth-library';
 import { verifyDeliveryGrant, assertGrantProduct } from '../../lib/server/delivery-access';
 import { findBooking } from '../../lib/server/event-storage';
@@ -64,8 +65,9 @@ async function fetchHeaders(url, options, step, ms=MEDIA_TIMEOUT_MS) {
   finally {clearTimeout(timer);}
 }
 function hmac(value){return crypto.createHmac('sha256',process.env.DRIVE_VIDEO_SIGNING_SECRET).update(value).digest('base64url');}
-function issueTicket(id, clientGallery, productId, meta, ttl=TICKET_SECONDS) {
-  const body=Buffer.from(JSON.stringify({id,clientGallery,productId,size:Number(meta.size),mime:meta.mimeType,tag:crypto.createHash('sha256').update(`${id}:${meta.size}:${meta.md5Checksum||meta.modifiedTime||''}`).digest('hex').slice(0,32),exp:Math.floor(Date.now()/1000)+ttl})).toString('base64url');
+function issueTicket(id, clientGallery, productId, meta, ttl=TICKET_SECONDS, directUrl=null) {
+  const body=Buffer.from(JSON.stringify({id,clientGallery,productId,size:Number(meta.size),mime:meta.mimeType,tag:crypto.createHash('sha256').update(`${id}:${meta.size}:${meta.md5Checksum||meta.modifiedTime||''}`).digest('hex').slice(0,32),exp:Math.floor(Date.now()/1000)+ttl,
+    ...(directUrl?{directUrl}:{})})).toString('base64url');
   return `${body}.${hmac(body)}`;
 }
 function checkTicket(ticket, requestedId) {
@@ -79,7 +81,8 @@ function checkTicket(ticket, requestedId) {
     const data=JSON.parse(Buffer.from(body,'base64url').toString());
     return data.id===requestedId && GALLERY_ID.test(data.clientGallery) && GALLERY_ID.test(data.productId)
       && Number.isSafeInteger(data.size)&&data.size>0 && typeof data.mime==='string'&&data.mime.startsWith('video/')
-      && Number.isSafeInteger(data.exp)&&data.exp>Math.floor(Date.now()/1000) ? data : null;
+      && Number.isSafeInteger(data.exp)&&data.exp>Math.floor(Date.now()/1000)
+      && (!data.directUrl || isAllowedPublicDriveUrl(data.directUrl,requestedId)) ? data : null;
   } catch { return null; }
 }
 function driveIdFromUrl(input, folder=false) {
@@ -94,7 +97,7 @@ function driveIdFromUrl(input, folder=false) {
   }catch{return null;}
 }
 async function getDriveMetadata(id, token) {
-  const url=`${API}${encodeURIComponent(id)}?fields=id,mimeType,size,modifiedTime,md5Checksum,parents,capabilities(canDownload)&supportsAllDrives=true`;
+  const url=`${API}${encodeURIComponent(id)}?fields=id,mimeType,size,modifiedTime,md5Checksum,parents,webContentLink,capabilities(canDownload)&supportsAllDrives=true`;
   const r=await fetchHeaders(url,{headers:{Authorization:`Bearer ${token}`}},'drive-metadata');
   if(!r.ok)throw fail(r.status===404?404:502,`Drive metadata HTTP ${r.status}`,'drive-metadata');
   return r.json();
@@ -198,12 +201,31 @@ export default async function handler(req,res) {
       if(meta.capabilities?.canDownload===false)return sendError(res,403,'Download not permitted');
       if(!Number.isSafeInteger(Number(meta.size))||Number(meta.size)<=0)return sendError(res,422,'Missing video size');
       if(!await authorized(clientGallery,productId,id,token,meta,event))return sendError(res,403,'Video does not belong to this client gallery/product');
+      // A public redirect is allowed only for an explicitly allowlisted TEST video.
+      // Probe without Google credentials; if the browser cannot fetch a one-byte
+      // video Range anonymously, preserve private Vercel -> Drive streaming.
+      let directUrl=null;
+      if(payload.deliveryToken && payload.playbackMode!=='proxy' && isDirectRedirectEnabled(id)) {
+        const candidate=String(meta.webContentLink||'');
+        if(await probePublicDriveRange(candidate,id,Number(meta.size)))directUrl=candidate;
+      }
       const ticketSeconds=payload.deliveryToken?900:TICKET_SECONDS;
-      const ticket=issueTicket(id,clientGallery,productId,meta,ticketSeconds);
-      return res.status(200).json({success:true,url:`/api/drive-video?id=${encodeURIComponent(id)}&ticket=${encodeURIComponent(ticket)}`,expiresIn:ticketSeconds,mimeType:meta.mimeType});
+      const ticket=issueTicket(id,clientGallery,productId,meta,ticketSeconds,directUrl);
+      res.setHeader('Cache-Control','private, no-store');
+      return res.status(200).json({success:true,url:`/api/drive-video?id=${encodeURIComponent(id)}&ticket=${encodeURIComponent(ticket)}`,expiresIn:ticketSeconds,mimeType:meta.mimeType,transport:directUrl?'redirect':'proxy'});
     }
     const ticket=checkTicket(req.query?.ticket,id);
     if(!ticket)return sendError(res,401,'Playback ticket expired or invalid');
+    // HEAD always reports metadata from the signed ticket. For GET, the browser
+    // requests Google directly after 302; no video bytes cross Vercel.
+    // Never 302 a private file or redirect when the pilot flag was switched off.
+    if(req.method==='GET' && ticket.directUrl && isDirectRedirectEnabled(id) &&
+       isAllowedPublicDriveUrl(ticket.directUrl,id)) {
+      res.setHeader('Location',ticket.directUrl);
+      res.setHeader('Cache-Control','private, no-store, max-age=0');
+      res.setHeader('X-Amorri-Stream','redirect-pilot');
+      return res.status(302).end();
+    }
     // Keep bounded ranges: a long-running 64 MiB serverless response can remain
     // open for too long on mobile. Dedicated media/CDN remains recommended.
     const rangeHeader=req.headers.range;

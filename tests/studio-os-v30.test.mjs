@@ -79,7 +79,7 @@ test('V3.0.1 redirects old root customer links to new secured pages',()=>{
  assert.match(read('app/page.tsx'),/params\.staff/);
  assert.match(read('app/studio/page.tsx'),/redirect/);
  assert.match(read('components/Dashboard.tsx'),/DeliveryProductGroup/);
- assert.match(read('app/api/health/route.ts'),/studio-os-3-0-1-20261013-r1/);
+ assert.match(read('app/api/health/route.ts'),/drive-302-pilot-20261013-r1/);
 });
 test('v3.0 editor review applies the same long-video timecode as the client playback',()=>{
   const src=read('components/DeliveryReviewManager.tsx');
