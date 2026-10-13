@@ -29,7 +29,7 @@ async function handlePOST(request: Request) {
     const base = adminDatabase().ref('studioPlanner_v1');
     // The client-generated event ID is an idempotency key. Never overwrite an existing booking.
     // Serialize modern scheduler writes and validate availability on latest server state.
-    // The legacy /studio direct Firebase writers still require migration/rules cutover.
+    // All new UI booking edits must use server-side version checks.
     const transaction = await withScheduleLock(async()=>{
       const staffIds=recordValues(event.assignments).map(a=>String(a.id||'')).filter(Boolean);
       if(staffIds.length){

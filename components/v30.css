@@ -42,3 +42,10 @@
 .ops30-review-controls button.active{background:#fff;color:#2f538d;box-shadow:0 1px 4px #00000016;font-weight:750}
 .ops30-review-controls>button{display:inline-flex;align-items:center;gap:6px;border:1px solid #dbe5f1}
 .ops30-review-controls button:disabled{opacity:.5;cursor:not-allowed}
+
+/* Studio OS 3.0.1: one System button with three diagnostics views. */
+.ops30-system-panel{display:grid;gap:16px;min-width:0}
+.ops30-system-tabs{display:flex;gap:6px;flex-wrap:wrap;align-items:center;background:#eef3f9;padding:6px;border-radius:13px;width:fit-content;max-width:100%}
+.ops30-system-tabs button{display:inline-flex;align-items:center;gap:7px;padding:10px 13px;border:0;background:transparent;color:#536780;font-size:13px;font-weight:700;border-radius:9px;cursor:pointer}
+.ops30-system-tabs button.active{background:#fff;color:#254d85;box-shadow:0 1px 5px #1634571a}
+@media(max-width:600px){.ops30-system-tabs{width:100%}.ops30-system-tabs button{flex:1;justify-content:center;font-size:11px;padding:10px 7px}}

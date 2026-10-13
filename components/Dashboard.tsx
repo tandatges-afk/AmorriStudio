@@ -3,11 +3,12 @@
 import {PayrollManager} from '@/components/PayrollManager';
 import {DeliveryGrantManager} from '@/components/DeliveryGrantManager';
 import {DeliveryReviewManager} from '@/components/DeliveryReviewManager';
-import {AdminThumbnail,type CoverInfo} from '@/components/AdminThumbnail';
+import {AdminThumbnail,THUMB_CACHE_NAME,type CoverInfo} from '@/components/AdminThumbnail';
 import {OperationsHub} from './OperationsHub';
 import {CalendarPlanner} from './CalendarPlanner';
 import {StudioAnalytics} from './StudioAnalytics';
 import {SystemHealth} from './SystemHealth';
+import MigrationReadiness from './MigrationReadiness';
 import './v29.css';
 import './v30.css';
 
@@ -28,7 +29,8 @@ import { StaffManager } from './StaffManager';
 import { getMonthStats, monthEvents, shiftMonth, statusName } from '@/lib/domain/studio';
 import type { DashboardData, StudioEvent } from '@/lib/domain/types';
 
-type Tab = 'overview'|'calendar'|'staff'|'payroll'|'delivery'|'activity'|'analytics'|'system';
+type Tab = 'overview'|'calendar'|'staff'|'payroll'|'delivery'|'analytics'|'system';
+type SystemSection='health'|'activity'|'data';
 const monthNow = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
 const localToday = () => { const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const take=(type:string)=>parts.find(p=>p.type===type)?.value||'';return `${take('year')}-${take('month')}-${take('day')}`; };
 const money = (n:number) => new Intl.NumberFormat('vi-VN', {style:'currency',currency:'VND',maximumFractionDigits:0}).format(n);
@@ -40,8 +42,7 @@ const pages: {key:Tab;name:string;sub:string;icon:typeof LayoutDashboard}[] = [
   {key:'payroll',name:'Lương thợ',sub:'Theo dõi thanh toán',icon:WalletCards},
   {key:'delivery',name:'Bàn giao sản phẩm',sub:'Ảnh, video, đánh giá',icon:FolderOpen},
   {key:'analytics',name:'Báo cáo',sub:'Thống kê vận hành',icon:ChartNoAxesCombined},
-  {key:'activity',name:'Hoạt động',sub:'Nhật ký hệ thống',icon:Activity},
-  {key:'system',name:'Sức khỏe hệ thống',sub:'Chẩn đoán Firebase, Drive và bảo mật',icon:ShieldCheck}
+  {key:'system',name:'Hệ thống',sub:'Hoạt động, sức khỏe và dữ liệu',icon:Settings2}
 ];
 function Status({status}:{status:StudioEvent['status']}) {
   return <span className={`status status-${status}`}><i />{statusName(status)}</span>;
@@ -54,7 +55,7 @@ function Login({onLogin,error,loading}:{onLogin:(email:string,password:string)=>
   return <div className="login-layout">
     <div className="login-showcase">
       <div className="login-brand"><div className="brand-square">A<span>.</span></div><span>AMORRI <strong>STUDIO</strong></span></div>
-      <div className="showcase-main"><div className="overline">AMORRI STUDIO / STUDIO OS 3.0.0</div>
+      <div className="showcase-main"><div className="overline">AMORRI STUDIO / STUDIO OS 3.0.1</div>
         <h1>Mọi khoảnh khắc.<br/><em>Một hệ thống.</em></h1>
         <p>Không gian điều hành từ lịch quay chụp, đội ngũ đến bàn giao sản phẩm — đồng nhất và hiệu quả hơn.</p>
         <div className="showcase-pills"><span>Lịch thông minh</span><span>Đội ngũ</span><span>Gallery & Video</span></div>
@@ -72,7 +73,7 @@ function Login({onLogin,error,loading}:{onLogin:(email:string,password:string)=>
       </form>
       <div className="login-foot"><ShieldCheck size={16}/> Quyền truy cập được xác minh trên server.</div>
       <a className="legacy-link" href="/migration">Kiểm tra an toàn dữ liệu →</a>
-      <a className="legacy-link" href="/studio">Mở workspace tương thích <ArrowRight size={15}/></a>
+
     </div></div>
   </div>;
 }
@@ -92,7 +93,7 @@ function EventTable({events,staff,compact=false,onSelect}:{events:StudioEvent[];
 }
 
 type ProductMediaSummary={id:string;name:string;kind:'video'|'image'|'mixed'|'unknown';videoCount:number;imageCount:number;selectedNames:string[];cover?:CoverInfo;warning?:string};
-function DeliveryProductGroup({event,user}:{event:StudioEvent;user:User}){
+function DeliveryProductGroup({event,user,refresh=false}:{event:StudioEvent;user:User;refresh?:boolean}){
  const [products,setProducts]=useState<ProductMediaSummary[]>([]);
  const [error,setError]=useState('');
  const [busy,setBusy]=useState(false);
@@ -108,14 +109,14 @@ function DeliveryProductGroup({event,user}:{event:StudioEvent;user:User}){
   if(!visible)return;
   let active=true;
   void (async()=>{setBusy(true);try{
-   const doFetch=async(refresh=false)=>fetch(`/api/delivery/${encodeURIComponent(event.id)}/admin-media`,{headers:{Authorization:`Bearer ${await user.getIdToken(refresh)}`},cache:'no-store'});
+   const doFetch=async(forceToken=false)=>fetch(`/api/delivery/${encodeURIComponent(event.id)}/admin-media${refresh?'?refresh=1':''}`,{headers:{Authorization:`Bearer ${await user.getIdToken(forceToken)}`},cache:'no-store'});
    let response=await doFetch();if(response.status===401)response=await doFetch(true);
    const data=await response.json();if(!response.ok)throw new Error(data.error||'Không đọc được Google Drive');
    if(active)setProducts(data.products||[]);
   }catch(e){if(active)setError(e instanceof Error?e.message:'Không đọc được sản phẩm');}
   finally{if(active)setBusy(false);}})();
   return()=>{active=false;};
- },[visible,event.id,user]);
+ },[visible,event.id,user,refresh]);
  const [hiddenProducts,setHiddenProducts]=useState<string[]>([]);
  const remaining=event.products.filter(p=>!event.completedProductIds?.includes(p.id)&&!hiddenProducts.includes(p.id));
  if(event.deliveryCompleted||!remaining.length)return null;
@@ -170,6 +171,8 @@ export function Dashboard(){
   const [authError,setAuthError]=useState(''),[logging,setLogging]=useState(false);
   const [deliverySearch,setDeliverySearch]=useState('');
   const [month,setMonth]=useState(monthNow),[tab,setTab]=useState<Tab>('overview');
+  const [systemSection,setSystemSection]=useState<SystemSection>('health');
+  const [driveRefresh,setDriveRefresh]=useState(0);
   const [data,setData]=useState<DashboardData|null>(null),[loading,setLoading]=useState(false);
   const [lastSynced,setLastSynced]=useState<string|null>(null);
   const [requestError,setRequestError]=useState(''),[search,setSearch]=useState('');
@@ -241,19 +244,26 @@ export function Dashboard(){
       <div className="sidebar-label">WORKSPACE</div><nav aria-label="Điều hướng chính" className="nav-items">{pages.map(p=>{
         const Icon=p.icon; return <button key={p.key} onClick={()=>goTab(p.key)} className={`nav-item ${tab===p.key?'nav-active':''}`}><Icon size={19}/><span>{p.name}</span>{tab===p.key&&<i/>}</button>;
       })}</nav>
-      <div className="sidebar-label section-gap">CÔNG CỤ</div>
-      <div className="nav-items"><a className="nav-item" href="/studio"><Settings2 size={19}/><span>Workspace đầy đủ</span><ArrowRight size={14}/></a><a className="nav-item" href="/migration"><ShieldCheck size={19}/><span>Kiểm tra an toàn dữ liệu</span><ArrowRight size={14}/></a></div>
-      <div className="sidebar-bottom"><div className="migration-tile"><Sparkles size={21}/><strong>VNext 3.0.0</strong><p>Studio OS: một nơi cho lịch, nhân sự, tài chính, bàn giao và chẩn đoán kết nối. /studio được giữ để đối chiếu an toàn.</p><a href="/studio">Mở công cụ <ArrowRight size={14}/></a></div>
-        <div className="user-identity"><div className="user-avatar">{(user.email||'A').slice(0,1).toUpperCase()}</div><div className="user-meta"><strong>{user.email?.split('@')[0]||'Admin'}</strong><span>Firebase Admin</span></div><button title="Đăng xuất" onClick={()=>signOut(browserAuth())}><LogOut size={19}/></button></div>
+      <div className="sidebar-bottom">
+        <div className="user-identity"><div className="user-avatar">{(user.email||'A').slice(0,1).toUpperCase()}</div><div className="user-meta"><strong>{user.email?.split('@')[0]||'Admin'}</strong><span>Firebase Admin</span></div><button title="Đăng xuất" onClick={async()=>{await signOut(browserAuth());if('caches' in window)void caches.delete(THUMB_CACHE_NAME);}}><LogOut size={19}/></button></div>
       </div>
     </aside>
     <main className="content">
       <header className="topbar"><div className="topbar-left"><button aria-label="Mở menu" className="menu-toggle" onClick={()=>setMenuOpen(true)}><Menu size={22}/></button><div className="breadcrumb">WORKSPACE <span>/</span> {title?.name.toUpperCase()}</div></div><div className="topbar-right"><span className="live-dot"/><span className="topbar-time">{lastSynced?`Đồng bộ ${new Date(lastSynced).toLocaleTimeString('vi-VN',{hour:'2-digit',minute:'2-digit'})}`:'Chưa đồng bộ'}</span><button aria-label="Tải lại" title="Làm mới" onClick={()=>setReload(x=>x+1)} className="top-icon"><RefreshCw size={18} className={loading?'spin':''}/></button><div className="top-avatar">{(user.email||'A').slice(0,1).toUpperCase()}</div></div></header>
       <div className="content-inner">
         <div className="page-heading ops29-page-heading"><div><div className="eyebrow">AMORRI STUDIO / STUDIO OS 3.0</div><h1>{title?.name}</h1><p>{title?.sub}{tab!=='system'?` · Tháng ${month.slice(5)}/${month.slice(0,4)}`:' · Chỉ tài khoản Admin'}</p></div><div className="heading-actions">{tab!=='system'&&<><button className="secondary-button" onClick={()=>setReload(x=>x+1)} disabled={loading}><RefreshCw size={16} className={loading?'spin':''}/> Đồng bộ</button><button className="primary-button" onClick={()=>setNewBookingOpen(true)}><Plus size={18}/> Tạo lịch mới</button></>}</div></div>
-        {requestError&&tab!=='system'&&<div className="alert error"><ShieldCheck size={18}/><div><strong>Không tải được dữ liệu quản trị</strong><p>{requestError}</p>{data?.month===month&&<p>Đang hiển thị dữ liệu tải thành công gần nhất của tháng này; hãy thử Đồng bộ lại.</p>}<button type="button" className="secondary-button" onClick={()=>goTab('system')}><ShieldCheck size={15}/> Kiểm tra hệ thống</button></div></div>}
+        {requestError&&tab!=='system'&&<div className="alert error"><ShieldCheck size={18}/><div><strong>Không tải được dữ liệu quản trị</strong><p>{requestError}</p>{data?.month===month&&<p>Đang hiển thị dữ liệu tải thành công gần nhất của tháng này; hãy thử Đồng bộ lại.</p>}<button type="button" className="secondary-button" onClick={()=>{setSystemSection('health');goTab('system');}}><Settings2 size={15}/> Mở Hệ thống</button></div></div>}
         {data?.eventLimitReached&&<div className="alert notice">Dữ liệu tháng vượt giới hạn truy vấn 1001 bản ghi. Cần phân trang và index Firebase trước khi dùng báo cáo.</div>}
-        {tab==='system'&&<SystemHealth user={user}/>}
+        {tab==='system'&&<section className="ops30-system-panel">
+          <div className="ops30-system-tabs" role="group" aria-label="Chức năng hệ thống">
+            <button type="button" className={systemSection==='health'?'active':''} onClick={()=>setSystemSection('health')}><ShieldCheck size={16}/> Sức khỏe</button>
+            <button type="button" className={systemSection==='activity'?'active':''} onClick={()=>setSystemSection('activity')}><Activity size={16}/> Hoạt động</button>
+            <button type="button" className={systemSection==='data'?'active':''} onClick={()=>setSystemSection('data')}><Settings2 size={16}/> Kiểm tra dữ liệu</button>
+          </div>
+          {systemSection==='health'&&<SystemHealth user={user}/>}
+          {systemSection==='data'&&<MigrationReadiness embedded/>}
+          {systemSection==='activity'&&<section className="surface"><div className="surface-title"><h3>Nhật ký hoạt động gần đây</h3></div>{data?.audit.length?<div className="activity-list">{data.audit.map((a,i)=><div key={a.id||i} className="activity-item"><div className="activity-symbol"><Activity size={17}/></div><div><strong>{a.message||a.action||'Hoạt động'}</strong><p>{a.action} · {a.createdAt?new Date(a.createdAt<1e12?a.createdAt*1000:a.createdAt).toLocaleString('vi-VN'):'Chưa xác định'}</p></div></div>)}</div>:<Empty title="Chưa có nhật ký" detail="Nếu Dashboard chưa tải được, hãy mở Sức khỏe để chẩn đoán Firebase."/>}</section>}
+        </section>}
         {!data && loading && tab!=='system' && <div className="loading-state"><RefreshCw size={24} className="spin"/> Đang tải dữ liệu Firebase…</div>}
         {data && tab!=='system' && <>
           {tab==='overview'&&<>
@@ -280,14 +290,13 @@ export function Dashboard(){
           {tab==='staff'&&<StaffManager user={user} month={month} onChanged={()=>setReload(x=>x+1)}/>}
           {tab==='payroll'&&<PayrollManager month={month} user={user}/>}
           {tab==='delivery'&&<>
-            <div className="delivery-browser-toolbar"><label className="search-input"><Search size={17}/><input aria-label="Tìm lịch hoặc sản phẩm bàn giao" placeholder="Tìm theo tên lịch, khách hàng hoặc sản phẩm..." value={deliverySearch} onChange={e=>setDeliverySearch(e.target.value)}/></label><span className="delivery-browser-hint">Các sản phẩm chung lịch được đặt cạnh nhau</span></div>
-            <div className="delivery-grid">{deliveryEvents.map(event=><DeliveryProductGroup key={event.id} event={event} user={user}/>)}</div>
+            <div className="delivery-browser-toolbar"><label className="search-input"><Search size={17}/><input aria-label="Tìm lịch hoặc sản phẩm bàn giao" placeholder="Tìm theo tên lịch, khách hàng hoặc sản phẩm..." value={deliverySearch} onChange={e=>setDeliverySearch(e.target.value)}/></label><button type="button" className="secondary-button" onClick={()=>{if(typeof window!=='undefined'&&'caches' in window)void caches.delete(THUMB_CACHE_NAME);setDriveRefresh(n=>n+1);}}><RefreshCw size={15}/> Làm mới Drive</button><span className="delivery-browser-hint">Metadata Drive được lưu đệm 15 phút</span></div>
+            <div className="delivery-grid">{deliveryEvents.map(event=><DeliveryProductGroup key={`${event.id}:${driveRefresh}`} event={event} user={user} refresh={driveRefresh>0}/>)}</div>
             {!deliveryEvents.length&&<Empty title={deliverySearch?'Không tìm thấy sản phẩm phù hợp':'Không có bộ bàn giao đang mở'} detail="Các bộ đã hoàn thành vẫn có thể xem lại từ Quản lý lịch."/>}
           </>}
           {tab==='analytics'&&<StudioAnalytics data={data} today={localToday()}/>}
-          {tab==='activity'&&<section className="surface"><div className="surface-title"><div><span className="eyebrow">AUDIT TRAIL</span><h3>Nhật ký hoạt động gần đây</h3></div></div>{data.audit.length?<div className="activity-list">{data.audit.map((a,i)=><div key={a.id||i} className="activity-item"><div className="activity-symbol"><Activity size={17}/></div><div><strong>{a.message||a.action||'Hoạt động'}</strong><p>{a.action} · {a.createdAt ? new Date(a.createdAt<1e12?a.createdAt*1000:a.createdAt).toLocaleString('vi-VN'): 'Chưa xác định thời gian'}</p></div></div>)}</div>:<Empty title="Chưa có nhật ký" detail="Hoạt động trong Firebase sẽ được ghi nhận ở đây."/>}</section>}
         </>}
-      </div><footer className="footer">AMORRI STUDIO / STUDIO OS 3.0.0 <span>BUILT WITH NEXT.JS + TYPESCRIPT · {new Date().getFullYear()}</span></footer>
+      </div><footer className="footer">AMORRI STUDIO / STUDIO OS 3.0.1 <span>BUILT WITH NEXT.JS + TYPESCRIPT · {new Date().getFullYear()}</span></footer>
     </main>
     <NewBookingDialog open={newBookingOpen} onClose={()=>setNewBookingOpen(false)} onCreated={()=>{setReload(x=>x+1);setTab('calendar');}} user={user} staff={data?.staff||[]}/>
     <EventEditor id={editEventId} staff={data?.staff||[]} user={user} onClose={()=>setEditEventId(null)} onDataUpdated={()=>setReload(v=>v+1)} onChanged={(date)=>{setEditEventId(null);setSelected(null);if(date && date.slice(0,7)!==month)setMonth(date.slice(0,7));setReload(v=>v+1);}}/>

@@ -19,7 +19,8 @@ export async function GET(request:Request,{params}:{params:Promise<{eventId:stri
    const batch=await Promise.all(products.slice(index,index+3).map(async p=>{
     const id=String(p.id||''),name=String(p.name||'Sản phẩm');
     try{
-      const media=await listDeliveryMedia(p);
+      const refresh=new URL(request.url).searchParams.get('refresh')==='1';
+      const media=await listDeliveryMedia(p,refresh);
       const videoCount=media.filter(item=>item.isVideo).length;
       const imageCount=media.filter(item=>!item.isVideo).length;
       const kind:'video'|'image'|'mixed'|'unknown'=videoCount&&imageCount?'mixed':videoCount?'video':imageCount?'image':'unknown';

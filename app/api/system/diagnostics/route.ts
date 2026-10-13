@@ -6,7 +6,7 @@ import {localSystemChecks,healthTotals,type HealthCheck} from '@/lib/domain/syst
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
-const RELEASE='studio-os-3-0-0-20261013-r1';
+const RELEASE='studio-os-3-0-1-20261013-r1';
 const headers=(requestId:string)=>({'Cache-Control':'private, no-store, max-age=0', 'X-Amorri-Request-Id':requestId});
 
 /** Admin-only, on-demand and READ-ONLY diagnostics. Never expose ENV values, raw SDK errors or Firebase data. */

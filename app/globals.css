@@ -14,7 +14,7 @@
 @media(max-width:650px){.metrics-grid{gap:10px}.metric{padding:15px;min-height:154px}.metric strong{font-size:26px}.metric-icon{margin-bottom:12px}.staff-grid,.delivery-grid{grid-template-columns:1fr}.login-layout{grid-template-columns:1fr}.login-showcase{min-height:340px;padding:24px}.showcase-main{margin:37px 0}.showcase-main h1{font-size:33px;margin:14px 0}.showcase-main p{font-size:12px}.login-bottom{display:none}.login-panel{padding:38px 24px}.content-inner{padding:23px 15px}.topbar{height:62px;min-height:62px;padding:0 15px}.topbar-time{display:none}.top-avatar{margin:0}.page-heading h1{font-size:24px}.heading-actions{width:100%}.heading-actions .secondary-button{flex:1}.heading-actions .primary-button{flex:1}.welcome-band{padding:25px;min-height:230px}.welcome-art{opacity:.13;right:-135px}.welcome-band h2{font-size:23px}.surface-title{padding:15px;min-height:72px}.upcoming-items{padding:0 12px 8px}.upcoming-row{gap:7px}.upcoming-row .status{font-size:0;padding:7px}.upcoming-row .status i{height:7px;width:7px}.upcoming-row>svg{display:none}.toolbar .search-input{min-width:100%}.toolbar-right{width:100%;justify-content:flex-end}.footer{padding:20px 16px}.calendar-block{min-width:600px}.login-brand{font-size:12px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 
-/* New component UI uses Tailwind v4 utilities without altering the isolated /studio CSS */
+/* New component UI uses Tailwind v4 utilities for the single VNext workspace */
 
 
 /* VNext 2.8 — stable layout and premium, low-jank component polish. */

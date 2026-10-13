@@ -1,3 +1,11 @@
+# Amorri Studio VNext 3.0.1 — System & Encrypted Delivery Cache
+
+Bản 3.0.1: metadata Google Drive được cache mã hóa trên RTDB tối đa 15 phút để giảm việc liệt kê lại folder sau F5; thumbnail Admin có cache trình duyệt tối đa 6 giờ; sidebar có một mục **Hệ thống** gồm Sức khỏe, Hoạt động, Kiểm tra dữ liệu. Giao diện `/studio` cũ được gỡ, giữ redirect cho bookmark cũ. Cơ chế cấp lại link chặn việc tự thu hồi link còn hiệu lực khi secret không khớp.
+
+**Tài liệu bắt buộc trước khi deploy:** [`docs/VNEXT_3_0_1_CACHE_CUTOVER.md`](docs/VNEXT_3_0_1_CACHE_CUTOVER.md). Cần giữ nguyên secret cũ khi đã có link khách; không tự tạo khóa khác rồi ghi đè. Bản ZIP full không có `package-lock.json` của repository bạn; ưu tiên PATCH và giữ lockfile đã build thành công trên Codespaces. Kiểm thử Node đạt 218/218, chưa xác nhận production build trong môi trường đóng gói.
+
+---
+
 # Amorri Studio VNext 3.0.0 — Studio OS / Stability Foundation
 
 **Current rollout target:** Vercel (Next.js 16) + Firebase Spark + Google Drive. This is a complete **code** archive, not a pre-deployed app. It preserves customer links, data paths, the `/studio` compatibility workspace, and all existing media APIs.

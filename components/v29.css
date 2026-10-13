@@ -1,4 +1,4 @@
-/* VNext 2.9 scoped design system, independent of /studio legacy. */
+/* VNext 2.9 scoped design system, unified admin workspace. */
 .shell{--ops-ink:#1d2941;--ops-mute:#61728b;--ops-line:#e4e9f2;--ops-brand:#4b67ac;--ops-bg:#f7f8fc}
 .ops29-page-heading{border-bottom:1px solid var(--ops-line);padding-bottom:18px}
 .ops29-hub{background:#fff;border:1px solid var(--ops-line);border-radius:20px;padding:22px;margin-bottom:22px;box-shadow:0 10px 34px #20324e08;color:var(--ops-ink)}
