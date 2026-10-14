@@ -117,45 +117,39 @@ function PhotoProduct({eventId,productId,files,preselected,token}:{eventId:strin
       const value=await r.json();if(!r.ok)throw new Error(value.error||'Không lưu được ảnh');setNotice(`Đã đồng bộ ${value.selected} ảnh với Studio`);
     }catch(err){setNotice(err instanceof Error?err.message:'Không thể đồng bộ');}finally{setBusy(false);}
   };
-  const download=async(photo:DeliveryMedia)=>{
+  const downloadFrameRef=useRef<HTMLIFrameElement>(null);
+  const iframeName=`amorri-photo-download-${productId}`;
+  const download=(photo:DeliveryMedia)=>{
     if(downloading)return;
-    // Prompt for a destination immediately in the click gesture on supported browsers.
-    // Browser settings govern the save location on Safari/Firefox.
-    type Writable={write:(data:Uint8Array)=>Promise<void>;close:()=>Promise<void>;abort:()=>Promise<void>};
-    type Handle={createWritable:()=>Promise<Writable>};
-    const picker=(window as Window & {showSaveFilePicker?:(options:{suggestedName:string})=>Promise<Handle>}).showSaveFilePicker;
-    let handle:Handle|undefined;
-    if(picker){
-      try{handle=await picker.call(window,{suggestedName:photo.name||'amorri-photo'});}
-      catch(err){if((err as Error)?.name==='AbortError')return;/* Fall back to native browser download */}
-    }
-    setDownloading(photo.id);setNotice('');
+    setNotice('');setDownloading(photo.id);
+    // Submit a real browser navigation rather than using fetch/Blob or the
+    // File System Access picker. Chrome records attachment downloads in Ctrl+J.
+    // The private delivery grant stays in the POST body, NEVER in a public URL.
     try{
-      const response=await fetch(`/api/delivery/${encodeURIComponent(eventId)}/photo-download`,{
-        method:'POST',headers:{'Content-Type':'application/json','x-amorri-delivery-token':token},
-        body:JSON.stringify({productId,mediaId:photo.id}),cache:'no-store'
-      });
-      if(!response.ok){const data=await response.json().catch(()=>({}));throw new Error(data.error||`Không thể tải ảnh gốc (HTTP ${response.status})`);}
-      if(handle&&response.body){
-        const writable=await handle.createWritable();
-        try{
-          const reader=response.body.getReader();
-          while(true){const {done,value}=await reader.read();if(done)break;if(value)await writable.write(value);}
-          await writable.close();
-        }catch(error){await writable.abort().catch(()=>{});throw error;}
-      }else{
-        const blob=await response.blob();
-        const objectURL=URL.createObjectURL(blob);
-        const link=document.createElement('a');link.href=objectURL;link.download=photo.name||'amorri-photo';
-        document.body.append(link);link.click();link.remove();
-        window.setTimeout(()=>URL.revokeObjectURL(objectURL),60000);
+      const form=document.createElement('form');
+      form.method='POST';form.action=`/api/delivery/${encodeURIComponent(eventId)}/photo-download`;
+      form.target=iframeName;form.enctype='application/x-www-form-urlencoded';form.hidden=true;
+      for(const [name,value] of Object.entries({productId,mediaId:photo.id,deliveryToken:token})){
+        const field=document.createElement('input');field.type='hidden';field.name=name;field.value=value;form.appendChild(field);
       }
-      setNotice(`Đã tải ảnh gốc: ${photo.name}`);
-    }catch(err){setNotice(err instanceof Error?err.message:'Không thể tải ảnh. Hãy thử lại.');}
-    finally{setDownloading('');}
+      document.body.appendChild(form);
+      try{form.submit();}finally{form.remove();}
+      setNotice(`Đã yêu cầu Chrome tải ảnh “${photo.name}”. Nhấn Ctrl+J để xem lịch sử tải xuống.`);
+    }catch(err){setNotice(err instanceof Error?err.message:'Không thể bắt đầu tải ảnh.');}
+    finally{window.setTimeout(()=>setDownloading(current=>current===photo.id?'':current),1500);}
+  };
+  const onDownloadFrameLoad=()=>{
+    // Normal attachment responses do not navigate the iframe. Failed requests
+    // return safe JSON; report the error without leaving the delivery page.
+    try{
+      const raw=downloadFrameRef.current?.contentDocument?.body?.textContent?.trim()||'';
+      if(!raw.startsWith('{'))return;
+      const result=JSON.parse(raw) as {error?:string};
+      if(typeof result.error==='string')setNotice(result.error);
+    }catch{/* Browser owns the download on success. */}
   };
   if(!images.length)return null;
-  return <><div className="delivery-photo-toolbar"><strong>Ảnh đã chọn: {checked.length}/{images.length}</strong>
+  return <><iframe ref={downloadFrameRef} name={iframeName} title="Tải ảnh gốc" style={{display:'none'}} onLoad={onDownloadFrameLoad}/><div className="delivery-photo-toolbar"><strong>Ảnh đã chọn: {checked.length}/{images.length}</strong>
     <div><button className={filter==='all'?'active':''} onClick={()=>setFilter('all')}>Tất cả</button><button className={filter==='selected'?'active':''} onClick={()=>setFilter('selected')}>Đã chọn</button>
     <button className="delivery-primary" disabled={busy} onClick={save}>{busy?'Đang đồng bộ…':'Gửi lựa chọn'}</button></div></div>
     <div className="delivery-photos">{images.filter(i=>filter==='all'||checked.includes(i.id)).map(i=><article className={`delivery-photo ${checked.includes(i.id)?'is-selected':''}`} key={i.id}>
@@ -163,7 +157,7 @@ function PhotoProduct({eventId,productId,files,preselected,token}:{eventId:strin
       <div className="delivery-photo-footer"><small title={i.name}>{i.name}</small>
         <div className="delivery-photo-actions">
           <button type="button" className="delivery-photo-select" onClick={()=>setChecked(p=>p.includes(i.id)?p.filter(id=>id!==i.id):[...p,i.id])} aria-pressed={checked.includes(i.id)}>{checked.includes(i.id)?'✓ Đã chọn':'○ Chọn ảnh'}</button>
-          <button type="button" className="delivery-photo-download" disabled={!!downloading} onClick={()=>void download(i)} title={`Tải ảnh gốc ${i.name} về máy`}>{downloading===i.id?'Đang tải…':'↓ Tải ảnh'}</button>
+          <button type="button" className="delivery-photo-download" disabled={!!downloading} onClick={()=>download(i)} title={`Tải ảnh gốc ${i.name} về máy`}>{downloading===i.id?'Đang tải…':'↓ Tải ảnh'}</button>
         </div>
       </div></article>)}</div>
     {notice&&<p role="status" className="delivery-alert">{notice}</p>}

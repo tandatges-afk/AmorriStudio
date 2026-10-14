@@ -58,7 +58,7 @@
 .amorri-r2-mini:focus-visible{outline:2px solid currentColor;outline-offset:2px}
 
 /* 3.2.5 · Compact Vietnamese lunar calendar and double-click booking */
-.ops325-create-day{cursor:crosshair;transition:background-color .15s ease;}
+.ops325-create-day{cursor:default;transition:background-color .15s ease;}
 .ops325-create-day:hover{background:#f4f8fc;}
 .ops325-create-day .ops29-event{cursor:pointer;}
 .ops325-date-head{display:flex;justify-content:space-between;align-items:center;gap:5px;margin:0 0 6px;min-width:0;}
