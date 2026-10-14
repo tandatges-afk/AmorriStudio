@@ -1,0 +1,100 @@
+name: Amorri Private R2 Video Sync
+
+'on':
+  # This workflow is intentionally opt-in: scheduled runs require repository variable
+  # AMORRI_ENABLE_AUTO_R2_SYNC=true. Manual runs work after secrets are configured.
+  workflow_dispatch:
+    inputs:
+      drive_file_id:
+        description: 'Optional Google Drive video ID; blank scans recent Firebase products'
+        required: false
+        type: string
+      dry_run:
+        description: 'Discover/verify only (no upload)'
+        required: false
+        default: true
+        type: boolean
+  schedule:
+    - cron: '25 1,13 * * *'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: amorri-r2-sync
+  cancel-in-progress: false
+
+jobs:
+  mirror:
+    if: github.event_name == 'workflow_dispatch' || vars.AMORRI_ENABLE_AUTO_R2_SYNC == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 300
+    env:
+      # Credentials are GitHub Actions Secrets, never committed files.
+      DRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.AMORRI_DRIVE_SERVICE_ACCOUNT_JSON }}
+      FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.AMORRI_FIREBASE_SERVICE_ACCOUNT_JSON }}
+      FIREBASE_DATABASE_URL: ${{ secrets.AMORRI_FIREBASE_DATABASE_URL }}
+      R2_BUCKET: ${{ vars.AMORRI_R2_BUCKET }}
+      R2_ACCOUNT_ID: ${{ vars.AMORRI_R2_ACCOUNT_ID }}
+      RCLONE_CONFIG_DRIVE_TYPE: drive
+      RCLONE_CONFIG_DRIVE_SCOPE: drive.readonly
+      RCLONE_CONFIG_R2_TYPE: s3
+      RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+      RCLONE_CONFIG_R2_ENV_AUTH: 'false'
+      RCLONE_CONFIG_R2_REGION: auto
+      RCLONE_CONFIG_R2_NO_CHECK_BUCKET: 'true'
+      RCLONE_CONFIG_R2_ACL: ''
+      RCLONE_CONFIG_R2_BUCKET_ACL: ''
+      RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.AMORRI_R2_UPLOAD_ACCESS_KEY_ID }}
+      RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.AMORRI_R2_UPLOAD_SECRET_ACCESS_KEY }}
+      AMORRI_SYNC_MAX_VIDEOS: '1'
+      AMORRI_SYNC_SOFT_LIMIT_BYTES: '9000000000'
+      AMORRI_SYNC_LOOKBACK_DAYS: '120'
+      INPUT_FILE_ID: ${{ inputs.drive_file_id }}
+      INPUT_DRY_RUN: ${{ inputs.dry_run }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+      - name: Install Node dependencies
+        run: npm ci --no-audit --no-fund
+      - name: Install rclone and FFmpeg
+        shell: bash
+        run: |
+          set -euo pipefail
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg unzip
+          version=v1.70.3
+          curl -fsSLO "https://downloads.rclone.org/${version}/rclone-${version}-linux-amd64.zip"
+          curl -fsSLo rclone-sha256sums.txt "https://downloads.rclone.org/${version}/SHA256SUMS"
+          grep "rclone-${version}-linux-amd64.zip" rclone-sha256sums.txt | sha256sum -c -
+          unzip -q "rclone-${version}-linux-amd64.zip"
+          sudo install -m 755 "rclone-${version}-linux-amd64/rclone" /usr/local/bin/rclone
+          rclone version
+      - name: Configure private Drive remote (no keys printed)
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DRIVE_SERVICE_ACCOUNT_JSON"
+          test -n "$FIREBASE_SERVICE_ACCOUNT_JSON"
+          test -n "$FIREBASE_DATABASE_URL"
+          test -n "$RCLONE_CONFIG_R2_ACCESS_KEY_ID"
+          test -n "$RCLONE_CONFIG_R2_SECRET_ACCESS_KEY"
+          test -n "$R2_BUCKET"
+          [[ "$R2_ACCOUNT_ID" =~ ^[a-fA-F0-9]{32}$ ]]
+          printf '%s' "$DRIVE_SERVICE_ACCOUNT_JSON" > "$RUNNER_TEMP/drive-sa.json"
+          chmod 600 "$RUNNER_TEMP/drive-sa.json"
+          echo "RCLONE_CONFIG_DRIVE_SERVICE_ACCOUNT_FILE=$RUNNER_TEMP/drive-sa.json" >> "$GITHUB_ENV"
+          echo "RCLONE_CONFIG_R2_ENDPOINT=https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" >> "$GITHUB_ENV"
+      - name: Sync one new video or inspect queue
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(--max 1)
+          if [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
+            if [[ -n "$INPUT_FILE_ID" ]]; then args+=(--id "$INPUT_FILE_ID"); fi
+            if [[ "$INPUT_DRY_RUN" == 'true' ]]; then args+=(--dry-run); fi
+          fi
+          node scripts/auto-drive-to-r2.mjs "${args[@]}"

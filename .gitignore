@@ -26,3 +26,9 @@ service-account*.json
 .tmp/
 tmp/
 .DS_Store
+
+# Amorri private credentials
+**/drive-sa*.json
+**/rclone.conf
+.config/
+*.key
