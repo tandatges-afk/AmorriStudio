@@ -48,7 +48,15 @@ function VideoReview({eventId,productId,file,token}:{eventId:string;productId:st
       const redirectFailed=playbackTransport.current==='redirect';
       const privateR2Failed=playbackTransport.current==='r2';
       setError(privateR2Failed?'Đang xin lại đường dẫn video bảo mật từ R2…':redirectFailed?'Nguồn Google Drive trực tiếp không phát được, đang chuyển về luồng dự phòng…':'Luồng video bị gián đoạn, đang xin lại đường dẫn phát từ Google Drive…');
-      try{const fresh=await issueDriveTicket(redirectFailed); // R2 failure never forces costly proxyplaybackTransport.current=fresh.transport;setSrc(fresh.url);setMode('drive');return;}
+      try {
+        // An R2 failure must not force the expensive Vercel proxy path.
+        // Only a failed Google Drive redirect explicitly retries with proxy.
+        const fresh = await issueDriveTicket(redirectFailed);
+        playbackTransport.current = fresh.transport;
+        setSrc(fresh.url);
+        setMode('drive');
+        return;
+      }
       catch(err){setError(`Không cấp lại được link Drive: ${err instanceof Error?err.message:'Lỗi kết nối'}. Đang dùng preview dự phòng.`);}
     }
     // The browser's MediaError is NOT proof that an MP4 codec is unsupported.
