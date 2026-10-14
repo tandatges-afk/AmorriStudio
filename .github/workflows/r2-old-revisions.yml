@@ -1,0 +1,91 @@
+name: Amorri R2 Old Revision Cleanup
+
+'on':
+  workflow_dispatch:
+    inputs:
+      min_age_days:
+        description: 'Only old R2 revisions older than N days, minimum 30'
+        required: true
+        default: '30'
+        type: string
+      max_delete:
+        description: 'Maximum R2 objects to remove (1-100)'
+        required: true
+        default: '20'
+        type: string
+      execute:
+        description: 'Actually delete confirmed old revisions (default dry-run)'
+        required: true
+        default: false
+        type: boolean
+      confirmation:
+        description: 'When execute=true, type DELETE_STALE_R2'
+        required: false
+        default: ''
+        type: string
+permissions:
+  contents: read
+concurrency:
+  group: amorri-r2-maintenance
+  cancel-in-progress: false
+jobs:
+  cleanup:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    env:
+      DRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.AMORRI_DRIVE_SERVICE_ACCOUNT_JSON }}
+      R2_BUCKET: ${{ vars.AMORRI_R2_BUCKET }}
+      RCLONE_CONFIG_DRIVE_TYPE: drive
+      RCLONE_CONFIG_DRIVE_SCOPE: drive.readonly
+      RCLONE_CONFIG_R2_TYPE: s3
+      RCLONE_CONFIG_R2_PROVIDER: Cloudflare
+      RCLONE_CONFIG_R2_ENV_AUTH: 'false'
+      RCLONE_CONFIG_R2_REGION: auto
+      RCLONE_CONFIG_R2_NO_CHECK_BUCKET: 'true'
+      RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.AMORRI_R2_UPLOAD_ACCESS_KEY_ID }}
+      RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.AMORRI_R2_UPLOAD_SECRET_ACCESS_KEY }}
+      R2_ACCOUNT_ID: ${{ vars.AMORRI_R2_ACCOUNT_ID }}
+      INPUT_EXECUTE: ${{ inputs.execute }}
+      INPUT_CONFIRMATION: ${{ inputs.confirmation }}
+      INPUT_DAYS: ${{ inputs.min_age_days }}
+      INPUT_MAX: ${{ inputs.max_delete }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Install rclone
+        shell: bash
+        run: |
+          set -euo pipefail
+          version=v1.70.3
+          curl -fsSLO "https://downloads.rclone.org/${version}/rclone-${version}-linux-amd64.zip"
+          curl -fsSLo rclone-sha256sums.txt "https://downloads.rclone.org/${version}/SHA256SUMS"
+          grep "rclone-${version}-linux-amd64.zip" rclone-sha256sums.txt | sha256sum -c -
+          unzip -q "rclone-${version}-linux-amd64.zip"
+          sudo install -m 755 "rclone-${version}-linux-amd64/rclone" /usr/local/bin/rclone
+      - name: Configure Drive and R2 remotes
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$DRIVE_SERVICE_ACCOUNT_JSON"
+          test -n "$RCLONE_CONFIG_R2_ACCESS_KEY_ID"
+          test -n "$RCLONE_CONFIG_R2_SECRET_ACCESS_KEY"
+          test -n "$R2_ACCOUNT_ID"
+          file="$RUNNER_TEMP/drive-sa.json"
+          printf '%s' "$DRIVE_SERVICE_ACCOUNT_JSON" > "$file"
+          chmod 600 "$file"
+          echo "RCLONE_CONFIG_DRIVE_SERVICE_ACCOUNT_FILE=$file" >> "$GITHUB_ENV"
+          echo "RCLONE_CONFIG_R2_ENDPOINT=https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" >> "$GITHUB_ENV"
+      - name: Preview or delete OLD, superseded revisions
+        shell: bash
+        run: |
+          set -euo pipefail
+          args=(--days "$INPUT_DAYS" --max "$INPUT_MAX")
+          if [[ "$INPUT_EXECUTE" == 'true' ]]; then
+            [[ "$INPUT_CONFIRMATION" == 'DELETE_STALE_R2' ]] || { echo 'Confirmation mismatch'; exit 1; }
+            args+=(--execute --confirm DELETE_STALE_R2)
+          fi
+          node scripts/cleanup-r2-old-revisions.mjs "${args[@]}"

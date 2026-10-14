@@ -1,3 +1,4 @@
+import {matchingDriveProduct} from './drive-duplicate.ts';
 /** Atomic, narrowly-scoped product edits for RTDB records, including legacy object maps. */
 export class ProductCasError extends Error {
   status: 400|404|409|503;
@@ -63,6 +64,10 @@ export async function conditionalProductWrite(args:ProductRequest):Promise<{reco
     const all=items(record.products);
     if(all.length>150||all.length===150&&!args.productId)
       throw new ProductCasError(409,'PRODUCT_LIMIT','Đã đạt giới hạn 150 sản phẩm.');
+    // ETag-protected duplicate detection also handles alternative URL forms and images.
+    const duplicate=matchingDriveProduct(all,args.driveUrl,productId);
+    if(duplicate)throw new ProductCasError(409,'PRODUCT_DRIVE_DUPLICATE',
+      `Link Google Drive đã được thêm ở sản phẩm “${String(duplicate.name||'khác').slice(0,80)}”. Không tạo bản trùng.`);
     const matches=all.filter(p=>String(p.id||'')===productId);
     if(matches.length>1)throw new ProductCasError(409,'PRODUCT_DUPLICATE','Phát hiện ID sản phẩm trùng trong dữ liệu cũ.');
     const existing=matches[0];

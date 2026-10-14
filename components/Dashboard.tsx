@@ -164,19 +164,16 @@ function DeliveryProductCard({event,product,user,info,onRefreshR2,onComplete}:{e
    <div className="delivery-details"><div className="delivery-date"><CalendarDays size={13}/>{dateDisplay(event.date)} · {event.eventType}</div>
      <h3>{product.name}</h3><p className="delivery-project-owner">Lịch: {event.name}</p>
      {isPhoto&&<div className="delivery-product-action-row"><span>Khách đã chọn <b>{info?.selectedNames.length||0} ảnh</b></span><button type="button" className="secondary-button small" disabled={!info?.selectedNames.length} onClick={()=>void copyNames()}><Copy size={14}/>{copied?'Đã copy':'Copy tên ảnh'}</button></div>}
-     {isVideo&&<div className="delivery-product-action-row delivery-product-video-action"><span>Clip: <b>{product.name}</b></span><DeliveryReviewManager eventId={event.id} productId={product.id} user={user}/></div>}
-     {isVideo&&<div className={`amorri-r2-badge amorri-r2-badge--${info?.r2?.state||'checking'}`} role="status"
-       title={info?.r2?.message||'Đang kiểm tra video trên R2'}>
-       {info?.r2?.state==='ready'?<BadgeCheck size={18}/>:<Clock3 size={17}/>}
-       <span className="amorri-r2-badge__copy">
-         <strong>{info?.r2?.state==='ready'?'R2 ✓ Sẵn sàng gửi khách':
-           info?.r2?.state==='invalid'?'Cần xuất lại 1080p':
-           info?.r2?.state==='error'?'R2 chưa xác minh được':
-           info?.r2?.state==='pending'?'R2 đang chờ đồng bộ':
-           info?'R2 chưa xác minh được':'Đang kiểm tra R2…'}</strong>
-         <small>{info?.r2?.message||(info?'Hãy thử kiểm tra lại thông tin Drive và R2':'Đang xác thực trạng thái 1080p')}</small>
-       </span>
-       <button type="button" className="amorri-r2-badge__refresh" onClick={onRefreshR2} title="Kiểm tra trạng thái R2 mới nhất" aria-label={`Làm mới trạng thái R2 của ${product.name}`}><RefreshCw size={14}/></button>
+     {isVideo&&<div className="delivery-product-action-row delivery-product-video-action">
+       <DeliveryReviewManager eventId={event.id} productId={product.id} user={user}/>
+       <button type="button" onClick={onRefreshR2}
+         className={`amorri-r2-mini amorri-r2-mini--${info?.r2?.state||'checking'}`}
+         title={`${info?.r2?.message||'Đang kiểm tra trạng thái R2'} — bấm để kiểm tra lại`}
+         aria-label={`R2: ${info?.r2?.state==='ready'?'Đã sẵn sàng':info?.r2?.message||'Đang kiểm tra'}; bấm để làm mới`}>
+         R2 {info?.r2?.state==='ready'?<BadgeCheck size={14} aria-hidden="true"/>:
+           info?.r2?.state==='pending'?<Clock3 size={13} aria-hidden="true"/>:
+           <RefreshCw size={13} aria-hidden="true"/>}
+       </button>
      </div>}
      {!info&&<div className="delivery-product-action-row">Đang xác định loại sản phẩm…</div>}
      {info?.warning&&<div className="delivery-product-warning">Không đọc được file Drive. {info.warning}</div>}

@@ -4,6 +4,7 @@ import {useCallback,useEffect,useState} from 'react';
 import type {User} from 'firebase/auth';
 import {AlertCircle,AlertTriangle,CheckCircle2,Copy,RefreshCw,ServerCog,ShieldCheck} from 'lucide-react';
 import type {HealthCheck,HealthStatus} from '@/lib/domain/system-health';
+import {R2StorageHealth} from './R2StorageHealth';
 
 type Report={release:string;checkedAt:string;requestId:string;summary:{total:number;errors:number;warnings:number;ok:number;status:HealthStatus};checks:HealthCheck[]};
 const symbols={ok:CheckCircle2,warning:AlertTriangle,error:AlertCircle};
@@ -54,6 +55,7 @@ export function SystemHealth({user}:{user:User}){
         <button type="button" onClick={()=>navigator.clipboard?.writeText(`Amorri Studio 3.0 · ${report.release}\n${checks.map(c=>`${label[c.status]}: ${c.title} — ${c.detail}`).join('\n')}\nMã tra cứu: ${report.requestId}`)}><Copy size={15}/> Sao chép báo cáo an toàn</button>
       </div>
     </>}
+    <R2StorageHealth user={user}/>
     <p className="ops30-health-disclaimer">Kết quả cấu hình “Đạt” không bảo đảm quyền truy cập từng file Google Drive, hiệu năng video 1080p, hay toàn bộ nhánh Firebase. Những bước đó vẫn phải thử trên Vercel Preview.</p>
   </section>;
 }

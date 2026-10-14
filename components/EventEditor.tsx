@@ -11,6 +11,7 @@ import {MapLocationInput} from '@/lib/ui/MapLocationInput';
 import {VndInput} from '@/lib/ui/VndInput';
 import {useStaffAvailability} from '@/lib/ui/useStaffAvailability';
 import {isEventReleased} from '@/lib/domain/event-release';
+import {matchingDriveProduct} from '@/lib/domain/drive-duplicate';
 
 type Detail = Omit<StudioEvent,'products'> & {sourceLinks?:Record<string,string>;products:{id:string;name:string;url:string;mediaType:string}[];phone?:string;note?:string;isRuocDau?:boolean;startTrai?:string;startGai?:string;locTrai?:string;locGai?:string;phoneTrai?:string;phoneGai?:string};
 type Props={id:string|null;staff:Staff[];user:User;onClose:()=>void;onChanged:(newDate?:string)=>void;onDataUpdated?:()=>void};
@@ -77,6 +78,7 @@ export function EventEditor({id,staff,user,onClose,onChanged,onDataUpdated}:Prop
  const set=<K extends keyof EditableChanges>(key:K,value:EditableChanges[K])=>setForm(f=>({...f,[key]:value}));
  const assignments=form.assignments||[];
  const released=detail ? isEventReleased(detail,now):false;
+ const duplicateDrive=detail?matchingDriveProduct(detail.products,productUrl,productId):null;
  const roster=[...staff.filter(s=>s.active!==false||assignments.some(a=>a.id===s.id)),...assignments.filter(a=>!staff.some(s=>s.id===a.id)).map(a=>({id:a.id,name:`Nhân sự cũ (${a.id})`,role:'Không còn trong danh sách'}))];
  function toggleStaff(staffId:string,checked:boolean){set('assignments',checked?[...assignments,{id:staffId,cost:0,task:defaultStaffTask(roster.find(s=>s.id===staffId)?.role||'',String(form.eventType||'')),locType:detail?.isRuocDau?'Nhà trai':''}]:assignments.filter(a=>a.id!==staffId));}
  function editAssignment(staffId:string,key:'cost'|'task'|'locType',value:number|string){set('assignments',assignments.map(a=>a.id===staffId?{...a,[key]:value}:a));}
@@ -98,9 +100,22 @@ export function EventEditor({id,staff,user,onClose,onChanged,onDataUpdated}:Prop
      }
    }
    if(detail.isRuocDau){delete changes.start;delete changes.location;delete changes.phone;}
-   if(!Object.keys(changes).length){setError('Bạn chưa thay đổi thông tin nào để lưu.');return;}
+   // The footer's Save button also handles product drafts: previously it only
+   // submitted the schedule, leaving product link edits silently unsaved.
+   const currentProduct=productId?detail.products.find(p=>p.id===productId):undefined;
+   const draftEdited=Boolean(productName.trim()&&productUrl.trim()&&(
+     !productId||!currentProduct||currentProduct.name!==productName.trim()||
+     currentProduct.url!==productUrl.trim()||(currentProduct.mediaType||'auto')!==productType));
+   if(!Object.keys(changes).length&&!draftEdited){
+     if(productName.trim()||productUrl.trim())setError('Hãy nhập đủ tên sản phẩm và link Drive trước khi lưu.');
+     else setProductNotice('Không có thay đổi để lưu.');
+     return;
+   }
+   let saveVersion=version;
+   if(draftEdited){const newer=await persistProduct(version);if(!newer)return;saveVersion=newer;}
+   if(!Object.keys(changes).length)return;
    const response=await authorizedRequest(user,`/api/events/${encodeURIComponent(eventId)}`,{
-    method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({expectedVersion:version,changes})
+    method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({expectedVersion:saveVersion,changes})
    });
    const payload=await response.json();
    if(!response.ok)throw new Error(`${payload.error||'Không cập nhật được lịch'}${payload.code?` [${payload.code}]`:''}${response.headers.get('X-Amorri-Request-Id')?` · Mã tra cứu: ${response.headers.get('X-Amorri-Request-Id')}`:''}`);
@@ -108,17 +123,18 @@ export function EventEditor({id,staff,user,onClose,onChanged,onDataUpdated}:Prop
   }catch(e){setError(e instanceof Error?e.message:'Không lưu được lịch');}
   finally{setBusy(false);}
  }
- async function saveProduct(){
-  if(!detail||busy)return;
-  setBusy(true);setError('');setProductNotice('');
-  try{
+ async function persistProduct(currentVersion:string):Promise<string|null>{
+  if(!detail)return null;
+  const duplicate=matchingDriveProduct(detail.products,productUrl,productId);
+  if(duplicate)throw new Error(`Link Drive đã được thêm ở sản phẩm “${duplicate.name}”. Không lưu trùng.`);
+  if(!productName.trim()||!productUrl.trim())throw new Error('Hãy nhập tên sản phẩm và link Google Drive.');
    const baseProduct=productId?detail.products.find(p=>p.id===productId):undefined;
    if(productId&&!baseProduct)throw new Error('Không tìm thấy sản phẩm đã chọn. Hãy tải lại chi tiết lịch.');
-   if(productId&&baseProduct?.url!==productUrl && !window.confirm('Đổi link Drive có thể thay đổi bộ ảnh/video khách đang xem. Tiếp tục?'))return;
+   if(productId&&baseProduct?.url!==productUrl && !window.confirm('Đổi link Drive có thể thay đổi bộ ảnh/video khách đang xem. Tiếp tục?'))return null;
    const originalProduct=baseProduct?{name:baseProduct.name,url:baseProduct.url,mediaType:baseProduct.mediaType||'auto'}:undefined;
    const res=await authorizedRequest(user,`/api/events/${encodeURIComponent(eventId)}/products`,{
     method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({expectedVersion:version,productId,name:productName,url:productUrl,mediaType:productType,originalProduct})
+    body:JSON.stringify({expectedVersion:currentVersion,productId,name:productName,url:productUrl,mediaType:productType,originalProduct})
    });
    const body=await res.json() as {error?:string;code?:string;version?:string;productId?:string;product?:{id:string;name:string;url:string;mediaType:string};unchanged?:boolean;syncQueued?:boolean;syncReason?:string};
    if(!res.ok)throw new Error(`${body.error||'Không lưu được sản phẩm'}${body.code?` [${body.code}]`:''}${res.headers.get('X-Amorri-Request-Id')?` · Mã tra cứu: ${res.headers.get('X-Amorri-Request-Id')}`:''}`);
@@ -129,14 +145,21 @@ export function EventEditor({id,staff,user,onClose,onChanged,onDataUpdated}:Prop
      previous.products.some(p=>p.id===saved.id)
       ?previous.products.map(p=>p.id===saved.id?{...p,...saved}:p)
       :[...previous.products,saved]}:previous);
-   setProductId(saved.id);setProductName(saved.name);setProductUrl(saved.url);setProductType(saved.mediaType);
-   setProductNotice(body.syncQueued
+   // Ready for the next product; no second click on 'Tạo mới' required.
+   setProductId('');setProductName('');setProductUrl('');setProductType('auto');
+   setProductNotice(body.unchanged?'Không có thay đổi. Không cần kích hoạt GitHub Actions.':body.syncReason==='unchanged-or-image'?'Đã lưu sản phẩm. Link Drive không đổi hoặc là sản phẩm ảnh nên không chạy GitHub Actions.':body.syncQueued
       ?'Đã lưu sản phẩm và gửi yêu cầu đồng bộ 1080p tự động sang R2. Theo dõi ở Hệ thống → Video R2.'
       :body.syncReason==='hourly-scan-only'
       ?'Đã lưu sản phẩm. Video sẽ được quét tự động theo giờ; nếu cần xử lý ngay hãy cấu hình GitHub Dispatch Token trên Vercel.'
       :'Đã lưu sản phẩm. Worker sẽ kiểm tra video trong lượt quét tiếp theo (nếu là sản phẩm video).');
    onDataUpdated?.();
-  }catch(e){setError(e instanceof Error?e.message:'Không lưu được sản phẩm');}
+   return body.version;
+ }
+ async function saveProduct(){
+  if(!detail||busy)return;
+  setBusy(true);setError('');setProductNotice('');
+  try{await persistProduct(version);}
+  catch(e){setError(e instanceof Error?e.message:'Không lưu được sản phẩm');}
   finally{setBusy(false);}
  }
  async function saveSource(staffId:string){
@@ -242,8 +265,10 @@ export function EventEditor({id,staff,user,onClose,onChanged,onDataUpdated}:Prop
            <div className="flex flex-wrap gap-2"><button type="button" className="rounded-lg border bg-white px-3 py-1.5 font-semibold text-slate-700" onClick={()=>chooseProduct(prod)}>Chỉnh sửa</button><button type="button" className="rounded-lg border bg-white px-3 py-1.5 font-semibold text-slate-700" onClick={()=>void copyProductUrl(prod.url)} disabled={!prod.url}>Copy link</button><button type="button" disabled={busy} className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 font-semibold text-rose-700" onClick={()=>void removeProduct(prod)}>Xóa link</button><DeliveryGrantManager eventId={eventId} productId={prod.id} user={user}/>{detail.completedProductIds?.includes(prod.id)&&<button type="button" disabled={busy} className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 font-semibold text-emerald-700" onClick={()=>void restoreProduct(prod.id)}>Hiện lại</button>}</div>
          </div>
        </div>)}{!detail.products.length&&<p className="text-xs text-slate-400">Chưa có sản phẩm.</p>}</div>
+       <p className="mb-2 text-xs text-slate-500">{productId?'Đang chỉnh sửa. Sau khi lưu, form tự trở về chế độ thêm mới.':'Chế độ thêm mới · dùng link Drive riêng cho từng album hoặc clip.'}</p>
        <div className="grid gap-2 sm:grid-cols-2"><label className={label}>Tên sản phẩm<input className={input} maxLength={180} value={productName} onChange={e=>setProductName(e.target.value)} placeholder="VD: Album ảnh cưới"/></label><label className={`${label} sm:col-span-2`}>Link Drive (folder hoặc file)<input className={input} value={productUrl} onChange={e=>setProductUrl(e.target.value)} placeholder="https://drive.google.com/drive/folders/..." maxLength={1200}/></label></div>
-       <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={()=>void saveProduct()} disabled={busy||!productName.trim()||!productUrl.trim()} className="rounded-lg bg-indigo-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-40">{productId?'Cập nhật sản phẩm':'Thêm sản phẩm'}</button><button type="button" className="rounded-lg border px-3 py-2 text-xs" onClick={()=>{setProductId('');setProductName('');setProductUrl('');setProductType('auto');}}>Tạo mới</button></div>
+       {duplicateDrive&&<p role="alert" className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs font-semibold text-amber-900">Link Google Drive đã được thêm ở sản phẩm “{String(duplicateDrive.name)}”. Không thể thêm trùng ảnh hoặc video.</p>}
+       <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={()=>void saveProduct()} disabled={busy||!!duplicateDrive||!productName.trim()||!productUrl.trim()} className="rounded-lg bg-indigo-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-40">{productId?'Cập nhật sản phẩm':'Thêm sản phẩm'}</button><button type="button" className="rounded-lg border px-3 py-2 text-xs" onClick={()=>{setProductId('');setProductName('');setProductUrl('');setProductType('auto');}}>Tạo mới</button></div>
       </>}
       </fieldset>
       {productNotice&&<p role="status" className="col-span-full rounded-xl bg-emerald-50 px-3 py-2 text-xs font-semibold text-emerald-800">{productNotice}</p>}

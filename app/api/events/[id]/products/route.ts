@@ -4,6 +4,9 @@ import {identity,json,jsonBody,failure,ScheduleError} from '@/lib/server/staff-s
 import {findBooking} from '@/lib/server/event-storage';
 import {saveProductConditional,deleteProductConditional,ProductCasError,BookingCasError} from '@/lib/server/booking-cas';
 import {parseDriveSource} from '@/lib/domain/delivery';
+import {driveSourceKey} from '@/lib/domain/drive-duplicate';
+import {findGlobalDriveDuplicate} from '@/lib/server/drive-global-duplicate';
+import {listDeliveryMedia} from '@/lib/server/delivery-media';
 import {dispatchR2Sync} from '@/lib/server/video-sync-dispatch';
 import {requireVersion,eventIdValid} from '@/lib/domain/event-management';
 import type {ProductBaseline} from '@/lib/domain/product-cas';
@@ -35,6 +38,21 @@ async function handlePOST(request:Request,{params}:{params:Promise<{id:string}>}
     originalProduct={name:o.name,url:o.url,mediaType:o.mediaType};
   }
   const located=await findBooking(id);
+  const raw=located.value.products;
+  const products=(Array.isArray(raw)?raw:raw&&typeof raw==='object'?Object.values(raw):[])
+    .filter((p):p is Record<string,unknown>=>!!p&&typeof p==='object'&&!Array.isArray(p));
+  const previous=products.find(p=>String(p.id||'')===productId);
+  const sourceChanged=!previous||driveSourceKey(String(previous.url||''))!==driveSourceKey(url);
+  // Detect legacy links across existing schedules before writing. Same-event races
+  // are also prevented atomically by the ETag CAS check in product-cas.ts.
+  if(sourceChanged){
+    let dupe:Awaited<ReturnType<typeof findGlobalDriveDuplicate>>;
+    try{dupe=await findGlobalDriveDuplicate(url,id,productId);}
+    catch{throw new ScheduleError(503,'Chưa kiểm tra được link Drive trùng trong lịch cũ. Vui lòng thử lại.','PRODUCT_DUPLICATE_CHECK_UNAVAILABLE');}
+    if(dupe)throw new ScheduleError(409,
+      `Link Drive đã được thêm vào lịch “${dupe.eventName||dupe.eventId}” / sản phẩm “${dupe.productName}”.`,
+      'PRODUCT_DRIVE_DUPLICATE');
+  }
   const saved=await saveProductConditional({
     key:located.key,id,expectedVersion:body.expectedVersion,productId,newId:randomUUID(),
     name,url,mediaType:String(mediaType),originalProduct,actorUid:user.uid
@@ -43,9 +61,22 @@ async function handlePOST(request:Request,{params}:{params:Promise<{id:string}>}
   // A linked folder triggers discovery. Newly uploaded files in existing folders are
   // picked up by the hourly schedule even without another admin save.
   const source=parseDriveSource(url);
-  const sync=String(mediaType)!=='image' && source
-    ? await dispatchR2Sync(source)
-    : {queued:false,reason:'unchanged-or-image'};
+  // Never dispatch GitHub Actions on unchanged saves, re-names or re-shared URLs
+  // which refer to the SAME Drive file/folder. Photos never trigger video sync.
+  let sync:{queued:boolean;reason:string}={queued:false,reason:'unchanged-or-image'};
+  if(!saved.unchanged && sourceChanged && source && String(mediaType)!=='image'){
+    try{
+      // Actual Drive contents, not just an AUTO dropdown, determine dispatch.
+      // Photo-only folders and single images must not start GitHub Actions.
+      const media=await listDeliveryMedia({url},true);
+      sync=media.some(item=>item.mimeType.startsWith('video/'))
+        ? await dispatchR2Sync(source)
+        : {queued:false,reason:'no-video-in-drive-source'};
+    }catch{
+      // Retain saved product. Hourly discovery retries temporarily unavailable Drive links.
+      sync={queued:false,reason:'drive-media-unavailable'};
+    }
+  }
   return json({success:true,productId:saved.product.id,product:saved.product,version:saved.version,unchanged:saved.unchanged,
     syncQueued:sync.queued,syncReason:sync.reason});
  }catch(err){
