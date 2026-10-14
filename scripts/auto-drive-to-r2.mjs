@@ -8,7 +8,7 @@
  */
 import {spawn} from 'node:child_process';
 import {GoogleAuth} from 'google-auth-library';
-import {cert,initializeApp,getApps,getApp} from 'firebase-admin/app';
+import {cert,initializeApp,getApps,deleteApp} from 'firebase-admin/app';
 import {getDatabase} from 'firebase-admin/database';
 import {driveRevision,videoObjectKeys} from '../lib/server/r2-private-video.mjs';
 import {ledgerSummary,sourcesFromEvents,validVideoId,validExistingVideoStat} from '../lib/server/video-sync-utils.mjs';
@@ -174,4 +174,20 @@ async function main(){
   console.log(`Finished: processed=${completed}, failed=${failed}, trackedBytes=${tracked}.`);
   if(failed)process.exitCode=1;
 }
-main().catch(e=>{console.error(`FATAL: ${e.message}`);process.exitCode=1;});
+main()
+  .catch(e => {
+    console.error(`FATAL: ${e.message}`);
+    process.exitCode = 1;
+  })
+  .finally(async () => {
+    const app = getApps().find(a => a.name === 'amorri-r2-worker');
+    if (!app) return;
+
+    try {
+      await deleteApp(app);
+      console.log('Firebase connection closed. Worker finished.');
+    } catch (e) {
+      console.error(`Firebase cleanup failed: ${e.message}`);
+      process.exitCode = 1;
+    }
+  });
