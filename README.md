@@ -1,3 +1,5 @@
+> **VNext 3.1.0 — Video bàn giao riêng tư bằng Cloudflare R2 (Vercel)**: xem [hướng dẫn triển khai, đồng bộ 1080p, HTTP Range và tránh Fast Origin Transfer](docs/VERCEL_CLOUDFLARE_R2_PRIVATE_VIDEO_3_1_0.md). Chế độ mới tắt mặc định để giữ tương thích.
+
 # VNext 3.0.2 — Google Drive HTTP 302 Redirect Pilot
 
 > **Mặc định tắt.** Chế độ redirect chỉ thử với **file video demo công khai được allowlist**; Google Drive riêng tư vẫn chạy proxy. Không thay hoặc phát tán OAuth token, service account, signing/encryption keys.

@@ -1,6 +1,6 @@
 {
   "name": "amorri-studio-vnext-2",
-  "version": "3.0.3-staff-money-302-auto",
+  "version": "3.1.0-private-r2-delivery",
   "private": true,
   "scripts": {
     "dev": "next dev",

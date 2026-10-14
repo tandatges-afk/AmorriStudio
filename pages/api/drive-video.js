@@ -16,6 +16,7 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import { resolveRange } from '../../lib/server/legacy/range.js';
 import { isDirectRedirectEnabled, isAllowedPublicDriveUrl, probePublicDriveRange } from '../../lib/server/public-drive-redirect.mjs';
+import { findR2Video, getPrivateVideoMode, r2PlaybackTtl } from '../../lib/server/r2-private-video.mjs';
 import { GoogleAuth } from 'google-auth-library';
 import { verifyDeliveryGrant, assertGrantProduct } from '../../lib/server/delivery-access';
 import { findBooking } from '../../lib/server/event-storage';
@@ -189,6 +190,7 @@ export default async function handler(req,res) {
       } else if(process.env.AMORRI_LEGACY_DELIVERY_ACCESS==='strict'){
         return sendError(res,401,'Private delivery token required');
       }
+      if (getPrivateVideoMode() !== 'drive' && !payload.deliveryToken) return sendError(res,401,'Private delivery token required for R2');
       // Drive metadata and Firebase gallery authorization are independent network
       // calls. Run them concurrently to reduce first-frame startup latency.
       // Never issue a ticket until BOTH succeed and membership is verified.
@@ -201,6 +203,27 @@ export default async function handler(req,res) {
       if(meta.capabilities?.canDownload===false)return sendError(res,403,'Download not permitted');
       if(!Number.isSafeInteger(Number(meta.size))||Number(meta.size)<=0)return sendError(res,422,'Missing video size');
       if(!await authorized(clientGallery,productId,id,token,meta,event))return sendError(res,403,'Video does not belong to this client gallery/product');
+      // Prefer a private, revision-specific R2 object after BOTH delivery grant and
+      // gallery/file membership have been verified above. R2 URLs are signed for a
+      // single GET object; the large video response bypasses Vercel entirely.
+      const deliveryMode = getPrivateVideoMode();
+      if (deliveryMode !== 'drive') {
+        // R2-only deliberately disallows tokenless legacy clients.
+        if (!payload.deliveryToken) return sendError(res,401,'Private delivery token required for R2');
+        let r2 = null;
+        try { r2 = await findR2Video(id, meta); }
+        catch (error) {
+          console.error('[r2-video]', { code: String(error?.message || 'R2_UNAVAILABLE') });
+          // Missing credentials, broken connection and unexpected R2 errors must
+          // never result in an unannounced fallback to costly Vercel proxy.
+          return sendError(res,503,'Private video storage unavailable. Check R2 configuration.');
+        }
+        if (r2) {
+          return res.status(200).json({ success:true, url:r2.url, expiresIn:r2PlaybackTtl(process.env),
+            mimeType:'video/mp4', transport:'r2', quality:r2.quality });
+        }
+        if (deliveryMode === 'r2-only') return res.status(409).json({ error:'Video đang được chuẩn bị trên R2. Vui lòng thử lại sau.', code:'VIDEO_NOT_MIRRORED' });
+      }
       // Redirect requires delivery capability, verified gallery membership, explicit
       // deployment opt-in and a successful anonymous one-byte video Range probe.
       // In verified-public-auto mode the file ID is discovered automatically
@@ -215,6 +238,8 @@ export default async function handler(req,res) {
       res.setHeader('Cache-Control','private, no-store');
       return res.status(200).json({success:true,url:`/api/drive-video?id=${encodeURIComponent(id)}&ticket=${encodeURIComponent(ticket)}`,expiresIn:ticketSeconds,mimeType:meta.mimeType,transport:directUrl?'redirect':'proxy'});
     }
+    // Strict cost-control mode blocks pre-existing signed proxy GETs as well.
+    if (getPrivateVideoMode() === 'r2-only') return sendError(res,410,'Private video proxy disabled; request a fresh R2 playback link');
     const ticket=checkTicket(req.query?.ticket,id);
     if(!ticket)return sendError(res,401,'Playback ticket expired or invalid');
     // HEAD always reports metadata from the signed ticket. For GET, the browser

@@ -1,0 +1,28 @@
+# Packages and build artifacts
+node_modules/
+.next/
+out/
+coverage/
+playwright-report/
+test-results/
+*.tsbuildinfo
+# Secrets. NEVER commit Google Service Account JSON or R2 API secrets.
+.env
+.env.*
+!.env.maps.example
+!.env.example
+*.pem
+*.p12
+*.pfx
+rclone.conf
+r2-credentials.json
+service-account*.json
+# Large private files and temporary transcodes
+*.mp4
+*.mov
+*.mkv
+*.avi
+*.zip
+.tmp/
+tmp/
+.DS_Store
