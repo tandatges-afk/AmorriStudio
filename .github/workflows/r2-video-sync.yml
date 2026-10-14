@@ -14,8 +14,10 @@ name: Amorri Private R2 Video Sync
         required: false
         default: true
         type: boolean
+  # Recovery scan for uploads into a previously linked Drive folder.
+  # A saved/updated product link is dispatched immediately by the web API when configured.
   schedule:
-    - cron: '25 1,13 * * *'
+    - cron: '17 * * * *'
 
 permissions:
   contents: read
@@ -47,8 +49,8 @@ jobs:
       RCLONE_CONFIG_R2_BUCKET_ACL: ''
       RCLONE_CONFIG_R2_ACCESS_KEY_ID: ${{ secrets.AMORRI_R2_UPLOAD_ACCESS_KEY_ID }}
       RCLONE_CONFIG_R2_SECRET_ACCESS_KEY: ${{ secrets.AMORRI_R2_UPLOAD_SECRET_ACCESS_KEY }}
-      AMORRI_SYNC_MAX_VIDEOS: '1'
-      AMORRI_SYNC_SOFT_LIMIT_BYTES: '9000000000'
+      AMORRI_SYNC_MAX_VIDEOS: '2'
+      AMORRI_SYNC_SOFT_LIMIT_BYTES: ${{ vars.AMORRI_SYNC_SOFT_LIMIT_BYTES || '9000000000' }}
       AMORRI_SYNC_LOOKBACK_DAYS: '120'
       INPUT_FILE_ID: ${{ inputs.drive_file_id }}
       INPUT_DRY_RUN: ${{ inputs.dry_run }}
@@ -92,7 +94,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          args=(--max 1)
+          args=(--max 2)
           if [[ "$GITHUB_EVENT_NAME" == 'workflow_dispatch' ]]; then
             if [[ -n "$INPUT_FILE_ID" ]]; then args+=(--id "$INPUT_FILE_ID"); fi
             if [[ "$INPUT_DRY_RUN" == 'true' ]]; then args+=(--dry-run); fi

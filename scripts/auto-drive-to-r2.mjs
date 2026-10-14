@@ -11,6 +11,7 @@ import {GoogleAuth} from 'google-auth-library';
 import {cert,initializeApp,getApps,deleteApp} from 'firebase-admin/app';
 import {getDatabase} from 'firebase-admin/database';
 import {driveRevision,videoObjectKeys} from '../lib/server/r2-private-video.mjs';
+import {headR2Video} from '../lib/server/video-sync-r2-head.mjs';
 import {checkDrive1080} from '../lib/server/video-1080-policy.mjs';
 import {ledgerSummary,sourcesFromEvents,validVideoId,validExistingVideoStat} from '../lib/server/video-sync-utils.mjs';
 
@@ -108,10 +109,13 @@ async function status(id,updates){
   await ledgerRef.child(id).update({id,...updates,updatedAt:Date.now()});
 }
 async function r2Stat(key){
-  const target=`${r2}:${bucket}/${key}`;
-  const result=await spawnResult('rclone',['lsjson',target,'--stat']);
-  let json;try{json=JSON.parse(result.stdout);}catch{throw Error(`R2 stat returned invalid JSON: ${key}`);}
-  return validExistingVideoStat(json)?json:null;
+  const item=await headR2Video(key,{
+    R2_ACCOUNT_ID:process.env.R2_ACCOUNT_ID,
+    R2_BUCKET:bucket,
+    R2_ACCESS_KEY_ID:process.env.RCLONE_CONFIG_R2_ACCESS_KEY_ID,
+    R2_SECRET_ACCESS_KEY:process.env.RCLONE_CONFIG_R2_SECRET_ACCESS_KEY
+  });
+  return item&&validExistingVideoStat(item)?item:null;
 }
 async function main(){
   let videoIds=[];

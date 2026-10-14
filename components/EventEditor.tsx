@@ -120,7 +120,7 @@ export function EventEditor({id,staff,user,onClose,onChanged,onDataUpdated}:Prop
     method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({expectedVersion:version,productId,name:productName,url:productUrl,mediaType:productType,originalProduct})
    });
-   const body=await res.json() as {error?:string;code?:string;version?:string;productId?:string;product?:{id:string;name:string;url:string;mediaType:string};unchanged?:boolean};
+   const body=await res.json() as {error?:string;code?:string;version?:string;productId?:string;product?:{id:string;name:string;url:string;mediaType:string};unchanged?:boolean;syncQueued?:boolean;syncReason?:string};
    if(!res.ok)throw new Error(`${body.error||'Không lưu được sản phẩm'}${body.code?` [${body.code}]`:''}${res.headers.get('X-Amorri-Request-Id')?` · Mã tra cứu: ${res.headers.get('X-Amorri-Request-Id')}`:''}`);
    if(!body.version||!body.product)throw new Error('API chưa trả phiên bản sản phẩm sau khi lưu.');
    const saved=body.product;
@@ -130,7 +130,11 @@ export function EventEditor({id,staff,user,onClose,onChanged,onDataUpdated}:Prop
       ?previous.products.map(p=>p.id===saved.id?{...p,...saved}:p)
       :[...previous.products,saved]}:previous);
    setProductId(saved.id);setProductName(saved.name);setProductUrl(saved.url);setProductType(saved.mediaType);
-   setProductNotice(body.unchanged?'Thông tin sản phẩm đã được đồng bộ.':'Đã lưu sản phẩm. Có thể tiếp tục chỉnh sửa lịch mà không cần đóng cửa sổ.');
+   setProductNotice(body.syncQueued
+      ?'Đã lưu sản phẩm và gửi yêu cầu đồng bộ 1080p tự động sang R2. Theo dõi ở Hệ thống → Video R2.'
+      :body.syncReason==='hourly-scan-only'
+      ?'Đã lưu sản phẩm. Video sẽ được quét tự động theo giờ; nếu cần xử lý ngay hãy cấu hình GitHub Dispatch Token trên Vercel.'
+      :'Đã lưu sản phẩm. Worker sẽ kiểm tra video trong lượt quét tiếp theo (nếu là sản phẩm video).');
    onDataUpdated?.();
   }catch(e){setError(e instanceof Error?e.message:'Không lưu được sản phẩm');}
   finally{setBusy(false);}

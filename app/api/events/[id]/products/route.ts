@@ -4,6 +4,7 @@ import {identity,json,jsonBody,failure,ScheduleError} from '@/lib/server/staff-s
 import {findBooking} from '@/lib/server/event-storage';
 import {saveProductConditional,deleteProductConditional,ProductCasError,BookingCasError} from '@/lib/server/booking-cas';
 import {parseDriveSource} from '@/lib/domain/delivery';
+import {dispatchR2Sync} from '@/lib/server/video-sync-dispatch';
 import {requireVersion,eventIdValid} from '@/lib/domain/event-management';
 import type {ProductBaseline} from '@/lib/domain/product-cas';
 
@@ -38,7 +39,15 @@ async function handlePOST(request:Request,{params}:{params:Promise<{id:string}>}
     key:located.key,id,expectedVersion:body.expectedVersion,productId,newId:randomUUID(),
     name,url,mediaType:String(mediaType),originalProduct,actorUid:user.uid
   });
-  return json({success:true,productId:saved.product.id,product:saved.product,version:saved.version,unchanged:saved.unchanged});
+  // Firebase write is complete before triggering; failed dispatch must never undo a saved product.
+  // A linked folder triggers discovery. Newly uploaded files in existing folders are
+  // picked up by the hourly schedule even without another admin save.
+  const source=parseDriveSource(url);
+  const sync=String(mediaType)!=='image' && source
+    ? await dispatchR2Sync(source)
+    : {queued:false,reason:'unchanged-or-image'};
+  return json({success:true,productId:saved.product.id,product:saved.product,version:saved.version,unchanged:saved.unchanged,
+    syncQueued:sync.queued,syncReason:sync.reason});
  }catch(err){
    if(err instanceof ProductCasError||err instanceof BookingCasError)
      return json({error:err.message,code:err.code},err.status);
