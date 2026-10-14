@@ -7,7 +7,7 @@ import {formatTimecode,parseTimecode} from '@/lib/domain/timecode';
 type Comment={id:string;name:string;text:string;seconds:number;createdAt:number;resolved:boolean};
 const time=formatTimecode;
 const REVIEWER_NAME_KEY='amorri:delivery-reviewer-name';
-type PlaybackMode='loading'|'drive'|'iframe';
+type PlaybackMode='loading'|'drive'|'blocked';
 function VideoReview({eventId,productId,file,token}:{eventId:string;productId:string;file:DeliveryMedia;token:string}){
   const [src,setSrc]=useState(''),[mode,setMode]=useState<PlaybackMode>('loading');
   const [error,setError]=useState(''),[comments,setComments]=useState<Comment[]>([]);
@@ -35,9 +35,13 @@ function VideoReview({eventId,productId,file,token}:{eventId:string;productId:st
     return {url:b.url as string,transport:b.transport==='r2'?'r2' as const:b.transport==='redirect'?'redirect' as const:'proxy' as const};
   },[eventId,productId,file.id,token]);
   const useDrive=useCallback(async()=>{
+    const w=file.width||0,h=file.height||0;
+    if(w>0&&h>0&&!(w>=h?w===1920&&h<=1080:h===1920&&w<=1080)){
+      setMode('blocked');setError('Video không đúng chuẩn 1080p. Studio phải xuất MP4 1920×1080 và tải file mới lên Drive trước khi phát.');return;
+    }
     try{const ticket=await issueDriveTicket();playbackTransport.current=ticket.transport;setSrc(ticket.url);setMode('drive');}
-    catch(e){setMode('iframe');setError(`Không lấy được quyền phát trực tiếp từ Drive: ${e instanceof Error?e.message:'Lỗi kết nối'}. Đang dùng khung preview.`);}
-  },[issueDriveTicket]);
+    catch(e){setMode('blocked');setError(e instanceof Error?e.message:'Không thể phát video 1080p.');}
+  },[issueDriveTicket,file.width,file.height]);
   const onNativeError=useCallback(async(e:SyntheticEvent<HTMLVideoElement>)=>{
     const node=e.currentTarget;
     const errorCode=node.error?.code||0;
@@ -57,7 +61,7 @@ function VideoReview({eventId,productId,file,token}:{eventId:string;productId:st
         setMode('drive');
         return;
       }
-      catch(err){setError(`Không cấp lại được link Drive: ${err instanceof Error?err.message:'Lỗi kết nối'}. Đang dùng preview dự phòng.`);}
+      catch(err){setError(`Không cấp lại được link R2 1080p: ${err instanceof Error?err.message:'Lỗi kết nối'}.`);}
     }
     // The browser's MediaError is NOT proof that an MP4 codec is unsupported.
     // Distinguish upstream proxy/HTTP failures from decoding problems where possible.
@@ -73,7 +77,7 @@ function VideoReview({eventId,productId,file,token}:{eventId:string;productId:st
       else if(errorCode===2)reason='kết nối bị gián đoạn';
       else reason='không thể phát trực tiếp';
     }catch{reason='kết nối tới proxy Drive gặp lỗi';}
-    setMode('iframe');setError(`Phát trực tiếp không thành công (${reason}); đã chuyển sang Google Drive Preview. Khung Drive không cung cấp currentTime cho website, vì vậy mốc bình luận cần nhập thủ công.`);
+    setMode('blocked');setError(`Phát 1080p từ R2 không thành công (${reason}). Liên hệ Studio để kiểm tra file 1080p.`);
   },[issueDriveTicket,src,seconds]);
   useEffect(()=>{
     // Drive-only playback: video access is authorized when the ticket is issued.
@@ -98,7 +102,7 @@ function VideoReview({eventId,productId,file,token}:{eventId:string;productId:st
       onLoadedMetadata={e=>{if(lastPosition.current>0 && Number.isFinite(e.currentTarget.duration)&&lastPosition.current<e.currentTarget.duration){e.currentTarget.currentTime=lastPosition.current;}}}
       onError={e=>{void onNativeError(e);}}/>
       :mode==='loading'?<div className="delivery-player-loading">Đang chuẩn bị video…</div>
-      :<iframe src={file.previewUrl} loading="lazy" title={`Xem video ${file.name}`} allow="autoplay; fullscreen; picture-in-picture" referrerPolicy="no-referrer"/>}
+      :<div role="alert" className="delivery-player-loading" style={{padding:'32px 16px',textAlign:'center'}}>Không thể phát clip này. Studio cần xuất và tải lên file MP4 1080p (H.264/AAC); video 4K không được hỗ trợ.</div>}
     </div>
     <aside className="delivery-review"><h4>Góp ý theo timeline</h4><p className="delivery-muted">Dừng hoặc tua video đến vị trí cần chỉnh sửa. Nếu đang dùng khung Drive dự phòng, nhập mốc giây thủ công.</p>
       <div className="delivery-comments">{comments.map(c=><div className="delivery-comment" key={c.id}>

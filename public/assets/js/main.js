@@ -641,8 +641,12 @@ function initVideoReviewPanels() {
                 driveFailureMessage=reason||'API không trả về video có thể phát.';
                 synced=false;card.classList.add('vr-load-error');card.classList.remove('vr-drive-loading','vr-drive-idle','vr-drive-stalled');activation.hidden=false;activation.textContent='↻ Thử tải lại video';
                 htmlVideo.style.display='none';htmlVideo.removeAttribute('src');htmlVideo.load();
-                if(driveFrame?.dataset.vrFallbackSrc && !driveFrame.getAttribute('src'))driveFrame.src=driveFrame.dataset.vrFallbackSrc;
-                if(driveFrame)driveFrame.style.display='block';updateMode();refreshTime();
+                // Do not expose Google Drive's 4K preview as a fallback.
+                if(driveFrame){driveFrame.removeAttribute('src');driveFrame.style.display='none';}
+                let warning=frameHost?.querySelector('.am-1080-only-warning');
+                if(!warning&&frameHost){warning=document.createElement('div');warning.className='am-1080-only-warning';warning.setAttribute('role','alert');frameHost.append(warning);}
+                if(warning)warning.textContent=driveFailureMessage+' — Chỉ phát MP4 1080p H.264/AAC. Nếu video là 4K, Studio cần xuất 1080p rồi tải file mới lên Drive.';
+                updateMode();refreshTime();
             };
             htmlVideo.addEventListener('error',()=>{
                 if(!card.isConnected || !htmlVideo.getAttribute('src'))return;
@@ -742,6 +746,8 @@ function initVideoReviewPanels() {
                           return authorized;
                         });
                         if(!result||!card.isConnected)return;
+                        if(result.transport!=='r2'||result.quality!=='1080p')throw new Error('Chỉ cho phép phát video R2 1080p; không hỗ trợ proxy/Drive/4K.');
+                        frameHost?.querySelector('.am-1080-only-warning')?.remove();
                         // Do not prefetch full video data for every player in
                         // a mixed Drive folder. Only the first Drive clip eagerly
                         // buffers; other clips begin streaming normally on Play.
@@ -1126,7 +1132,7 @@ async function initClientGallery() {
             } else if(v.source === 'drive') {
                 frame=`<video controls playsinline webkit-playsinline preload="none" data-vr-drive-video style="display:none"></video><iframe data-vr-drive-frame data-vr-fallback-src="${safeUrl(v.previewUrl || `https://drive.google.com/file/d/${encodeURIComponent(v.id)}/preview`)}" loading="lazy" style="display:none" title="${escapeHtml(v.name)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe>`;
             } else if(v.url) {
-                frame=`<video controls playsinline webkit-playsinline preload="metadata" src="${safeUrl(v.url)}"></video>`;
+                frame=`<div role="alert" class="am-1080-only-warning">Video liên kết trực tiếp chưa được xác minh là 1080p. Vui lòng sử dụng link Google Drive MP4 1080p để phát qua R2.</div>`;
             }
             return `<section class="client-video-card" data-vr-product="${escapeHtml(vrKey)}" data-vr-file-id="${escapeHtml(v.id||'')}" data-vr-raw-product="${escapeHtml(v.productId||'')}" data-vr-type="${escapeHtml(v.externalType==='youtube'?'youtube':v.source==='drive'?'drive':'direct')}" data-vr-default-ratio="${v.isShort?'9/16':'16/9'}" data-vr-video-id="${escapeHtml(v.videoId||'')}">
                 <div class="client-video-review-layout">

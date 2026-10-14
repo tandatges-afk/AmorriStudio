@@ -11,6 +11,7 @@ import {GoogleAuth} from 'google-auth-library';
 import {cert,initializeApp,getApps,deleteApp} from 'firebase-admin/app';
 import {getDatabase} from 'firebase-admin/database';
 import {driveRevision,videoObjectKeys} from '../lib/server/r2-private-video.mjs';
+import {checkDrive1080} from '../lib/server/video-1080-policy.mjs';
 import {ledgerSummary,sourcesFromEvents,validVideoId,validExistingVideoStat} from '../lib/server/video-sync-utils.mjs';
 
 const options=new Map();
@@ -62,7 +63,7 @@ async function driveAPI(url){
 }
 async function metadata(id){
   const url=new URL(`https://www.googleapis.com/drive/v3/files/${encodeURIComponent(id)}`);
-  url.searchParams.set('fields','id,mimeType,size,md5Checksum,modifiedTime');
+  url.searchParams.set('fields','id,mimeType,size,md5Checksum,modifiedTime,videoMediaMetadata');
   url.searchParams.set('supportsAllDrives','true');
   return driveAPI(url);
 }
@@ -132,7 +133,7 @@ async function main(){
     }
   }
   videoIds=[...new Set(videoIds)];
-  console.log(`Discovered ${videoIds.length} possible video(s), maximum ${limit} new conversions per run. dry-run=${dry}`);
+  console.log(`Discovered ${videoIds.length} possible video(s), maximum ${limit} new 1080p transfers per run. dry-run=${dry}`);
   let ledger=ledgerRef?(await ledgerRef.limitToLast(1500).once('value')).val():{};
   let tracked=ledgerSummary(ledger).bytes;
   console.log(`Known completed R2 bytes in Firebase ledger: ${tracked}. Note: existing untracked R2 objects are NOT included.`);
@@ -143,6 +144,12 @@ async function main(){
       const meta=await metadata(id);
       if(!meta.mimeType?.startsWith('video/')||!Number.isSafeInteger(Number(meta.size))||Number(meta.size)<=0){console.warn(`Skipping non-video ${id}`);continue;}
       const revision=driveRevision(id,meta);
+      const policy=checkDrive1080(meta);
+      if(!policy.ok){
+        console.warn(`BLOCKED ${id}: ${policy.code} — ${policy.message}`);
+        await status(id,{state:'needs_1080p',revision,bytes:0,code:policy.code,message:policy.message});
+        continue;
+      }
       const {key}=videoObjectKeys(id,meta)[0];
       const existing=await r2Stat(key);
       if(existing){
@@ -159,10 +166,10 @@ async function main(){
         break;
       }
       if(dry){console.log(`WOULD SYNC: ${id} -> ${key}`);completed++;continue;}
-      await status(id,{state:'processing',revision,key,bytes:0,startedAt:Date.now(),message:'Đang chuyển mã 1080p'});
+      await status(id,{state:'processing',revision,key,bytes:0,startedAt:Date.now(),message:'Đang sao chép file 1080p đã xuất sẵn'});
       console.log(`START: ${id} -> ${key}`);
       try{
-        await spawnResult(process.execPath,['scripts/sync-drive-to-r2.mjs','--id',id,'--transcode-1080'],true);
+        await spawnResult(process.execPath,['scripts/sync-drive-to-r2.mjs','--id',id,'--copy-1080'],true);
         const result=await r2Stat(key);
         if(!result)throw Error('Video missing from R2 after successful sync');
         await status(id,{state:'ready',revision,key,bytes:result.Size,completedAt:Date.now(),message:'Sẵn sàng phát 1080p'});

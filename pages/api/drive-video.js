@@ -17,6 +17,7 @@ import { pipeline } from 'node:stream/promises';
 import { resolveRange } from '../../lib/server/legacy/range.js';
 import { isDirectRedirectEnabled, isAllowedPublicDriveUrl, probePublicDriveRange } from '../../lib/server/public-drive-redirect.mjs';
 import { findR2Video, getPrivateVideoMode, r2PlaybackTtl } from '../../lib/server/r2-private-video.mjs';
+import { checkDrive1080 } from '../../lib/server/video-1080-policy.mjs';
 import { GoogleAuth } from 'google-auth-library';
 import { verifyDeliveryGrant, assertGrantProduct } from '../../lib/server/delivery-access';
 import { findBooking } from '../../lib/server/event-storage';
@@ -98,7 +99,7 @@ function driveIdFromUrl(input, folder=false) {
   }catch{return null;}
 }
 async function getDriveMetadata(id, token) {
-  const url=`${API}${encodeURIComponent(id)}?fields=id,mimeType,size,modifiedTime,md5Checksum,parents,webContentLink,capabilities(canDownload)&supportsAllDrives=true`;
+  const url=`${API}${encodeURIComponent(id)}?fields=id,mimeType,size,modifiedTime,md5Checksum,parents,webContentLink,videoMediaMetadata,capabilities(canDownload)&supportsAllDrives=true`;
   const r=await fetchHeaders(url,{headers:{Authorization:`Bearer ${token}`}},'drive-metadata');
   if(!r.ok)throw fail(r.status===404?404:502,`Drive metadata HTTP ${r.status}`,'drive-metadata');
   return r.json();
@@ -162,7 +163,7 @@ async function authorized(clientGallery,productId,id,driveToken,meta,event){
 }
 export { resolveRange };
 
-function sendError(res,status,message){res.setHeader('Cache-Control','no-store');return res.status(status).json({error:message});}
+function sendError(res,status,message,code){res.setHeader('Cache-Control','no-store');return res.status(status).json({error:message,...(code?{code}:{})});}
 export default async function handler(req,res) {
   res.setHeader('Cache-Control','private, no-store');
   res.setHeader('X-Content-Type-Options','nosniff');
@@ -203,10 +204,14 @@ export default async function handler(req,res) {
       if(meta.capabilities?.canDownload===false)return sendError(res,403,'Download not permitted');
       if(!Number.isSafeInteger(Number(meta.size))||Number(meta.size)<=0)return sendError(res,422,'Missing video size');
       if(!await authorized(clientGallery,productId,id,token,meta,event))return sendError(res,403,'Video does not belong to this client gallery/product');
+      const policy=checkDrive1080(meta);
+      if(!policy.ok)return sendError(res,422,policy.message,policy.code);
       // Prefer a private, revision-specific R2 object after BOTH delivery grant and
       // gallery/file membership have been verified above. R2 URLs are signed for a
       // single GET object; the large video response bypasses Vercel entirely.
       const deliveryMode = getPrivateVideoMode();
+      // Only signed private R2 playback is allowed. Never proxy/fallback for new sessions.
+      if (deliveryMode === 'drive')return sendError(res,503,'Studio chưa bật luồng phát R2 1080p. Vui lòng liên hệ Admin.','VIDEO_R2_REQUIRED');
       if (deliveryMode !== 'drive') {
         // R2-only deliberately disallows tokenless legacy clients.
         if (!payload.deliveryToken) return sendError(res,401,'Private delivery token required for R2');
@@ -222,8 +227,9 @@ export default async function handler(req,res) {
           return res.status(200).json({ success:true, url:r2.url, expiresIn:r2PlaybackTtl(process.env),
             mimeType:'video/mp4', transport:'r2', quality:r2.quality });
         }
-        if (deliveryMode === 'r2-only') return res.status(409).json({ error:'Video đang được chuẩn bị trên R2. Vui lòng thử lại sau.', code:'VIDEO_NOT_MIRRORED' });
+        return res.status(409).json({ error:'Chưa có bản MP4 1080p trên R2. Admin cần xuất video 1080p, tải lên Drive và đợi đồng bộ.', code:'VIDEO_NOT_MIRRORED' });
       }
+      // Unreachable in 1080p-only mode; leave legacy implementation below for easier rollback.
       // Redirect requires delivery capability, verified gallery membership, explicit
       // deployment opt-in and a successful anonymous one-byte video Range probe.
       // In verified-public-auto mode the file ID is discovered automatically
@@ -239,7 +245,7 @@ export default async function handler(req,res) {
       return res.status(200).json({success:true,url:`/api/drive-video?id=${encodeURIComponent(id)}&ticket=${encodeURIComponent(ticket)}`,expiresIn:ticketSeconds,mimeType:meta.mimeType,transport:directUrl?'redirect':'proxy'});
     }
     // Strict cost-control mode blocks pre-existing signed proxy GETs as well.
-    if (getPrivateVideoMode() === 'r2-only') return sendError(res,410,'Private video proxy disabled; request a fresh R2 playback link');
+    return sendError(res,410,'Chỉ hỗ trợ phát video 1080p qua Cloudflare R2. Vui lòng tải lại trang.','VIDEO_R2_ONLY');
     const ticket=checkTicket(req.query?.ticket,id);
     if(!ticket)return sendError(res,401,'Playback ticket expired or invalid');
     // HEAD always reports metadata from the signed ticket. For GET, the browser

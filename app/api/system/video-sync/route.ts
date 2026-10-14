@@ -11,10 +11,10 @@ export async function GET(request:Request){
     const user=await authenticatedAdmin(request);
     if(!user)return NextResponse.json({error:'Chỉ Admin được xem đồng bộ video'},{status:403,headers});
     const snapshot=await adminDatabase().ref('studioPlanner_v1/videoSync_v1/status').orderByChild('updatedAt').limitToLast(100).once('value');
-    const items: Array<{id:string;state:'ready'|'processing'|'failed';bytes:number;updatedAt:number;message:string;revision:string}> = [];
+    const items: Array<{id:string;state:'ready'|'processing'|'failed'|'needs_1080p';bytes:number;updatedAt:number;message:string;revision:string}> = [];
     snapshot.forEach(child=>{
       const data=child.val();
-      if(!data||!['ready','processing','failed'].includes(data.state))return;
+      if(!data||!['ready','processing','failed','needs_1080p'].includes(data.state))return;
       items.push({
         id:String(child.key||'').slice(0,200),state:data.state,
         bytes:Number.isSafeInteger(data.bytes)&&data.bytes>0?data.bytes:0,

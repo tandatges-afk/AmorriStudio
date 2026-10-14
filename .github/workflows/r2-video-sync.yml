@@ -28,7 +28,7 @@ jobs:
   mirror:
     if: github.event_name == 'workflow_dispatch' || vars.AMORRI_ENABLE_AUTO_R2_SYNC == 'true'
     runs-on: ubuntu-24.04
-    timeout-minutes: 300
+    timeout-minutes: 120
     env:
       # Credentials are GitHub Actions Secrets, never committed files.
       DRIVE_SERVICE_ACCOUNT_JSON: ${{ secrets.AMORRI_DRIVE_SERVICE_ACCOUNT_JSON }}
@@ -60,7 +60,7 @@ jobs:
           cache: 'npm'
       - name: Install Node dependencies
         run: npm ci --no-audit --no-fund
-      - name: Install rclone and FFmpeg
+      - name: Install rclone and FFprobe
         shell: bash
         run: |
           set -euo pipefail
@@ -88,7 +88,7 @@ jobs:
           chmod 600 "$RUNNER_TEMP/drive-sa.json"
           echo "RCLONE_CONFIG_DRIVE_SERVICE_ACCOUNT_FILE=$RUNNER_TEMP/drive-sa.json" >> "$GITHUB_ENV"
           echo "RCLONE_CONFIG_R2_ENDPOINT=https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com" >> "$GITHUB_ENV"
-      - name: Sync one new video or inspect queue
+      - name: Verify and copy one 1080p video
         shell: bash
         run: |
           set -euo pipefail

@@ -21,7 +21,10 @@ export async function GET(request:Request,{params}:{params:Promise<{eventId:stri
     try{
       const refresh=new URL(request.url).searchParams.get('refresh')==='1';
       const media=await listDeliveryMedia(p,refresh);
-      const videoCount=media.filter(item=>item.isVideo).length;
+      const videos=media.filter(item=>item.isVideo);
+      const videoCount=videos.length;
+      const incompatible=videos.filter(item=>!item.width||!item.height||!(item.width>=item.height?item.width===1920&&item.height<=1080:item.height===1920&&item.width<=1080));
+      const warning=incompatible.length?`${incompatible.length} clip chưa đúng chuẩn 1080p hoặc thiếu metadata: ${incompatible.slice(0,3).map(v=>v.name+' ('+(v.width||'?')+'×'+(v.height||'?')+')').join(', ')}. 4K không được phát; hãy xuất MP4 1080p H.264/AAC và tải file mới lên Drive.`:undefined;
       const imageCount=media.filter(item=>!item.isVideo).length;
       const kind:'video'|'image'|'mixed'|'unknown'=videoCount&&imageCount?'mixed':videoCount?'video':imageCount?'image':'unknown';
       const ids=new Set(savedSelectionIds(value.favoritePhotoItems,id));
@@ -39,7 +42,7 @@ export async function GET(request:Request,{params}:{params:Promise<{eventId:stri
       }
       const selected=chooseDeliveryCover(media);
       const cover=selected?{mediaId:selected.id,productId:id,type:(selected.isVideo?'video':'image') as 'video'|'image',orientation:coverOrientation(selected)}:undefined;
-      return {id,name,kind,videoCount,imageCount,selectedNames,cover};
+      return {id,name,kind,videoCount,imageCount,selectedNames,cover,warning};
     }catch(error){
       // Do not claim unknown media is photos or clips when Google Drive fails.
       return {id,name,kind:'unknown' as const,videoCount:0,imageCount:0,selectedNames:[],warning:error instanceof Error?error.message:'Không tải được Google Drive'};

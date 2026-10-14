@@ -4438,3 +4438,7 @@ body.amorri-cinema[data-client-gallery="true"] #clientGalleryView .gallery-cover
 #cgPhotoGrid .photo-filename{pointer-events:auto;}
 #cgPhotoGrid .photo-filename a{position:relative;z-index:6;}
 
+
+/* Amorri 3.2.1: user-visible rejection, never fallback to Drive 4K preview. */
+#clientGalleryView .client-video-card[data-vr-type="drive"] .am-mobile-source-link {display:none!important}
+#clientGalleryView .client-video-frame .am-1080-only-warning {position:absolute;inset:0;display:flex;align-items:center;justify-content:center;text-align:center;padding:20px;background:#101819;color:#fff1df;font-size:14px;line-height:1.6;z-index:2;overflow:auto}

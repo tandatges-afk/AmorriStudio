@@ -5,17 +5,18 @@
  * Uses DRIVE_SERVICE_ACCOUNT_JSON for read-only metadata; rclone remotes
  * 'drive' and 'r2' must be configured separately.
  *
- * node scripts/sync-drive-to-r2.mjs --id DRIVE_FILE_ID --original
- * node scripts/sync-drive-to-r2.mjs --id DRIVE_FILE_ID --transcode-1080
+ * node scripts/sync-drive-to-r2.mjs --id DRIVE_FILE_ID --copy-1080
+ * Only pre-encoded 1080p MP4 H.264/AAC files are accepted.
  * node scripts/sync-drive-to-r2.mjs --id DRIVE_FILE_ID --file /tmp/1080.mp4
- * node scripts/sync-drive-to-r2.mjs --folder DRIVE_FOLDER_ID --transcode-1080
- * node scripts/sync-drive-to-r2.mjs --ids-file /tmp/video-ids.txt --transcode-1080
+ * node scripts/sync-drive-to-r2.mjs --folder DRIVE_FOLDER_ID --copy-1080
+ * node scripts/sync-drive-to-r2.mjs --ids-file /tmp/video-ids.txt --copy-1080
  * Add --dry-run to see the object keys and copy commands without uploading.
  */
 import { GoogleAuth } from 'google-auth-library';
 import { spawn } from 'node:child_process';
 import { mkdtemp, rm, stat } from 'node:fs/promises';
 import { readFile } from 'node:fs/promises';
+import { checkDrive1080,checkEncoded1080 } from '../lib/server/video-1080-policy.mjs';
 import os from 'node:os';
 import path from 'node:path';
 import { driveRevision, videoObjectKeys } from '../lib/server/r2-private-video.mjs';
@@ -25,9 +26,9 @@ const args=process.argv.slice(2);
 const option=name=>{const i=args.indexOf(name);return i>=0?args[i+1]:null;};
 const has=name=>args.includes(name);
 const id=option('--id'), folder=option('--folder'), idsFile=option('--ids-file');
-const mode=(has('--original')?'original':has('--file')?'file':has('--transcode-1080')?'transcode':null);
+const mode=(has('--copy-1080')?'copy-1080':has('--file')?'file':null);
 const dryRun=has('--dry-run');
-const help=()=>console.log(`\nR2 private video sync:\n  node scripts/sync-drive-to-r2.mjs --id FILE_ID --transcode-1080\n  node scripts/sync-drive-to-r2.mjs --folder FOLDER_ID --transcode-1080\n  node scripts/sync-drive-to-r2.mjs --id FILE_ID --original\n  node scripts/sync-drive-to-r2.mjs --id FILE_ID --file /path/video-1080.mp4\n\nRequires Drive service account env, two rclone remotes, R2_BUCKET. --dry-run supported.\n`);
+const help=()=>console.log(`\nAmorri 1080p-only: --id/--folder/--ids-file + --copy-1080, or --id + --file /path/1080p.mp4.\n4K/2K/unverified sources are rejected. --transcode-1080 and --original are disabled.\n`);
 
 function run(cmd,argv) {
   return new Promise((resolve,reject)=>{
@@ -44,7 +45,8 @@ function requireJson(){
 async function main(){
   if (has('--help') || (!id && !folder && !idsFile)) { help(); process.exitCode=(id||folder||idsFile)?0:1; return; }
   if ([id,folder,idsFile].filter(Boolean).length!==1)throw new Error('Choose one of --id, --folder, --ids-file');
-  if (!mode || (has('--file') && !id))throw new Error('Choose --original, --transcode-1080, or --file (single id only)');
+  if (has('--original')||has('--transcode-1080'))throw new Error('VIDEO_REQUIRES_1080P: Không tự chuyển mã 4K. Hãy xuất lại MP4 1080p rồi dùng --copy-1080.');
+  if (!mode || (has('--file') && !id))throw new Error('Choose --copy-1080, or --file (single id only)');
   const bucket=String(process.env.R2_BUCKET||'');
   if(!/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(bucket))throw new Error('Set R2_BUCKET');
   const credentials=requireJson();
@@ -91,38 +93,40 @@ async function main(){
   let failed=0;
   for(const [index,fileId] of ids.entries()){
     try {
-      const meta=await driveGet(fileId,'id,size,mimeType,modifiedTime,md5Checksum');
+      const meta=await driveGet(fileId,'id,size,mimeType,modifiedTime,md5Checksum,videoMediaMetadata');
       if(!meta.mimeType?.startsWith('video/') || !Number.isSafeInteger(Number(meta.size)) || Number(meta.size)<=0)throw new Error('Not a binary video');
-      if(mode==='original' && meta.mimeType!=='video/mp4') throw new Error('Original upload requires MP4. Use --transcode-1080 for this source format.');
+      const eligibility=checkDrive1080(meta);
+      if(!eligibility.ok)throw new Error(`${eligibility.code}: ${eligibility.message}`);
       const keys=videoObjectKeys(fileId,meta);
-      const target=keys.find(x=>x.quality===(mode==='original'?'original':'1080p'));
+      const target=keys.find(x=>x.quality==='1080p');
       const destination=`${remoteR2}:${bucket}/${target.key}`;
       console.log(`\n[${index+1}/${ids.length}] Drive: ${fileId} revision:${driveRevision(fileId,meta)} (${meta.size} bytes)`);
       console.log(`  -> ${destination}`);
       if(dryRun)continue;
-      if(mode==='original'){
-        await run('rclone',['backend','copyid',`${remoteDrive}:`,fileId,destination,'--progress','--s3-upload-cutoff','64M','--s3-chunk-size','64M']);
-      } else if(mode==='file'){
-        const source=path.resolve(option('--file'));
+      const temp=await mkdtemp(path.join(os.tmpdir(),'amorri-r2-'));
+      try{
+        const source=mode==='file'?path.resolve(option('--file')):path.join(temp,'drive-1080.mp4');
+        if(mode==='copy-1080'){
+          console.log('  Download already-exported 1080p from Drive (NO TRANSCODING)...');
+          await run('rclone',['backend','copyid',`${remoteDrive}:`,fileId,source,'--progress']);
+        }
         const info=await stat(source);
-        if(!info.isFile() || info.size<=0)throw new Error('Local 1080p file empty');
+        if(!info.isFile()||info.size<=0)throw new Error('Video file is empty');
+        // Probe the actual bytes, not only Drive metadata or filename.
+        const probe=await new Promise((resolve,reject)=>{
+          const child=spawn('ffprobe',['-v','error','-show_entries','stream=codec_type,codec_name,pix_fmt,width,height','-show_entries','format=format_name','-of','json',source],{stdio:['ignore','pipe','pipe'],shell:false});
+          let out='',err='';
+          child.stdout.on('data',chunk=>{out+=chunk.toString();if(out.length>100_000)child.kill();});
+          child.stderr.on('data',chunk=>{err+=chunk.toString().slice(0,2000);});
+          child.on('error',reject);
+          child.on('close',code=>{if(code!==0)return reject(new Error(`ffprobe failed: ${err.slice(-250)}`));
+            try{resolve(JSON.parse(out));}catch{reject(new Error('ffprobe invalid output'));}});
+        });
+        const verified=checkEncoded1080(probe);
+        if(!verified.ok)throw new Error(`${verified.code}: ${verified.message}`);
+        console.log(`  VERIFIED: ${verified.width}x${verified.height}, H.264/AAC; upload unchanged (no re-encode).`);
         await run('rclone',['copyto',source,destination,'--progress','--s3-upload-cutoff','64M','--s3-chunk-size','64M']);
-      } else {
-        const temp=await mkdtemp(path.join(os.tmpdir(),'amorri-r2-'));
-        try{
-          const original=path.join(temp,'drive-original.mp4');
-          const optimized=path.join(temp,'video-1080p.mp4');
-          console.log('  Download from Drive (outside Vercel)...');
-          await run('rclone',['backend','copyid',`${remoteDrive}:`,fileId,original,'--progress']);
-          console.log('  Encoding 1080p H.264/AAC faststart...');
-          await run('ffmpeg',['-hide_banner','-y','-i',original,
-            '-map','0:v:0','-map','0:a:0?','-vf',"scale=w='min(1920,iw)':h='min(1080,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2",
-            '-c:v','libx264','-pix_fmt','yuv420p','-preset','medium','-crf','21','-maxrate','8000k','-bufsize','16000k',
-            '-c:a','aac','-b:a','192k','-movflags','+faststart',optimized]);
-          console.log('  Upload to private R2 multipart (outside Vercel)...');
-          await run('rclone',['copyto',optimized,destination,'--progress','--s3-upload-cutoff','64M','--s3-chunk-size','64M']);
-        } finally {await rm(temp,{recursive:true,force:true});}
-      }
+      } finally {await rm(temp,{recursive:true,force:true});}
       console.log(`  SYNCED: ${target.key}`);
     } catch(e){failed++;console.error(`  FAILED ${fileId}: ${e.message}`);}
   }

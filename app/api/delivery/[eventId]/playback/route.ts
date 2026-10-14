@@ -19,7 +19,10 @@ export async function POST(request:Request,{params}:{params:Promise<{eventId:str
     const {value}=await findBooking(eventId);
     const product=productById(value,body.productId);
     const media=await listDeliveryMedia(product);
-    if(!media.some(m=>m.id===body.mediaId&&m.isVideo))throw new DeliveryError(404,'VIDEO_NOT_FOUND','Video không thuộc sản phẩm được chia sẻ');
-    return json({provider:'drive'});
+    const selected=media.find(m=>m.id===body.mediaId&&m.isVideo);
+    if(!selected)throw new DeliveryError(404,'VIDEO_NOT_FOUND','Video không thuộc sản phẩm được chia sẻ');
+    const w=selected.width||0,h=selected.height||0;
+    if(!(w>=h?w===1920&&h<=1080:h===1920&&w<=1080))throw new DeliveryError(409,'VIDEO_REQUIRES_1080P','Studio phải xuất và tải lên video MP4 1080p mới có thể phát.');
+    return json({provider:'r2',quality:'1080p'});
   }catch(err){return deliveryFailure(err);}
 }
