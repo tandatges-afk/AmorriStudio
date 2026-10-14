@@ -56,3 +56,15 @@
 .amorri-r2-mini--ready{background:#ebf9f0;color:#177247;border-color:#b9e3ca}
 .amorri-r2-mini--invalid,.amorri-r2-mini--error{background:#fff0ed;color:#ad4b3a;border-color:#f0c8be}
 .amorri-r2-mini:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+
+/* 3.2.5 · Compact Vietnamese lunar calendar and double-click booking */
+.ops325-create-day{cursor:crosshair;transition:background-color .15s ease;}
+.ops325-create-day:hover{background:#f4f8fc;}
+.ops325-create-day .ops29-event{cursor:pointer;}
+.ops325-date-head{display:flex;justify-content:space-between;align-items:center;gap:5px;margin:0 0 6px;min-width:0;}
+.ops325-date-head .ops325-solar-day{display:grid;place-items:center;width:28px;height:28px;flex:0 0 28px;color:#42546a;font-weight:800;font-size:12px;}
+.ops29-month-day.today .ops325-date-head .ops325-solar-day{border-radius:50%;background:#486aa9;color:white;}
+.ops325-lunar-date{font-size:10px;color:#8896a7;letter-spacing:.005em;white-space:nowrap;font-weight:550;}
+.ops325-lunar-date.is-first{color:#a46d43;font-weight:750;}
+.ops29-week-day>h3 .ops325-lunar-date{margin-left:auto;font-size:10px;color:#8392a5;}
+@media(max-width:640px){.ops325-date-head{flex-direction:column;align-items:flex-start;gap:0}.ops325-lunar-date{font-size:9px;} }

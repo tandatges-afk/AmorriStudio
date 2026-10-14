@@ -547,7 +547,7 @@ function initVideoReviewPanels() {
         input.addEventListener('blur',saveReviewName);
         let yt=null;const htmlVideo=card.querySelector('video');let duration=0,comments=[];
         let capturedAt=null, referenceSeconds=0, synced=kind!=='drive';
-        const driveFrame=card.querySelector('[data-vr-drive-frame]');
+        const driveFrame=null; // 3.2.5 removed legacy Drive Preview iframe.
         let editingCommentId=null;
         let dragging=false;
         let driveFailureMessage='';
@@ -620,8 +620,7 @@ function initVideoReviewPanels() {
         seekBtn.addEventListener('click',()=>{const n=vrParse(seekInput.value);if(n===null){showToast('Nhập thời gian dạng mm:ss');return;}jump(n);});
         seekInput.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();seekBtn.click()}});
         if(kind==='drive'){
-            // A single warm player is allowed. Other clips need explicit activation;
-            // otherwise a page with 10+ video cards saturates the Drive proxy.
+            // Chỉ cấp link R2 cho video được xem; tránh tạo nhiều kết nối đồng thời.
             const firstDriveCard=document.querySelector('#cgVideoContainer .client-video-card[data-vr-type="drive"]');
             const eagerlyPrepare=card===firstDriveCard;
             let activatedByViewer=false;
@@ -629,7 +628,7 @@ function initVideoReviewPanels() {
             const activation=document.createElement('button');
             activation.type='button';activation.className='am-drive-activate';
             activation.textContent='▶ Tải và phát video';
-            activation.setAttribute('aria-label','Tải video này từ Google Drive');
+            activation.setAttribute('aria-label','Phát video 1080p từ R2');
             frameHost?.append(activation);
             if(eagerlyPrepare){card.classList.add('vr-drive-loading');activation.hidden=true;}
             else {card.classList.add('vr-drive-idle');activation.hidden=false;}
@@ -657,7 +656,7 @@ function initVideoReviewPanels() {
                     startDrivePlayback(true);
                     return;
                 }
-                fallback('Không tải được dữ liệu video. Kiểm tra quyền Drive, codec H.264/AAC hoặc Vercel logs.');
+                fallback('Không tải được dữ liệu từ R2. Kiểm tra codec H.264/AAC hoặc R2 logs.');
             });
             // Playback diagnostics: use ?videoDebug=1 on the client link to
             // inspect buffer stalls without reloading/rewriting video.src.
@@ -705,7 +704,7 @@ function initVideoReviewPanels() {
             htmlVideo.addEventListener('loadedmetadata',()=>{
                 if(!Number.isFinite(htmlVideo.duration)||htmlVideo.duration<=0){fallback('Không đọc được thời lượng. Video có thể chưa được chuyển mã H.264/AAC.');return;}
                 synced=true;driveFailureMessage='';card.classList.remove('vr-load-error','vr-drive-loading','vr-drive-idle','vr-drive-stalled');activation.hidden=true;
-                htmlVideo.style.display='block';driveFrame.style.display='none';
+                htmlVideo.style.display='block';
                 duration=htmlVideo.duration;updateMode();renderMarkers();refreshTime();
             });
             async function startDrivePlayback(force=false){
@@ -1130,7 +1129,7 @@ async function initClientGallery() {
                 const ytOrigin=/^https?:$/.test(location.protocol)?'&origin='+encodeURIComponent(location.origin):'';
                 frame=`<iframe id="vr-yt-${vrKey}" src="https://www.youtube.com/embed/${encodeURIComponent(v.videoId)}?enablejsapi=1&playsinline=1${ytOrigin}" title="${escapeHtml(v.name)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" referrerpolicy="strict-origin-when-cross-origin" allowfullscreen></iframe>`;
             } else if(v.source === 'drive') {
-                frame=`<video controls playsinline webkit-playsinline preload="none" data-vr-drive-video style="display:none"></video><iframe data-vr-drive-frame data-vr-fallback-src="${safeUrl(v.previewUrl || `https://drive.google.com/file/d/${encodeURIComponent(v.id)}/preview`)}" loading="lazy" style="display:none" title="${escapeHtml(v.name)}" allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe>`;
+                frame=`<video controls playsinline webkit-playsinline preload="none" data-vr-drive-video style="display:none"></video>`;
             } else if(v.url) {
                 frame=`<div role="alert" class="am-1080-only-warning">Video liên kết trực tiếp chưa được xác minh là 1080p. Vui lòng sử dụng link Google Drive MP4 1080p để phát qua R2.</div>`;
             }
@@ -1316,7 +1315,7 @@ function appendRemoteFolderVideos(videos,host){
         const node=document.createElement('section');node.className='client-video-card';
         node.dataset.vrProduct=key;node.dataset.vrRawProduct=v.productId;
         node.dataset.vrFileId=v.id;node.dataset.vrType='drive';node.dataset.vrDefaultRatio='16/9';
-        node.innerHTML=`<div class="client-video-review-layout"><div class="client-video-left"><div class="client-video-frame"><video controls playsinline webkit-playsinline preload="none" data-vr-drive-video style="display:none"></video><iframe data-vr-drive-frame data-vr-fallback-src="${safeUrl(v.previewUrl)}" loading="lazy" style="display:none" title="${escapeHtml(v.name)}" allow="autoplay; fullscreen; picture-in-picture" allowfullscreen></iframe></div><a class="am-mobile-source-link" href="${safeUrl(v.webViewLink)}" target="_blank" rel="noopener noreferrer">Mở video gốc ↗</a></div><aside class="vr-panel"><div class="vr-heading"><strong>Góp ý video</strong><span class="vr-status" data-vr-status>Đang kết nối...</span></div><div class="vr-list-wrap"><div class="vr-list-toolbar"><strong>Bình luận</strong></div><div class="vr-list" data-vr-list></div></div><div class="vr-compose"><div class="vr-entry"><span class="vr-time" data-vr-current-secondary>00:00</span><input class="vr-name" data-vr-name maxlength="60" placeholder="Tên của bạn"></div><textarea class="vr-message" data-vr-message maxlength="2000" placeholder="Viết góp ý tại mốc đang phát..."></textarea><div class="vr-actions"><button class="vr-btn" type="button" data-vr-send>Gửi góp ý</button></div></div><div class="vr-aux" aria-hidden="true"><span data-vr-mode></span><span data-vr-current>00:00</span><span data-vr-total>--:--</span><input data-vr-scrub type="range" min="0" max="100" value="0"><div data-vr-dots></div><input data-vr-seek-input><button data-vr-seek>Đi tới</button><span data-vr-drive-duration-label></span><input data-vr-drive-duration><span data-vr-mode-note></span><span data-vr-hint></span><div data-vr-markers></div></div></aside></div>`;
+        node.innerHTML=`<div class="client-video-review-layout"><div class="client-video-left"><div class="client-video-frame"><video controls playsinline webkit-playsinline preload="none" data-vr-drive-video style="display:none"></video></div></div><aside class="vr-panel"><div class="vr-heading"><strong>Góp ý video</strong><span class="vr-status" data-vr-status>Đang kết nối...</span></div><div class="vr-list-wrap"><div class="vr-list-toolbar"><strong>Bình luận</strong></div><div class="vr-list" data-vr-list></div></div><div class="vr-compose"><div class="vr-entry"><span class="vr-time" data-vr-current-secondary>00:00</span><input class="vr-name" data-vr-name maxlength="60" placeholder="Tên của bạn"></div><textarea class="vr-message" data-vr-message maxlength="2000" placeholder="Viết góp ý tại mốc đang phát..."></textarea><div class="vr-actions"><button class="vr-btn" type="button" data-vr-send>Gửi góp ý</button></div></div><div class="vr-aux" aria-hidden="true"><span data-vr-mode></span><span data-vr-current>00:00</span><span data-vr-total>--:--</span><input data-vr-scrub type="range" min="0" max="100" value="0"><div data-vr-dots></div><input data-vr-seek-input><button data-vr-seek>Đi tới</button><span data-vr-drive-duration-label></span><input data-vr-drive-duration><span data-vr-mode-note></span><span data-vr-hint></span><div data-vr-markers></div></div></aside></div>`;
         host.appendChild(node);
         const frame=node.querySelector('.client-video-frame');
         frame.style.setProperty('--vr-media-ratio', '1.7777777778');

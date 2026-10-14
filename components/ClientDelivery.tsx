@@ -7,7 +7,7 @@ import {formatTimecode,parseTimecode} from '@/lib/domain/timecode';
 type Comment={id:string;name:string;text:string;seconds:number;createdAt:number;resolved:boolean};
 const time=formatTimecode;
 const REVIEWER_NAME_KEY='amorri:delivery-reviewer-name';
-type PlaybackMode='loading'|'drive'|'blocked';
+type PlaybackMode='loading'|'r2'|'blocked';
 function VideoReview({eventId,productId,file,token}:{eventId:string;productId:string;file:DeliveryMedia;token:string}){
   const [src,setSrc]=useState(''),[mode,setMode]=useState<PlaybackMode>('loading');
   const [error,setError]=useState(''),[comments,setComments]=useState<Comment[]>([]);
@@ -20,28 +20,28 @@ function VideoReview({eventId,productId,file,token}:{eventId:string;productId:st
   const updateName=(value:string)=>{setName(value);try{localStorage.setItem(REVIEWER_NAME_KEY,value);}catch{}};
 
   const retryCount=useRef(0);
-  const playbackTransport=useRef<'redirect'|'proxy'|'r2'>('proxy');
-  const lastPosition=useRef(0);
+    const lastPosition=useRef(0);
   const endpoint=`/api/delivery/${encodeURIComponent(eventId)}/reviews?productId=${encodeURIComponent(productId)}&mediaId=${encodeURIComponent(file.id)}`;
   const load=useCallback(async()=>{
     try{const r=await fetch(endpoint,{headers:{'x-amorri-delivery-token':token},cache:'no-store'});
       const v=await r.json();if(!r.ok)throw new Error(v.error||'Không tải được góp ý');setComments(v.comments||[]);
     }catch(err){setError(err instanceof Error?err.message:'Không tải được góp ý');}
   },[endpoint,token]);
-  const issueDriveTicket=useCallback(async(forceProxy=false)=>{
+  const issueR2Playback=useCallback(async()=>{
     const r=await fetch('/api/drive-video',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({id:file.id,clientGallery:eventId,productId,deliveryToken:token,...(forceProxy?{playbackMode:'proxy'}:{})})});
-    const b=await r.json();if(!r.ok)throw new Error(b.error||'Không phát được video Drive');
-    return {url:b.url as string,transport:b.transport==='r2'?'r2' as const:b.transport==='redirect'?'redirect' as const:'proxy' as const};
+      body:JSON.stringify({id:file.id,clientGallery:eventId,productId,deliveryToken:token})});
+    const b=await r.json();if(!r.ok)throw new Error(b.error||'Không cấp được đường dẫn R2');
+    if(b.transport!=='r2'||b.quality!=='1080p'||typeof b.url!=='string')throw new Error('Chỉ hỗ trợ video 1080p từ Cloudflare R2');
+    return b.url as string;
   },[eventId,productId,file.id,token]);
-  const useDrive=useCallback(async()=>{
+  const prepareR2=useCallback(async()=>{
     const w=file.width||0,h=file.height||0;
     if(w>0&&h>0&&!(w>=h?w===1920&&h<=1080:h===1920&&w<=1080)){
       setMode('blocked');setError('Video không đúng chuẩn 1080p. Studio phải xuất MP4 1920×1080 và tải file mới lên Drive trước khi phát.');return;
     }
-    try{const ticket=await issueDriveTicket();playbackTransport.current=ticket.transport;setSrc(ticket.url);setMode('drive');}
+    try{const url=await issueR2Playback();setSrc(url);setMode('r2');}
     catch(e){setMode('blocked');setError(e instanceof Error?e.message:'Không thể phát video 1080p.');}
-  },[issueDriveTicket,file.width,file.height]);
+  },[issueR2Playback,file.width,file.height]);
   const onNativeError=useCallback(async(e:SyntheticEvent<HTMLVideoElement>)=>{
     const node=e.currentTarget;
     const errorCode=node.error?.code||0;
@@ -49,42 +49,32 @@ function VideoReview({eventId,productId,file,token}:{eventId:string;productId:st
     lastPosition.current=Number.isFinite(node.currentTime)?node.currentTime:seconds;
     if(retryCount.current===0){
       retryCount.current=1;
-      const redirectFailed=playbackTransport.current==='redirect';
-      const privateR2Failed=playbackTransport.current==='r2';
-      setError(privateR2Failed?'Đang xin lại đường dẫn video bảo mật từ R2…':redirectFailed?'Nguồn Google Drive trực tiếp không phát được, đang chuyển về luồng dự phòng…':'Luồng video bị gián đoạn, đang xin lại đường dẫn phát từ Google Drive…');
+      setError('Đang làm mới đường dẫn bảo mật Cloudflare R2…');
       try {
-        // An R2 failure must not force the expensive Vercel proxy path.
-        // Only a failed Google Drive redirect explicitly retries with proxy.
-        const fresh = await issueDriveTicket(redirectFailed);
-        playbackTransport.current = fresh.transport;
-        setSrc(fresh.url);
-        setMode('drive');
-        return;
-      }
-      catch(err){setError(`Không cấp lại được link R2 1080p: ${err instanceof Error?err.message:'Lỗi kết nối'}.`);}
+        const fresh=await issueR2Playback();
+        setSrc(fresh);setMode('r2');return;
+      }catch(err){setError(`Không cấp lại được link R2 1080p: ${err instanceof Error?err.message:'Lỗi kết nối'}.`);}
     }
     // The browser's MediaError is NOT proof that an MP4 codec is unsupported.
-    // Distinguish upstream proxy/HTTP failures from decoding problems where possible.
+    // Distinguish upstream R2/HTTP failures from decoding problems where possible.
     let reason='';
     try{
-      const probe=playbackTransport.current==='r2'
-        ?await fetch(source,{method:'GET',headers:{Range:'bytes=0-0'},cache:'no-store'})
-        :await fetch(source,{method:'HEAD',cache:'no-store'});
-      if(playbackTransport.current==='r2')try { await probe.body?.cancel(); } catch {}
-      if(!probe.ok)reason=`proxy trả HTTP ${probe.status}`;
+      const probe=await fetch(source,{method:'GET',headers:{Range:'bytes=0-0'},cache:'no-store'});
+      try{await probe.body?.cancel();}catch{}
+      if(!probe.ok)reason=`R2 trả HTTP ${probe.status}`;
       else if(errorCode===4)reason='định dạng/codec không tương thích hoặc dữ liệu nguồn không đọc được';
       else if(errorCode===3)reason='giải mã video không thành công (codec hoặc file gốc)';
       else if(errorCode===2)reason='kết nối bị gián đoạn';
       else reason='không thể phát trực tiếp';
-    }catch{reason='kết nối tới proxy Drive gặp lỗi';}
+    }catch{reason='kết nối tới R2 gặp lỗi';}
     setMode('blocked');setError(`Phát 1080p từ R2 không thành công (${reason}). Liên hệ Studio để kiểm tra file 1080p.`);
-  },[issueDriveTicket,src,seconds]);
+  },[issueR2Playback,src,seconds]);
   useEffect(()=>{
-    // Drive-only playback: video access is authorized when the ticket is issued.
+    // R2-only playback: video access is authorized when the signed URL is issued.
     retryCount.current=0;lastPosition.current=0;
-    void useDrive();
+    void prepareR2();
     void load();
-  },[useDrive,load]);
+  },[prepareR2,load]);
   const send=async(e:FormEvent)=>{e.preventDefault();
     const timestamp=parseTimecode(timeDraft);
     if(timestamp===null){setError('Nhập mốc hợp lệ như 00:32 hoặc 01:02:15.');return;}
@@ -94,7 +84,7 @@ function VideoReview({eventId,productId,file,token}:{eventId:string;productId:st
       const value=await r.json();if(!r.ok)throw new Error(value.error||'Không thể gửi bình luận');setMessage('');await load();
     }catch(err){setError(err instanceof Error?err.message:'Không thể gửi');}finally{setSending(false);}
   };
-  const native=mode==='drive';
+  const native=mode==='r2';
   return <section className="delivery-video"><div className="delivery-video-main"><h4>{file.name}</h4>
     {native?<video ref={mediaRef} src={src} controls playsInline preload="metadata"
       onTimeUpdate={e=>{const t=Math.floor(e.currentTarget.currentTime);lastPosition.current=t;if(!editingTime.current)updateSeconds(t);}}
@@ -104,7 +94,7 @@ function VideoReview({eventId,productId,file,token}:{eventId:string;productId:st
       :mode==='loading'?<div className="delivery-player-loading">Đang chuẩn bị video…</div>
       :<div role="alert" className="delivery-player-loading" style={{padding:'32px 16px',textAlign:'center'}}>Không thể phát clip này. Studio cần xuất và tải lên file MP4 1080p (H.264/AAC); video 4K không được hỗ trợ.</div>}
     </div>
-    <aside className="delivery-review"><h4>Góp ý theo timeline</h4><p className="delivery-muted">Dừng hoặc tua video đến vị trí cần chỉnh sửa. Nếu đang dùng khung Drive dự phòng, nhập mốc giây thủ công.</p>
+    <aside className="delivery-review"><h4>Góp ý theo timeline</h4><p className="delivery-muted">Dừng hoặc tua video tại vị trí cần chỉnh sửa. Bình luận sẽ được gắn vào đúng timeline.</p>
       <div className="delivery-comments">{comments.map(c=><div className="delivery-comment" key={c.id}>
         <button onClick={()=>{updateSeconds(c.seconds);if(mediaRef.current && native)mediaRef.current.currentTime=c.seconds;}} type="button">▶ {time(c.seconds)}</button>
         <strong>{c.name}</strong><span>{c.resolved?'✓ Đã xử lý':'Cần xử lý'}</span><p>{c.text}</p></div>)}
@@ -120,20 +110,62 @@ function VideoReview({eventId,productId,file,token}:{eventId:string;productId:st
 }
 function PhotoProduct({eventId,productId,files,preselected,token}:{eventId:string;productId:string;files:DeliveryMedia[];preselected:string[];token:string}){
   const [checked,setChecked]=useState<string[]>(preselected),[filter,setFilter]=useState<'all'|'selected'>('all');
-  const [busy,setBusy]=useState(false),[notice,setNotice]=useState('');
+  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[downloading,setDownloading]=useState('');
   const images=files.filter(f=>!f.isVideo);
   const save=async()=>{setBusy(true);setNotice('');
     try{const r=await fetch(`/api/delivery/${encodeURIComponent(eventId)}/selections`,{method:'PUT',headers:{'Content-Type':'application/json','x-amorri-delivery-token':token},body:JSON.stringify({productId,fileIds:checked})});
       const value=await r.json();if(!r.ok)throw new Error(value.error||'Không lưu được ảnh');setNotice(`Đã đồng bộ ${value.selected} ảnh với Studio`);
     }catch(err){setNotice(err instanceof Error?err.message:'Không thể đồng bộ');}finally{setBusy(false);}
   };
+  const download=async(photo:DeliveryMedia)=>{
+    if(downloading)return;
+    // Prompt for a destination immediately in the click gesture on supported browsers.
+    // Browser settings govern the save location on Safari/Firefox.
+    type Writable={write:(data:Uint8Array)=>Promise<void>;close:()=>Promise<void>;abort:()=>Promise<void>};
+    type Handle={createWritable:()=>Promise<Writable>};
+    const picker=(window as Window & {showSaveFilePicker?:(options:{suggestedName:string})=>Promise<Handle>}).showSaveFilePicker;
+    let handle:Handle|undefined;
+    if(picker){
+      try{handle=await picker.call(window,{suggestedName:photo.name||'amorri-photo'});}
+      catch(err){if((err as Error)?.name==='AbortError')return;/* Fall back to native browser download */}
+    }
+    setDownloading(photo.id);setNotice('');
+    try{
+      const response=await fetch(`/api/delivery/${encodeURIComponent(eventId)}/photo-download`,{
+        method:'POST',headers:{'Content-Type':'application/json','x-amorri-delivery-token':token},
+        body:JSON.stringify({productId,mediaId:photo.id}),cache:'no-store'
+      });
+      if(!response.ok){const data=await response.json().catch(()=>({}));throw new Error(data.error||`Không thể tải ảnh gốc (HTTP ${response.status})`);}
+      if(handle&&response.body){
+        const writable=await handle.createWritable();
+        try{
+          const reader=response.body.getReader();
+          while(true){const {done,value}=await reader.read();if(done)break;if(value)await writable.write(value);}
+          await writable.close();
+        }catch(error){await writable.abort().catch(()=>{});throw error;}
+      }else{
+        const blob=await response.blob();
+        const objectURL=URL.createObjectURL(blob);
+        const link=document.createElement('a');link.href=objectURL;link.download=photo.name||'amorri-photo';
+        document.body.append(link);link.click();link.remove();
+        window.setTimeout(()=>URL.revokeObjectURL(objectURL),60000);
+      }
+      setNotice(`Đã tải ảnh gốc: ${photo.name}`);
+    }catch(err){setNotice(err instanceof Error?err.message:'Không thể tải ảnh. Hãy thử lại.');}
+    finally{setDownloading('');}
+  };
   if(!images.length)return null;
   return <><div className="delivery-photo-toolbar"><strong>Ảnh đã chọn: {checked.length}/{images.length}</strong>
     <div><button className={filter==='all'?'active':''} onClick={()=>setFilter('all')}>Tất cả</button><button className={filter==='selected'?'active':''} onClick={()=>setFilter('selected')}>Đã chọn</button>
     <button className="delivery-primary" disabled={busy} onClick={save}>{busy?'Đang đồng bộ…':'Gửi lựa chọn'}</button></div></div>
-    <div className="delivery-photos">{images.filter(i=>filter==='all'||checked.includes(i.id)).map(i=><button type="button" className={`delivery-photo ${checked.includes(i.id)?'is-selected':''}`} key={i.id} onClick={()=>setChecked(p=>p.includes(i.id)?p.filter(id=>id!==i.id):[...p,i.id])} aria-pressed={checked.includes(i.id)}>
+    <div className="delivery-photos">{images.filter(i=>filter==='all'||checked.includes(i.id)).map(i=><article className={`delivery-photo ${checked.includes(i.id)?'is-selected':''}`} key={i.id}>
       <div className="delivery-photo-image"><img loading="lazy" alt={i.name} src={i.thumb}/></div>
-      <div className="delivery-photo-footer"><small title={i.name}>{i.name}</small><span className="delivery-photo-toggle" aria-hidden="true">{checked.includes(i.id)?'✓ Đã chọn':'○ Chọn ảnh'}</span></div></button>)}</div>
+      <div className="delivery-photo-footer"><small title={i.name}>{i.name}</small>
+        <div className="delivery-photo-actions">
+          <button type="button" className="delivery-photo-select" onClick={()=>setChecked(p=>p.includes(i.id)?p.filter(id=>id!==i.id):[...p,i.id])} aria-pressed={checked.includes(i.id)}>{checked.includes(i.id)?'✓ Đã chọn':'○ Chọn ảnh'}</button>
+          <button type="button" className="delivery-photo-download" disabled={!!downloading} onClick={()=>void download(i)} title={`Tải ảnh gốc ${i.name} về máy`}>{downloading===i.id?'Đang tải…':'↓ Tải ảnh'}</button>
+        </div>
+      </div></article>)}</div>
     {notice&&<p role="status" className="delivery-alert">{notice}</p>}
   </>;
 }

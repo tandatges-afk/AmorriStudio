@@ -3,7 +3,7 @@
  * No signed URLs or secrets are sent to the browser. */
 import {readCurrentDriveR2Metadata} from './delivery-media';
 import {checkDrive1080} from './video-1080-policy.mjs';
-import {videoObjectKeys,getPrivateVideoMode} from './r2-private-video.mjs';
+import {videoObjectKeys} from './r2-private-video.mjs';
 import {headR2Video} from './video-sync-r2-head.mjs';
 import {summarizeR2Product} from './r2-product-summary.mjs';
 
@@ -35,8 +35,6 @@ async function checkFile(id:string):Promise<FileState>{
 export async function getProductR2Readiness(videos:Array<{id:string}>):Promise<R2ProductStatus>{
   const checkedAt=Date.now();
   if(videos.length===0)return {state:'none',readyCount:0,totalCount:0,message:'Sản phẩm không có video',checkedAt};
-  if(getPrivateVideoMode()==='drive')return {state:'error',readyCount:0,totalCount:videos.length,checkedAt,
-    message:'Vercel chưa bật chế độ phát video R2'};
   // Bounded work per Admin request; never call Drive/R2 in an unbounded loop.
   if(videos.length>24)return {state:'error',readyCount:0,totalCount:videos.length,checkedAt,
     message:'Quá 24 clip trong một sản phẩm. Hãy chia nhỏ để kiểm tra đầy đủ.'};

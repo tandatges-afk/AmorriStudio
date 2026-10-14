@@ -16,10 +16,10 @@ const env={
 const id='10YiMj3OlQnroz_8BkH3qT-soDEzWgxAB';
 const meta={size:'6193607341',mimeType:'video/mp4',modifiedTime:'2026-10-13T01:00:00.000Z',md5Checksum:'1234567890abcdef1234567890abcdef'};
 
-test('r2 modes opt in and refuse invalid configs',()=>{
-  assert.equal(getPrivateVideoMode({}), 'drive');
+test('R2-only hard enforced even when legacy env requests Drive',()=>{
+  assert.equal(getPrivateVideoMode({}), 'r2-only');
   assert.equal(getPrivateVideoMode(env), 'r2-only');
-  assert.equal(getPrivateVideoMode({...env,AMORRI_VIDEO_DELIVERY_MODE:'r2-prefer'}),'r2-prefer');
+  assert.equal(getPrivateVideoMode({...env,AMORRI_VIDEO_DELIVERY_MODE:'r2-prefer'}),'r2-only');
   assert.throws(()=>r2Configuration({...env,R2_BUCKET:'evil/path'}),/R2_CONFIG_INVALID/);
 });
 
@@ -68,7 +68,7 @@ test('missing R2 file does not silently proxy; fallback decision left to API mod
   assert.equal(result,null);
 });
 
-test('mismatched original size is refused',async()=>{
+test('historical original.mp4 is never served even when present',async()=>{
   const fileId='1AnotherVideoId000000000000';
   let requests=0;
   const fetchImpl=async()=>{
@@ -76,5 +76,6 @@ test('mismatched original size is refused',async()=>{
     if(requests===1)return {ok:false,status:404,headers:new Headers()};
     return {ok:true,status:200,headers:new Headers({'content-type':'video/mp4','content-length':'999'})};
   };
-  await assert.rejects(findR2Video(fileId,meta,{env,fetchImpl,now:1791892800000}),/R2_OBJECT_METADATA_MISMATCH/);
+  assert.equal(await findR2Video(fileId,meta,{env,fetchImpl,now:1791892800000}),null);
+  assert.equal(requests,1);
 });

@@ -9,9 +9,9 @@ import {MapLocationInput} from '@/lib/ui/MapLocationInput';
 import {VndInput} from '@/lib/ui/VndInput';
 import {useStaffAvailability} from '@/lib/ui/useStaffAvailability';
 
-type Props = {open:boolean; onClose:()=>void; onCreated:()=>void; user:User;staff:Staff[]};
+type Props = {open:boolean; onClose:()=>void; onCreated:()=>void; user:User;staff:Staff[];initialDate?:string};
 const today = () => new Date(Date.now()+7*60*60*1000).toISOString().slice(0,10);
-export function NewBookingDialog({open,onClose,onCreated,user,staff}:Props){
+export function NewBookingDialog({open,onClose,onCreated,user,staff,initialDate}:Props){
  const [id,setId]=useState('');
  const [name,setName]=useState(''),[date,setDate]=useState(today),[start,setStart]=useState('08:00'),[end,setEnd]=useState('17:00');
  const [eventType,setEventType]=useState('Cưới'),[location,setLocation]=useState(''),[phone,setPhone]=useState(''),[note,setNote]=useState('');
@@ -28,7 +28,7 @@ export function NewBookingDialog({open,onClose,onCreated,user,staff}:Props){
  const toggleStaff=(staffId:string,enabled:boolean)=>setAssignments(prev=>enabled?[...prev,{id:staffId,task:defaultStaffTask(staff.find(s=>s.id===staffId)?.role||'',eventType),cost:0,locType:isRuocDau?'Nhà trai':''}]:prev.filter(a=>a.id!==staffId));
  const changeAssignment=(staffId:string,key:'task'|'cost'|'locType',value:string|number)=>setAssignments(prev=>prev.map(a=>a.id===staffId?{...a,[key]:value}:a));
  const availability=useStaffAvailability(user,{date,start,end,isRuocDau,startTrai,startGai,status},open&&step==='form');
- useEffect(()=>{if(open){setHideBusy(false);setId(crypto.randomUUID());setError('');setAssignments([]);setStep('main');setWeddingSubtype('');setName('');setEventType('Cưới');setIsRuocDau(false);setStart('08:00');setEnd('17:00');}},[open]);
+ useEffect(()=>{if(open){setHideBusy(false);setId(crypto.randomUUID());setError('');setAssignments([]);setStep('main');setWeddingSubtype('');setName('');setDate(/^\d{4}-\d{2}-\d{2}$/.test(initialDate||'')?initialDate!:today());setEventType('Cưới');setIsRuocDau(false);setStart('08:00');setEnd('17:00');}},[open,initialDate]);
  const chooseService=(type:string,subtype='')=>{
   if(type==='Cưới'&&!subtype){setStep('wedding');return;}
   const ruocDau=type==='Cưới'&&subtype==='Rước Dâu';

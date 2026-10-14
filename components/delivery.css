@@ -63,3 +63,17 @@
 .delivery-photos > .delivery-photo.is-selected > .delivery-photo-footer > .delivery-photo-toggle {
   color:#fff; background:#277448; border-color:#277448;
 }
+
+/* 3.2.5 · Equal-priority select / native photo download, no Drive preview. */
+.delivery-photos>.delivery-photo{cursor:default;}
+.delivery-photo-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;min-width:0;}
+.delivery-photos>.delivery-photo>.delivery-photo-footer>.delivery-photo-actions>button{
+ position:static;display:block;width:100%;min-width:0;min-height:38px;padding:8px 3px;cursor:pointer;
+ font:inherit;font-size:11px;font-weight:700;border-radius:7px;text-align:center;border:1px solid #cddace;
+ background:#f4f8f5;color:#355c40;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
+}
+.delivery-photos>.delivery-photo.is-selected>.delivery-photo-footer>.delivery-photo-actions>.delivery-photo-select{background:#277448;color:#fff;border-color:#277448;}
+.delivery-photos>.delivery-photo>.delivery-photo-footer>.delivery-photo-actions>.delivery-photo-download{background:#f3f6fc;color:#325a93;border-color:#cddbec;}
+.delivery-photo-actions button:hover:not(:disabled){filter:brightness(.96)}
+.delivery-photo-actions button:disabled{opacity:.55;cursor:wait;}
+.delivery-photo-actions button:focus-visible{outline:2px solid #436c9f;outline-offset:2px;}

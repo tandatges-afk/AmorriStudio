@@ -43,8 +43,8 @@ test('guest APIs require server-side grant and validate Drive membership before 
  assert.match(source('app/api/delivery/[eventId]/route.ts'),/Strict allowlist/);
 });
 test('Legacy video endpoint has strict authorization and obsolete image endpoint is retired',()=>{
- assert.match(source('pages/api/drive-video.js'),/AMORRI_LEGACY_DELIVERY_ACCESS==='strict'/);
- assert.match(source('pages/api/drive-video.js'),/verifyDeliveryGrant\(clientGallery,payload\.deliveryToken,false\)/);
+ assert.match(source('pages/api/drive-video.js'),/if\(!body.deliveryToken\)/);
+ assert.match(source('pages/api/drive-video.js'),/verifyDeliveryGrant\(eventId,body.deliveryToken,false\)/);
  assert.match(source('app/api/delivery/[eventId]/media/route.ts'),/deliveryEvent\(request,eventId,false,productId\)/);
 });
 test('new admin link creation and client route ship in package',()=>{

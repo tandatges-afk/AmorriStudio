@@ -49,9 +49,9 @@ export function localSystemChecks(env:EnvValues):HealthCheck[]{
     'Chuyển đúng DRIVE_SERVICE_ACCOUNT_JSON cũ và bảo đảm service account được chia sẻ folder Drive.');
 
   const videoKey=(env.DRIVE_VIDEO_SIGNING_SECRET||'');
-  const video=result('video-signing','Ký yêu cầu xem video',videoKey.length>=32?'ok':'error',
-    videoKey.length>=32?'Đã có secret đủ độ dài để ký playback ticket.':'Thiếu DRIVE_VIDEO_SIGNING_SECRET tối thiểu 32 ký tự.',
-    'Khôi phục đúng DRIVE_VIDEO_SIGNING_SECRET cũ; không tự thay mới nếu còn link/video đang sử dụng.');
+  const video=result('video-signing','Khóa tương thích dữ liệu cũ',videoKey.length>=32?'ok':'warning',
+    videoKey.length>=32?'Khóa cũ đang được giữ để mở link đã mã hóa và bản dự phòng; không dùng để phát R2.':'Phát video R2 không cần ticket cũ. Các link và bản lưu dự phòng cần khóa mã hóa khác.',
+    'Không đổi DRIVE_VIDEO_SIGNING_SECRET nếu nó từng được dùng để mã hóa link hoặc bản dự phòng.');
 
   // Match runtime selection exactly: a nonempty but too-short preferred key
   // masks the fallback key, and therefore is NOT a valid configuration.

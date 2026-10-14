@@ -49,11 +49,11 @@ test('React main workflow supports creating assignments, wedding two-home and ed
  assert.match(route,/saveProductConditional/);
  assert.match(route,/parseDriveSource\(url\)/);
 });
-test('Video player distinguishes proxy from decoder failures and retries ticket',()=>{
+test('Video player reissues private R2 URL after decoding or network errors',()=>{
  const src=r('components/ClientDelivery.tsx');
  assert.match(src,/onNativeError/);
- assert.match(src,/issueDriveTicket\(\)/);
- assert.match(src,/method:'HEAD'/);
+ assert.match(src,/issueR2Playback\(\)/);
+ assert.match(src,/transport!=='r2'/);
  assert.doesNotMatch(src,/Trình duyệt không phát được MP4/);
 });
 test('Current workflow APIs survive workspace cutover',()=>{
