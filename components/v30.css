@@ -49,3 +49,16 @@
 .ops30-system-tabs button{display:inline-flex;align-items:center;gap:7px;padding:10px 13px;border:0;background:transparent;color:#536780;font-size:13px;font-weight:700;border-radius:9px;cursor:pointer}
 .ops30-system-tabs button.active{background:#fff;color:#254d85;box-shadow:0 1px 5px #1634571a}
 @media(max-width:600px){.ops30-system-tabs{width:100%}.ops30-system-tabs button{flex:1;justify-content:center;font-size:11px;padding:10px 7px}}
+
+
+/* Amorri 3.2.3 — verified per-product R2 badge in Admin delivery tab. */
+.amorri-r2-badge{display:flex;align-items:center;gap:9px;min-width:0;border:1px solid #e4e9f0;border-radius:11px;padding:9px 10px;margin:11px 0 7px;background:#f7f9fc;color:#64748b}
+.amorri-r2-badge>svg{flex-shrink:0}
+.amorri-r2-badge__copy{display:grid;gap:2px;min-width:0;flex:1;line-height:1.3}
+.amorri-r2-badge__copy strong{font-size:11px;font-weight:780}
+.amorri-r2-badge__copy small{font-size:10px;line-height:1.4;overflow-wrap:anywhere;opacity:.9}
+.amorri-r2-badge--ready{background:#eefbf2;border-color:#bee8ce;color:#197546}
+.amorri-r2-badge--pending,.amorri-r2-badge--checking{background:#fff9ec;border-color:#f4deb0;color:#976517}
+.amorri-r2-badge--invalid,.amorri-r2-badge--error{background:#fff3f0;border-color:#f4ccc4;color:#ac4938}
+.amorri-r2-badge__refresh{display:grid;place-items:center;flex:none;border:1px solid currentColor;border-radius:7px;padding:5px;background:transparent;color:inherit;opacity:.7;cursor:pointer}
+.amorri-r2-badge__refresh:hover{opacity:1}

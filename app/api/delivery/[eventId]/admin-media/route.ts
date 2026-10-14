@@ -2,6 +2,7 @@ import {requireAdmin,json,deliveryFailure} from '@/lib/server/delivery-http';
 import {findBooking} from '@/lib/server/event-storage';
 import {pickProducts,savedSelectionIds,chooseDeliveryCover,coverOrientation} from '@/lib/domain/delivery';
 import {listDeliveryMedia} from '@/lib/server/delivery-media';
+import {getProductR2Readiness,type R2ProductStatus} from '@/lib/server/product-r2-readiness';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
@@ -13,7 +14,7 @@ export async function GET(request:Request,{params}:{params:Promise<{eventId:stri
   const {value}=await findBooking(eventId);
   const products=pickProducts(value.products);
   if(products.length>100)return json({error:'Quá nhiều sản phẩm để đọc cùng lúc'},413);
-  const result: Array<{id:string;name:string;kind:'video'|'image'|'mixed'|'unknown';videoCount:number;imageCount:number;selectedNames:string[];cover?:{mediaId:string;productId:string;type:'video'|'image';orientation:'landscape'|'portrait'|'unknown'};warning?:string}> = [];
+  const result: Array<{id:string;name:string;kind:'video'|'image'|'mixed'|'unknown';videoCount:number;imageCount:number;selectedNames:string[];cover?:{mediaId:string;productId:string;type:'video'|'image';orientation:'landscape'|'portrait'|'unknown'};warning?:string;r2?:R2ProductStatus}> = [];
   // Limit concurrency to avoid spawning too many Drive requests from Vercel.
   for(let index=0;index<products.length;index+=3){
    const batch=await Promise.all(products.slice(index,index+3).map(async p=>{
@@ -23,6 +24,7 @@ export async function GET(request:Request,{params}:{params:Promise<{eventId:stri
       const media=await listDeliveryMedia(p,refresh);
       const videos=media.filter(item=>item.isVideo);
       const videoCount=videos.length;
+      const r2=videoCount?await getProductR2Readiness(videos):undefined;
       const incompatible=videos.filter(item=>!item.width||!item.height||!(item.width>=item.height?item.width===1920&&item.height<=1080:item.height===1920&&item.width<=1080));
       const warning=incompatible.length?`${incompatible.length} clip chưa đúng chuẩn 1080p hoặc thiếu metadata: ${incompatible.slice(0,3).map(v=>v.name+' ('+(v.width||'?')+'×'+(v.height||'?')+')').join(', ')}. 4K không được phát; hãy xuất MP4 1080p H.264/AAC và tải file mới lên Drive.`:undefined;
       const imageCount=media.filter(item=>!item.isVideo).length;
@@ -42,7 +44,7 @@ export async function GET(request:Request,{params}:{params:Promise<{eventId:stri
       }
       const selected=chooseDeliveryCover(media);
       const cover=selected?{mediaId:selected.id,productId:id,type:(selected.isVideo?'video':'image') as 'video'|'image',orientation:coverOrientation(selected)}:undefined;
-      return {id,name,kind,videoCount,imageCount,selectedNames,cover,warning};
+      return {id,name,kind,videoCount,imageCount,selectedNames,cover,warning,r2};
     }catch(error){
       // Do not claim unknown media is photos or clips when Google Drive fails.
       return {id,name,kind:'unknown' as const,videoCount:0,imageCount:0,selectedNames:[],warning:error instanceof Error?error.message:'Không tải được Google Drive'};

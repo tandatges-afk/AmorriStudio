@@ -93,12 +93,13 @@ function EventTable({events,staff,compact=false,onSelect}:{events:StudioEvent[];
     }):<tr><td colSpan={compact?5:6}><Empty title="Chưa có lịch phù hợp" detail="Dữ liệu sẽ hiển thị sau khi được đồng bộ từ Firebase."/></td></tr>}</tbody></table></div>;
 }
 
-type ProductMediaSummary={id:string;name:string;kind:'video'|'image'|'mixed'|'unknown';videoCount:number;imageCount:number;selectedNames:string[];cover?:CoverInfo;warning?:string};
+type ProductMediaSummary={id:string;name:string;kind:'video'|'image'|'mixed'|'unknown';videoCount:number;imageCount:number;selectedNames:string[];cover?:CoverInfo;warning?:string;r2?:{state:'ready'|'pending'|'invalid'|'error'|'none';readyCount:number;totalCount:number;message:string;checkedAt:number}};
 function DeliveryProductGroup({event,user,refresh=false}:{event:StudioEvent;user:User;refresh?:boolean}){
  const [products,setProducts]=useState<ProductMediaSummary[]>([]);
  const [error,setError]=useState('');
  const [busy,setBusy]=useState(false);
  const [visible,setVisible]=useState(false);
+ const [r2Refresh,setR2Refresh]=useState(0);
  const groupRef=useRef<HTMLDivElement>(null);
  useEffect(()=>{
    const node=groupRef.current;if(!node)return;
@@ -110,14 +111,20 @@ function DeliveryProductGroup({event,user,refresh=false}:{event:StudioEvent;user
   if(!visible)return;
   let active=true;
   void (async()=>{setBusy(true);try{
-   const doFetch=async(forceToken=false)=>fetch(`/api/delivery/${encodeURIComponent(event.id)}/admin-media${refresh?'?refresh=1':''}`,{headers:{Authorization:`Bearer ${await user.getIdToken(forceToken)}`},cache:'no-store'});
+   const doFetch=async(forceToken=false)=>fetch(`/api/delivery/${encodeURIComponent(event.id)}/admin-media?refresh=1`,{headers:{Authorization:`Bearer ${await user.getIdToken(forceToken)}`},cache:'no-store'});
    let response=await doFetch();if(response.status===401)response=await doFetch(true);
    const data=await response.json();if(!response.ok)throw new Error(data.error||'Không đọc được Google Drive');
    if(active)setProducts(data.products||[]);
   }catch(e){if(active)setError(e instanceof Error?e.message:'Không đọc được sản phẩm');}
   finally{if(active)setBusy(false);}})();
   return()=>{active=false;};
- },[visible,event.id,user,refresh]);
+ },[visible,event.id,user,refresh,r2Refresh]);
+ // Refresh pending R2 status in the background so Admin sees green without F5.
+ useEffect(()=>{
+  if(!visible||!products.some(p=>p.r2?.state==='pending'))return;
+  const timer=window.setInterval(()=>setR2Refresh(n=>n+1),90000);
+  return ()=>window.clearInterval(timer);
+ },[visible,products]);
  const [hiddenProducts,setHiddenProducts]=useState<string[]>([]);
  const remaining=event.products.filter(p=>!event.completedProductIds?.includes(p.id)&&!hiddenProducts.includes(p.id));
  if(event.deliveryCompleted||!remaining.length)return null;
@@ -127,16 +134,16 @@ function DeliveryProductGroup({event,user,refresh=false}:{event:StudioEvent;user
  return <section className={`delivery-event-group delivery-event-group--span-${Math.min(remaining.length,4)}`} ref={groupRef} aria-label={`Sản phẩm của lịch ${event.name}`}>
    <div className="delivery-event-products">{remaining.map(product=>{
      const meta=products.find(row=>row.id===product.id);
-     return <DeliveryProductCard key={product.id} event={event} product={product} user={user} info={meta} onComplete={()=>setHiddenProducts(previous=>[...previous,product.id])}/>;
+     return <DeliveryProductCard key={product.id} event={event} product={product} user={user} info={meta} onRefreshR2={()=>setR2Refresh(n=>n+1)} onComplete={()=>setHiddenProducts(previous=>[...previous,product.id])}/>;
    })}</div>
    {busy&&<p className="delivery-event-loading">Đang nhận diện sản phẩm trên Drive…</p>}
    {error&&<p role="alert" className="delivery-event-loading">{error}</p>}
  </section>;
 }
-function DeliveryProductCard({event,product,user,info,onComplete}:{event:StudioEvent;product:StudioEvent['products'][number];user:User;info?:ProductMediaSummary;onComplete:()=>void}){
+function DeliveryProductCard({event,product,user,info,onRefreshR2,onComplete}:{event:StudioEvent;product:StudioEvent['products'][number];user:User;info?:ProductMediaSummary;onRefreshR2:()=>void;onComplete:()=>void}){
  const [completing,setCompleting]=useState(false),[message,setMessage]=useState('');
  const [copied,setCopied]=useState(false);
- const isVideo=info?.kind==='video'||info?.kind==='mixed'||(!info&&product.mediaType==='video');
+ const isVideo=info?.kind==='video'||info?.kind==='mixed'||product.mediaType==='video';
  const isPhoto=info?.kind==='image'||info?.kind==='mixed'||(!info&&product.mediaType==='image');
  const complete=async()=>{
   if(completing)return;setCompleting(true);setMessage('');
@@ -158,6 +165,19 @@ function DeliveryProductCard({event,product,user,info,onComplete}:{event:StudioE
      <h3>{product.name}</h3><p className="delivery-project-owner">Lịch: {event.name}</p>
      {isPhoto&&<div className="delivery-product-action-row"><span>Khách đã chọn <b>{info?.selectedNames.length||0} ảnh</b></span><button type="button" className="secondary-button small" disabled={!info?.selectedNames.length} onClick={()=>void copyNames()}><Copy size={14}/>{copied?'Đã copy':'Copy tên ảnh'}</button></div>}
      {isVideo&&<div className="delivery-product-action-row delivery-product-video-action"><span>Clip: <b>{product.name}</b></span><DeliveryReviewManager eventId={event.id} productId={product.id} user={user}/></div>}
+     {isVideo&&<div className={`amorri-r2-badge amorri-r2-badge--${info?.r2?.state||'checking'}`} role="status"
+       title={info?.r2?.message||'Đang kiểm tra video trên R2'}>
+       {info?.r2?.state==='ready'?<BadgeCheck size={18}/>:<Clock3 size={17}/>}
+       <span className="amorri-r2-badge__copy">
+         <strong>{info?.r2?.state==='ready'?'R2 ✓ Sẵn sàng gửi khách':
+           info?.r2?.state==='invalid'?'Cần xuất lại 1080p':
+           info?.r2?.state==='error'?'R2 chưa xác minh được':
+           info?.r2?.state==='pending'?'R2 đang chờ đồng bộ':
+           info?'R2 chưa xác minh được':'Đang kiểm tra R2…'}</strong>
+         <small>{info?.r2?.message||(info?'Hãy thử kiểm tra lại thông tin Drive và R2':'Đang xác thực trạng thái 1080p')}</small>
+       </span>
+       <button type="button" className="amorri-r2-badge__refresh" onClick={onRefreshR2} title="Kiểm tra trạng thái R2 mới nhất" aria-label={`Làm mới trạng thái R2 của ${product.name}`}><RefreshCw size={14}/></button>
+     </div>}
      {!info&&<div className="delivery-product-action-row">Đang xác định loại sản phẩm…</div>}
      {info?.warning&&<div className="delivery-product-warning">Không đọc được file Drive. {info.warning}</div>}
      <div className="delivery-card-actions"><DeliveryGrantManager eventId={event.id} productId={product.id} user={user}/>

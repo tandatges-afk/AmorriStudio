@@ -99,6 +99,15 @@ export async function listDeliveryMedia(product:Record<string,unknown>,forceRefr
   await persistMedia(sharedKey,items);return remember(cacheKey,items);
 }
 
+/** Admin-only helper: read CURRENT Drive revision for a verified product video.
+ * Never return video bytes. This bypasses the shared metadata cache so that replacing
+ * the file invalidates the prior revision's R2 green check. */
+export async function readCurrentDriveR2Metadata(fileId:string):Promise<Record<string,unknown>> {
+  if(!DRIVE_ID.test(fileId))throw new DeliveryError(400,'VIDEO_BAD_ID','File Drive không hợp lệ');
+  const params=new URLSearchParams({fields:'id,mimeType,size,md5Checksum,modifiedTime,videoMediaMetadata',supportsAllDrives:'true'});
+  return await getJson(`${DRIVE}/${encodeURIComponent(fileId)}?${params}`,await headers());
+}
+
 /** Download only a Google-generated thumbnail, never the full source image/video. */
 export async function readAuthorizedDriveThumbnail(mediaId:string):Promise<{bytes:Uint8Array;contentType:string}> {
   if(!DRIVE_ID.test(mediaId))throw new DeliveryError(400,'INVALID_MEDIA_ID','ID ảnh không hợp lệ');
