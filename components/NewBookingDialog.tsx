@@ -8,11 +8,13 @@ import {defaultStaffTask, taskOptionsFor} from '@/lib/domain/staff-task';
 import {MapLocationInput} from '@/lib/ui/MapLocationInput';
 import {VndInput} from '@/lib/ui/VndInput';
 import {useStaffAvailability} from '@/lib/ui/useStaffAvailability';
+import {ConceptPhotoDraft,uploadConceptPhoto} from './ConceptPhotos';
 
 type Props = {open:boolean; onClose:()=>void; onCreated:()=>void; user:User;staff:Staff[];initialDate?:string};
 const today = () => new Date(Date.now()+7*60*60*1000).toISOString().slice(0,10);
 export function NewBookingDialog({open,onClose,onCreated,user,staff,initialDate}:Props){
  const [id,setId]=useState('');
+ const [conceptFiles,setConceptFiles]=useState<File[]>([]),[createdEventId,setCreatedEventId]=useState<string|null>(null);
  const [name,setName]=useState(''),[date,setDate]=useState(today),[start,setStart]=useState('08:00'),[end,setEnd]=useState('17:00');
  const [eventType,setEventType]=useState('Cưới'),[location,setLocation]=useState(''),[phone,setPhone]=useState(''),[note,setNote]=useState('');
  const [step,setStep]=useState<'main'|'wedding'|'form'>('main');
@@ -28,7 +30,7 @@ export function NewBookingDialog({open,onClose,onCreated,user,staff,initialDate}
  const toggleStaff=(staffId:string,enabled:boolean)=>setAssignments(prev=>enabled?[...prev,{id:staffId,task:defaultStaffTask(staff.find(s=>s.id===staffId)?.role||'',eventType),cost:0,locType:isRuocDau?'Nhà trai':''}]:prev.filter(a=>a.id!==staffId));
  const changeAssignment=(staffId:string,key:'task'|'cost'|'locType',value:string|number)=>setAssignments(prev=>prev.map(a=>a.id===staffId?{...a,[key]:value}:a));
  const availability=useStaffAvailability(user,{date,start,end,isRuocDau,startTrai,startGai,status},open&&step==='form');
- useEffect(()=>{if(open){setHideBusy(false);setId(crypto.randomUUID());setError('');setAssignments([]);setStep('main');setWeddingSubtype('');setName('');setDate(/^\d{4}-\d{2}-\d{2}$/.test(initialDate||'')?initialDate!:today());setEventType('Cưới');setIsRuocDau(false);setStart('08:00');setEnd('17:00');}},[open,initialDate]);
+ useEffect(()=>{if(open){setHideBusy(false);setConceptFiles([]);setCreatedEventId(null);setId(crypto.randomUUID());setError('');setAssignments([]);setStep('main');setWeddingSubtype('');setName('');setDate(/^\d{4}-\d{2}-\d{2}$/.test(initialDate||'')?initialDate!:today());setEventType('Cưới');setIsRuocDau(false);setStart('08:00');setEnd('17:00');}},[open,initialDate]);
  const chooseService=(type:string,subtype='')=>{
   if(type==='Cưới'&&!subtype){setStep('wedding');return;}
   const ruocDau=type==='Cưới'&&subtype==='Rước Dâu';
@@ -41,6 +43,14 @@ export function NewBookingDialog({open,onClose,onCreated,user,staff,initialDate}
  if(!open)return null;
  async function submit(e:FormEvent){
    e.preventDefault();if(busy)return;
+   // A booking may already be created even if one image upload failed. Retry only
+   // the remaining photos; never create the same booking a second time.
+   if(createdEventId){
+     setBusy(true);setError('');
+     try{for(const f of conceptFiles){await uploadConceptPhoto(user,createdEventId,f);setConceptFiles(v=>v.filter(p=>p!==f));}onClose();}
+     catch(err){setError(`Lịch đã được tạo. Ảnh chưa tải xong: ${err instanceof Error?err.message:'Lỗi không xác định'}. Nhấn Lưu ảnh và hoàn tất để thử lại.`);}
+     finally{setBusy(false);}return;
+   }
    const busyNames=availability.ready?assignments.filter(a=>availability.busy[a.id]).map(a=>staff.find(s=>s.id===a.id)?.name||a.id):[];
    if(busyNames.length){setError(`${busyNames.join(', ')} đã có lịch hoặc đã báo nghỉ. Bỏ phân công này hoặc đổi giờ/ngày.`);return;}
    const checked=validateBooking({id,name,date,start,end,eventType,location,phone,note,status,price:Number(price),deposit:Number(deposit),assignments,isRuocDau,
@@ -57,6 +67,11 @@ export function NewBookingDialog({open,onClose,onCreated,user,staff,initialDate}
      if(result.status===401)result=await post(true);
      const payload=await result.json();
      if(!result.ok)throw new Error(`${payload.error||'Không thể tạo lịch'}${payload.code?` [${payload.code}]`:''}`);
+     setCreatedEventId(id);onCreated();
+     for(const f of conceptFiles){
+       try{await uploadConceptPhoto(user,id,f);setConceptFiles(v=>v.filter(p=>p!==f));}
+       catch(err){setError(`Lịch đã được tạo nhưng còn ảnh chưa tải lên: ${err instanceof Error?err.message:'Lỗi không xác định'}. Bấm Lưu ảnh và hoàn tất để thử lại, không tạo lịch mới.`);return;}
+     }
      onCreated();onClose();
    }catch(err){setError(err instanceof Error?err.message:'Không thể tạo lịch');}
    finally{setBusy(false);}
@@ -90,6 +105,7 @@ export function NewBookingDialog({open,onClose,onCreated,user,staff,initialDate}
       <label className={lab}>Giá trị hợp đồng (VND)<VndInput className={field} value={Number(price)} onValueChange={v=>setPrice(String(v))}/></label>
       <label className={lab}>Đã cọc (VND)<VndInput className={field} value={Number(deposit)} onValueChange={v=>setDeposit(String(v))}/></label>
       <label className={`${lab} sm:col-span-2`}>Ghi chú<textarea rows={2} maxLength={1000} className={field} value={note} onChange={e=>setNote(e.target.value)}/></label>
+      <ConceptPhotoDraft files={conceptFiles} onChange={setConceptFiles} disabled={busy}/>
       <fieldset className="sm:col-span-2 rounded-xl border border-indigo-100 bg-indigo-50/40 p-4"><legend className="px-2 text-sm font-bold text-slate-800">Phân công nhân sự ngay khi tạo lịch ({assignments.length})</legend>
        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 text-xs"><span className="font-semibold text-indigo-800">{availability.loading?'Đang kiểm tra lịch bận…':availability.error?`Chưa kiểm tra được: ${availability.error}`:availability.ready?`${Object.keys(availability.busy).length} nhân sự bận trong khung giờ này`:'Chọn giờ để kiểm tra nhân sự'}</span><label className="flex items-center gap-2 text-slate-700"><input type="checkbox" checked={hideBusy} onChange={e=>setHideBusy(e.target.checked)}/> Ẩn người đã bận</label></div>
        {staff.filter(s=>s.active!==false).length===0&&<p className="text-sm text-slate-500">Chưa có nhân sự. Vào mục Đội ngũ để thêm nhân sự.</p>}
@@ -103,7 +119,7 @@ export function NewBookingDialog({open,onClose,onCreated,user,staff,initialDate}
       <p className="sm:col-span-2 rounded-xl bg-slate-50 px-4 py-3 text-xs leading-relaxed text-slate-500">Bạn đã có thể phân công ngay trong form. Sau khi tạo, mở lịch để bổ sung link sản phẩm, chỉnh sửa và kiểm tra lịch nhân sự. Một số nghiệp vụ nâng cao vẫn đang được chuyển đổi.</p>
       {error&&<p role="alert" className="sm:col-span-2 rounded-lg bg-red-50 p-3 text-xs font-semibold text-red-700">{error}</p>}
     </form>
-    <footer className="flex items-center justify-between border-t border-slate-100 px-5 py-4 sm:px-7"><div className="flex items-center gap-2 text-xs text-slate-400"><CheckCircle2 size={15}/> Kiểm tra dữ liệu trước khi lưu</div><div className="flex gap-2"><button onClick={onClose} type="button" disabled={busy} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-700">Hủy</button><button form="new-booking-form" disabled={busy} type="submit" className="rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-slate-700 disabled:opacity-50">{busy?'Đang lưu…':'Lưu lịch'}</button></div></footer>
+    <footer className="flex items-center justify-between border-t border-slate-100 px-5 py-4 sm:px-7"><div className="flex items-center gap-2 text-xs text-slate-400"><CheckCircle2 size={15}/> Kiểm tra dữ liệu trước khi lưu</div><div className="flex gap-2"><button onClick={onClose} type="button" disabled={busy} className="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-700">Hủy</button><button form="new-booking-form" disabled={busy} type="submit" className="rounded-xl bg-slate-900 px-5 py-2.5 text-xs font-bold text-white hover:bg-slate-700 disabled:opacity-50">{busy?'Đang lưu…':createdEventId?'Lưu ảnh và hoàn tất':'Lưu lịch'}</button></div></footer>
     </>}
   </section>
  </div>;
