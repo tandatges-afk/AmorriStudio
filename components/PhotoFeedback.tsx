@@ -1,11 +1,11 @@
 'use client';
-import {useCallback,useEffect,useId,useState,type FormEvent} from 'react';
+import {useCallback,useEffect,useLayoutEffect,useRef,useState,type FormEvent} from 'react';
 
 type Comment={name:string;text:string;createdAt:number;updatedAt:number};
 type CommentMap=Record<string,Comment>;
 const headers=(token:string)=>({'Content-Type':'application/json','x-amorri-delivery-token':token});
 
-/** Fetch feedback for one product once. Edits replace the one stored comment per image. */
+/** Each link has at most one comment per image. Saving again updates the same record. */
 export function usePhotoFeedback(eventId:string,productId:string,token:string){
   const [comments,setComments]=useState<CommentMap>({});
   const [error,setError]=useState('');
@@ -34,53 +34,48 @@ export function usePhotoFeedback(eventId:string,productId:string,token:string){
   return {comments,save,remove,error};
 }
 
-/** Compact by default; expansion does not create another comment. */
+/** Always one compact field and a Send button. A second send edits, never adds a second comment. */
 export function PhotoCommentCard({fileName,comment,onSave,onDelete}:{fileName:string;comment?:Comment;onSave:(text:string)=>Promise<void>;onDelete:()=>Promise<void>}){
-  const [draft,setDraft]=useState(''),[open,setOpen]=useState(false),[editing,setEditing]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');
-  const panelId=useId();
-  useEffect(()=>{if(!editing)setDraft(comment?.text||'');},[comment?.text,editing]);
-  async function save(e:FormEvent){
+  const [draft,setDraft]=useState(comment?.text||'');
+  const [busy,setBusy]=useState(false),[error,setError]=useState('');
+  const [confirmed,setConfirmed]=useState(false);
+  const area=useRef<HTMLTextAreaElement>(null);
+
+  useEffect(()=>{setDraft(comment?.text||'');setConfirmed(false);},[comment?.text]);
+  useLayoutEffect(()=>{
+    const element=area.current;
+    if(!element)return;
+    element.style.height='34px';
+    element.style.height=`${Math.min(320,Math.max(34,element.scrollHeight))}px`;
+    element.style.overflowY=element.scrollHeight>320?'auto':'hidden';
+  },[draft]);
+
+  async function save(e:FormEvent<HTMLFormElement>){
     e.preventDefault();if(!draft.trim()||busy)return;
-    setBusy(true);setError('');
-    try{await onSave(draft.trim());setEditing(false);setOpen(false);}catch(err){setError(err instanceof Error?err.message:'Không lưu được góp ý');}
+    setBusy(true);setError('');setConfirmed(false);
+    try{await onSave(draft.trim());setConfirmed(true);}
+    catch(err){setError(err instanceof Error?err.message:'Không lưu được góp ý');}
     finally{setBusy(false);}
   }
   async function remove(){
     if(busy||!window.confirm(`Xóa góp ý của ảnh "${fileName}"?`))return;
-    setBusy(true);setError('');
-    try{await onDelete();setDraft('');setEditing(false);setOpen(false);}catch(err){setError(err instanceof Error?err.message:'Không xóa được góp ý');}
+    setBusy(true);setError('');setConfirmed(false);
+    try{await onDelete();setDraft('');}
+    catch(err){setError(err instanceof Error?err.message:'Không xóa được góp ý');}
     finally{setBusy(false);}
   }
-  const showForm=!comment||editing;
-  function toggle(){
-    if(busy)return;
-    if(!open){setDraft(comment?.text||'');setEditing(false);setError('');}
-    setOpen(value=>!value);
-  }
+
+  const unchanged=Boolean(comment)&&draft.trim()===comment?.text;
   return <section className="delivery-photo-feedback" aria-label={`Góp ý ảnh ${fileName}`}>
-    <div className="delivery-photo-feedback-head">
-      <button type="button" className="delivery-photo-feedback-toggle" aria-expanded={open} aria-controls={panelId} onClick={toggle} disabled={busy}>
-        <span aria-hidden="true">✎</span> Góp ý ảnh <span aria-hidden="true">{open?'▴':'▾'}</span>
-      </button>
-      {comment&&<span className="delivery-photo-feedback-sent">✓ Đã góp ý</span>}
-    </div>
-    {open&&<div id={panelId} className="delivery-photo-feedback-body">
-      {!showForm?<>
-        <p className="delivery-photo-feedback-text">{comment.text}</p>
-        <div className="delivery-photo-feedback-actions">
-          <button type="button" onClick={()=>{setDraft(comment.text);setEditing(true);}} disabled={busy}>Sửa</button>
-          <button type="button" className="danger" onClick={()=>void remove()} disabled={busy}>Xóa</button>
-        </div>
-      </>:<form onSubmit={save}>
-        <textarea aria-label={`Bình luận ảnh ${fileName}`} maxLength={1200} required rows={2}
-          placeholder="Ghi ngắn gọn phần ảnh cần chỉnh…"
-          value={draft} onChange={e=>setDraft(e.target.value)} disabled={busy}/>
-        <div className="delivery-photo-feedback-actions">
-          <button className="primary" type="submit" disabled={busy||!draft.trim()||draft.length>1200}>{busy?'Đang lưu…':comment?'Lưu':'Gửi góp ý'}</button>
-          {comment&&<button type="button" disabled={busy} onClick={()=>{setEditing(false);setDraft(comment.text);setError('');}}>Hủy</button>}
-        </div>
-      </form>}
-      {error&&<p className="delivery-photo-feedback-error" role="alert">{error}</p>}
-    </div>}
+    <form className="delivery-photo-feedback-form" onSubmit={save}>
+      <textarea ref={area} aria-label={`Góp ý chỉnh sửa ảnh ${fileName}`} rows={1} maxLength={1200}
+        placeholder="Góp ý chỉnh sửa ảnh…" value={draft}
+        onChange={e=>{setDraft(e.target.value);setConfirmed(false);}} disabled={busy}/>
+      <button type="submit" className="delivery-photo-feedback-send" disabled={busy||!draft.trim()||unchanged}>{busy?'Lưu…':'Gửi'}</button>
+      {comment&&<button type="button" className="delivery-photo-feedback-remove" onClick={()=>void remove()}
+        title="Xóa bình luận ảnh" aria-label={`Xóa góp ý của ảnh ${fileName}`} disabled={busy}>Xóa</button>}
+    </form>
+    {confirmed&&<span className="delivery-photo-feedback-saved" role="status">✓ Đã lưu</span>}
+    {error&&<p className="delivery-photo-feedback-error" role="alert">{error}</p>}
   </section>;
 }
