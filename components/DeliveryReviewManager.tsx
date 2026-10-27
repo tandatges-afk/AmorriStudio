@@ -3,6 +3,7 @@ import {useCallback,useMemo,useState} from 'react';
 import type {User} from 'firebase/auth';
 import {MessageSquare,Check,Trash2,RefreshCw,Copy} from 'lucide-react';
 import {formatTimecode} from '@/lib/domain/timecode';
+import {PhotoFeedbackAdmin} from './PhotoFeedbackAdmin';
 type Review={id:string;productId:string;mediaId:string;name:string;text:string;seconds:number;createdAt:number;resolved:boolean};
 
 export function DeliveryReviewManager({eventId,user,productId}:{eventId:string;user:User;productId?:string}){
@@ -42,6 +43,7 @@ export function DeliveryReviewManager({eventId,user,productId}:{eventId:string;u
     {error&&<p className="text-xs text-red-700" role="alert">{error}</p>}
     {!visible.length&&!busy&&<p className="text-xs text-slate-500">{filter==='pending'&&rows.length?'Đã xử lý hết góp ý, xem Tất cả để xem lịch sử.':'Chưa có góp ý video trên hệ thống bàn giao mới.'}</p>}
     {visible.map(c=><div key={`${c.productId}:${c.mediaId}:${c.id}`} className="space-y-1 rounded-lg border p-3 text-xs"><div className="flex flex-wrap justify-between gap-2"><strong>{formatTimecode(c.seconds)} · {c.name}</strong><span className={c.resolved?'text-emerald-700':'text-amber-700'}>{c.resolved?'Đã xử lý':'Cần xử lý'}</span></div><p className="whitespace-pre-wrap break-words">{c.text}</p><div className="flex justify-end gap-3"><button type="button" disabled={busy} className="inline-flex items-center gap-1 text-emerald-700" onClick={()=>void edit(c)}><Check size={13}/>{c.resolved?'Mở lại':'Đã sửa'}</button><button type="button" disabled={busy} className="inline-flex items-center gap-1 text-rose-700" onClick={()=>void edit(c,true)}><Trash2 size={13}/>Xóa</button></div></div>)}
+    <PhotoFeedbackAdmin eventId={eventId} user={user} productId={productId}/>
   </div>}
  </div>;
 }

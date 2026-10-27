@@ -1,0 +1,18 @@
+/* Compact image-only feedback; the photo and its two actions remain unchanged. */
+.delivery-photo-feedback{min-width:0;margin:0;padding:4px 8px 7px;border-top:1px solid #e9eeeb;background:transparent;color:#34443b}
+.delivery-photo-feedback-head{display:flex;gap:6px;align-items:center;flex-wrap:wrap;min-height:26px}
+.delivery-photo-feedback-toggle{appearance:none;border:0;background:transparent;color:#486754;font-size:11px;line-height:1.4;font-weight:650;padding:3px 2px;cursor:pointer;display:inline-flex;align-items:center;gap:5px}
+.delivery-photo-feedback-toggle:hover{color:#246a43;text-decoration:underline}
+.delivery-photo-feedback-toggle:focus-visible{outline:2px solid #94cba9;outline-offset:2px;border-radius:4px}
+.delivery-photo-feedback-toggle:disabled{opacity:.55;cursor:wait}
+.delivery-photo-feedback-sent{font-size:10px;line-height:1.3;color:#27804a;font-weight:650}
+.delivery-photo-feedback-body{padding:4px 0 2px}
+.delivery-photo-feedback textarea{box-sizing:border-box;display:block;width:100%;min-height:44px;max-height:110px;resize:vertical;border:1px solid #d6e1da;border-radius:7px;padding:7px 8px;font:inherit;font-size:11px;line-height:1.4;background:#fff;color:#304238;outline-offset:1px}
+.delivery-photo-feedback textarea:focus{border-color:#478664;outline:2px solid #d7e9dd}
+.delivery-photo-feedback-text{margin:0 0 5px;padding:6px 8px;border-radius:7px;background:#f5faf6;color:#34443b;white-space:pre-wrap;overflow-wrap:anywhere;font-size:11px;line-height:1.45}
+.delivery-photo-feedback-actions{display:flex;align-items:center;flex-wrap:wrap;gap:5px;margin-top:5px}
+.delivery-photo-feedback-actions button{appearance:none;background:#fff;border:1px solid #dae4dd;border-radius:6px;padding:4px 8px;min-height:26px;color:#365e45;font:inherit;font-size:10.5px;font-weight:650;cursor:pointer}
+.delivery-photo-feedback-actions .primary{background:#317851;color:#fff;border-color:#317851}
+.delivery-photo-feedback-actions .danger{color:#af4545;border-color:#edd2d2}
+.delivery-photo-feedback-actions button:disabled{opacity:.5;cursor:not-allowed}
+.delivery-photo-feedback-error{font-size:10.5px;line-height:1.4;color:#b02525;margin:5px 0 0}

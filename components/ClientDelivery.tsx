@@ -2,6 +2,8 @@
 import {useCallback,useEffect,useRef,useState,type FormEvent,type SyntheticEvent} from 'react';
 import type {DeliveryMedia,DeliveryPayload} from '@/lib/domain/delivery';
 import './delivery.css';
+import './photo-feedback.css';
+import {PhotoCommentCard,usePhotoFeedback} from './PhotoFeedback';
 import {formatTimecode,parseTimecode} from '@/lib/domain/timecode';
 
 type Comment={id:string;name:string;text:string;seconds:number;createdAt:number;resolved:boolean};
@@ -112,6 +114,7 @@ function PhotoProduct({eventId,productId,files,preselected,token}:{eventId:strin
   const [checked,setChecked]=useState<string[]>(preselected),[filter,setFilter]=useState<'all'|'selected'>('all');
   const [busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[downloading,setDownloading]=useState('');
   const images=files.filter(f=>!f.isVideo);
+  const photoFeedback=usePhotoFeedback(eventId,productId,token);
   const save=async()=>{setBusy(true);setNotice('');
     try{const r=await fetch(`/api/delivery/${encodeURIComponent(eventId)}/selections`,{method:'PUT',headers:{'Content-Type':'application/json','x-amorri-delivery-token':token},body:JSON.stringify({productId,fileIds:checked})});
       const value=await r.json();if(!r.ok)throw new Error(value.error||'Không lưu được ảnh');setNotice(`Đã đồng bộ ${value.selected} ảnh với Studio`);
@@ -159,7 +162,8 @@ function PhotoProduct({eventId,productId,files,preselected,token}:{eventId:strin
           <button type="button" className="delivery-photo-select" onClick={()=>setChecked(p=>p.includes(i.id)?p.filter(id=>id!==i.id):[...p,i.id])} aria-pressed={checked.includes(i.id)}>{checked.includes(i.id)?'✓ Đã chọn':'○ Chọn ảnh'}</button>
           <button type="button" className="delivery-photo-download" disabled={!!downloading} onClick={()=>download(i)} title={`Tải ảnh gốc ${i.name} về máy`}>{downloading===i.id?'Đang tải…':'↓ Tải ảnh'}</button>
         </div>
-      </div></article>)}</div>
+      </div><PhotoCommentCard fileName={i.name} comment={photoFeedback.comments[i.id]} onSave={text=>photoFeedback.save(i.id,text)} onDelete={()=>photoFeedback.remove(i.id)}/></article>)}</div>
+    {photoFeedback.error&&<p role="alert" className="delivery-alert">{photoFeedback.error}</p>}
     {notice&&<p role="status" className="delivery-alert">{notice}</p>}
   </>;
 }
