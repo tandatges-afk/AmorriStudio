@@ -17,26 +17,10 @@ function filename(name:string){
 export async function POST(request:Request,{params}:{params:Promise<{eventId:string}>}){
   try{
     const {eventId}=await params;
-    // Native browser form navigation makes an attachment visible in Chrome's
-    // own Download History (Ctrl+J). Keep the private grant in POST body, not URL.
-    const formPost=(request.headers.get('content-type')||'').toLowerCase().startsWith('application/x-www-form-urlencoded');
-    let body:Record<string,unknown>;
-    let authRequest=request;
-    if(formPost){
-      if(Number(request.headers.get('content-length')||0)>4096)throw new DeliveryError(400,'PHOTO_BAD_BODY','Yêu cầu tải ảnh quá lớn');
-      const raw=await request.text();
-      if(raw.length>4096)throw new DeliveryError(400,'PHOTO_BAD_BODY','Yêu cầu tải ảnh quá lớn');
-      const fields=new URLSearchParams(raw);
-      const token=fields.get('deliveryToken')||'';
-      if(token.length>512)throw new DeliveryError(401,'DELIVERY_TOKEN_INVALID','Liên kết bàn giao không hợp lệ');
-      body={productId:fields.get('productId')||'',mediaId:fields.get('mediaId')||''};
-      authRequest=new Request(request.url,{headers:{'x-amorri-delivery-token':token}});
-    }else{
-      body=await payload(request,1024);
-    }
+    const body=await payload(request,1024);
     const productId=String(body.productId||''),mediaId=String(body.mediaId||'');
     if(!validId(productId)||!DRIVE_ID.test(mediaId))throw new DeliveryError(400,'PHOTO_BAD_ID','Mã sản phẩm hoặc ảnh không hợp lệ');
-    const {value}=await deliveryEvent(authRequest,eventId,false,productId);
+    const {value}=await deliveryEvent(request,eventId,false,productId);
     const product=productById(value,productId);
     const media=await listDeliveryMedia(product);
     const photo=media.find(item=>item.id===mediaId&&!item.isVideo&&item.mimeType.startsWith('image/'));

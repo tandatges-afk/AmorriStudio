@@ -9,6 +9,7 @@ import {OperationsHub} from './OperationsHub';
 import {CalendarPlanner} from './CalendarPlanner';
 import {StudioAnalytics} from './StudioAnalytics';
 import {SystemHealth} from './SystemHealth';
+import {VideoSyncMonitor} from './VideoSyncMonitor';
 import MigrationReadiness from './MigrationReadiness';
 import './v29.css';
 import './v30.css';
@@ -31,7 +32,7 @@ import { getMonthStats, monthEvents, shiftMonth, statusName } from '@/lib/domain
 import type { DashboardData, StudioEvent } from '@/lib/domain/types';
 
 type Tab = 'overview'|'calendar'|'staff'|'payroll'|'delivery'|'analytics'|'system';
-type SystemSection='health'|'activity'|'data';
+type SystemSection='health'|'activity'|'data'|'video';
 const monthNow = () => { const d=new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; };
 const localToday = () => { const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Ho_Chi_Minh',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());const take=(type:string)=>parts.find(p=>p.type===type)?.value||'';return `${take('year')}-${take('month')}-${take('day')}`; };
 const money = formatVnd;
@@ -279,8 +280,10 @@ export function Dashboard(){
             <button type="button" className={systemSection==='health'?'active':''} onClick={()=>setSystemSection('health')}><ShieldCheck size={16}/> Sức khỏe</button>
             <button type="button" className={systemSection==='activity'?'active':''} onClick={()=>setSystemSection('activity')}><Activity size={16}/> Hoạt động</button>
             <button type="button" className={systemSection==='data'?'active':''} onClick={()=>setSystemSection('data')}><Settings2 size={16}/> Kiểm tra dữ liệu</button>
+            <button type="button" className={systemSection==='video'?'active':''} onClick={()=>setSystemSection('video')}><Film size={16}/> Video R2</button>
           </div>
           {systemSection==='health'&&<SystemHealth user={user}/>}
+          {systemSection==='video'&&<VideoSyncMonitor user={user}/>}
           {systemSection==='data'&&<MigrationReadiness embedded/>}
           {systemSection==='activity'&&<section className="surface"><div className="surface-title"><h3>Nhật ký hoạt động gần đây</h3></div>{data?.audit.length?<div className="activity-list">{data.audit.map((a,i)=><div key={a.id||i} className="activity-item"><div className="activity-symbol"><Activity size={17}/></div><div><strong>{a.message||a.action||'Hoạt động'}</strong><p>{a.action} · {a.createdAt?new Date(a.createdAt<1e12?a.createdAt*1000:a.createdAt).toLocaleString('vi-VN'):'Chưa xác định'}</p></div></div>)}</div>:<Empty title="Chưa có nhật ký" detail="Nếu Dashboard chưa tải được, hãy mở Sức khỏe để chẩn đoán Firebase."/>}</section>}
         </section>}

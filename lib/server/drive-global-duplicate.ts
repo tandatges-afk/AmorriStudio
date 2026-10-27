@@ -4,15 +4,7 @@
  */
 import {adminDatabase} from './firebase-admin';
 import {matchingDriveProduct} from '@/lib/domain/drive-duplicate';
-export async function findGlobalDriveDuplicate(
-  url:string,
-  eventId:string,
-  productId:string
-):Promise<{
-  eventId:string;
-  eventName:string;
-  productName:string;
-}|null>{
+export async function findGlobalDriveDuplicate(url:string,eventId:string,productId:string):Promise<{eventId:string;eventName:string;productName:string}|null>{
   const task=adminDatabase().ref('studioPlanner_v1/events').once('value');
   let timer:ReturnType<typeof setTimeout>|undefined;
   const snapshot=await Promise.race([task,new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error('DRIVE_DUPLICATE_CHECK_TIMEOUT')),12000);})]).finally(()=>{if(timer)clearTimeout(timer);});

@@ -26,9 +26,9 @@ service-account*.json
 .tmp/
 tmp/
 .DS_Store
-
-# Amorri private credentials
+# Private credentials may be copied into the workspace by mistake.
 **/drive-sa*.json
 **/rclone.conf
 .config/
 *.key
+*.key.json

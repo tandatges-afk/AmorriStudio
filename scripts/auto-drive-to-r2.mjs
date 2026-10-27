@@ -185,20 +185,9 @@ async function main(){
   console.log(`Finished: processed=${completed}, failed=${failed}, trackedBytes=${tracked}.`);
   if(failed)process.exitCode=1;
 }
-main()
-  .catch(e => {
-    console.error(`FATAL: ${e.message}`);
-    process.exitCode = 1;
-  })
-  .finally(async () => {
-    const app = getApps().find(a => a.name === 'amorri-r2-worker');
-    if (!app) return;
-
-    try {
-      await deleteApp(app);
-      console.log('Firebase connection closed. Worker finished.');
-    } catch (e) {
-      console.error(`Firebase cleanup failed: ${e.message}`);
-      process.exitCode = 1;
-    }
+main().catch(e=>{console.error(`FATAL: ${e.message}`);process.exitCode=1;})
+  .finally(async()=>{
+    const app=getApps().find(a=>a.name==='amorri-r2-worker');
+    if(app){try{await deleteApp(app);console.log('Firebase connection closed. Worker finished.');}
+      catch(err){console.error(`Firebase cleanup failed: ${err.message}`);process.exitCode=1;}}
   });

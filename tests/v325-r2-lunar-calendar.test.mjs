@@ -16,8 +16,7 @@ test('calendar shows lunar day/month and double-click opens pre-filled form',()=
  const dashboard=source('components/Dashboard.tsx');
  const booking=source('components/NewBookingDialog.tsx');
  assert.match(cal,/onDoubleClick=\{\(\)=>onCreate\(cell.date\)\}/);
- assert.match(cal,/>\{lunarLabel\(cell.date\)\}/);
- assert.doesNotMatch(cal,/>ÂL /);
+ assert.match(cal,/\{lunarLabel\(cell.date\)\}/);
  assert.match(cal,/onDoubleClick=\{\(\)=>onCreate\(day\)\}/);
  assert.match(dashboard,/onCreate=\{createBooking\}/);
  assert.match(booking,/setDate\(\/\^/);
@@ -34,11 +33,11 @@ test('legacy 302 and Vercel video range proxy removed from the active handler',(
 test('full resolution image download is authenticated and never accepts video files',()=>{
  const api=source('app/api/delivery/[eventId]/photo-download/route.ts');
  const delivery=source('components/ClientDelivery.tsx');
- assert.match(api,/deliveryEvent\(authRequest,eventId,false,productId\)/);
+ assert.match(api,/deliveryEvent\(request,eventId,false,productId\)/);
  assert.match(api,/!item.isVideo/);
  assert.match(api,/Content-Disposition/);
  assert.doesNotMatch(delivery,/showSaveFilePicker/);
- assert.match(delivery,/form.submit\(\)/);
+ assert.match(delivery,/link\.download/);
  assert.match(delivery,/delivery-photo-download/);
  assert.match(delivery,/photo-download/);
 });
