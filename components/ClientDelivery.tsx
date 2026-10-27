@@ -156,8 +156,8 @@ function PhotoProduct({eventId,productId,files,preselected,token}:{eventId:strin
     <div><button className={filter==='all'?'active':''} onClick={()=>setFilter('all')}>Tất cả</button><button className={filter==='selected'?'active':''} onClick={()=>setFilter('selected')}>Đã chọn</button>
     <button className="delivery-primary" disabled={busy} onClick={save}>{busy?'Đang đồng bộ…':'Gửi lựa chọn'}</button></div></div>
     <div className="delivery-photos">{images.filter(i=>filter==='all'||checked.includes(i.id)).map(i=><article className={`delivery-photo ${checked.includes(i.id)?'is-selected':''}`} key={i.id}>
-      <div className="delivery-photo-image"><div className="delivery-photo-name" title={i.name}>{i.name}</div><img loading="lazy" alt={i.name} src={i.thumb}/></div>
-      <div className="delivery-photo-footer">
+      <div className="delivery-photo-image"><img loading="lazy" alt={i.name} src={i.thumb}/></div>
+      <div className="delivery-photo-footer"><small className="delivery-photo-name" title={i.name}>{i.name}</small>
         <div className="delivery-photo-actions">
           <button type="button" className="delivery-photo-select" onClick={()=>setChecked(p=>p.includes(i.id)?p.filter(id=>id!==i.id):[...p,i.id])} aria-pressed={checked.includes(i.id)}>{checked.includes(i.id)?'✓ Đã chọn':'○ Chọn ảnh'}</button>
           <button type="button" className="delivery-photo-download" disabled={!!downloading} onClick={()=>download(i)} title={`Tải ảnh gốc ${i.name} về máy`}>{downloading===i.id?'Đang tải…':'↓ Tải ảnh'}</button>

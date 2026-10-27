@@ -11,12 +11,30 @@
 .delivery-photo-feedback-form button:disabled{opacity:.5;cursor:not-allowed}
 .delivery-photo-feedback-saved{display:block;margin-top:3px;color:#2e7650;font-size:10px}
 .delivery-photo-feedback-error{font-size:10px;line-height:1.4;color:#b02525;margin:5px 0 0}
-/* The filename floats INSIDE the top of the photo; the image is still clickable/visible. */
-.delivery-photos>.delivery-photo>.delivery-photo-image>.delivery-photo-name{
- position:absolute;top:0;left:0;right:0;z-index:2;pointer-events:none;display:block;
- padding:12px 10px 16px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
- background:linear-gradient(180deg,rgba(13,25,18,.65),rgba(13,25,18,0));
- color:#fff;font-size:11px;font-weight:650;line-height:1.4;text-shadow:0 1px 2px rgba(0,0,0,.42);
+/* Photo filename sits below the image, left aligned: no overlay or gradient. */
+.delivery-photos>.delivery-photo>.delivery-photo-footer{
+  grid-template-rows:auto auto;
+  min-height:0;
+  padding:8px;
+  gap:6px;
 }
-/* The footer now contains only Chọn ảnh / Tải ảnh. */
-.delivery-photos>.delivery-photo>.delivery-photo-footer{grid-template-rows:auto;min-height:0;padding:8px;gap:0}
+.delivery-photos>.delivery-photo>.delivery-photo-footer>.delivery-photo-name{
+  display:block;
+  position:static;
+  inset:auto;
+  min-width:0;
+  max-width:100%;
+  margin:0;
+  padding:0 2px;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+  background:none;
+  border:0;
+  color:#536258;
+  font-size:11px;
+  font-weight:550;
+  line-height:1.4;
+  text-align:left;
+  text-shadow:none;
+}
