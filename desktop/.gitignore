@@ -1,0 +1,10 @@
+node_modules/
+dist/
+release/
+*.log
+*.env
+*.env.*
+desktop.oauth.local.json
+
+desktop.config.json
+desktop.oauth.local.json

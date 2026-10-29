@@ -1,0 +1,27 @@
+{
+  "name": "amorri-studio-desktop",
+  "version": "1.2.0",
+  "description": "Amorri Studio Desktop — secure Windows shell for Vercel web app",
+  "main": "dist/main.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:main": "tsc -p tsconfig.json",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "dev": "npm run build:main && electron .",
+    "start": "npm run build:main && electron .",
+    "dist:win": "npm run build:main && electron-builder --config electron-builder.yml --win nsis --x64",
+    "test:raw": "npm run build:main && node --test tests/raw-match.test.mjs",
+    "test:desktop": "npm run build:main && node --test tests/raw-match.test.mjs tests/desktop-commands.test.mjs"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "electron": "^45.1.0",
+    "electron-builder": "^26.18.0",
+    "typescript": "^7.0.2"
+  },
+  "productName": "Amorri Studio",
+  "private": true
+}

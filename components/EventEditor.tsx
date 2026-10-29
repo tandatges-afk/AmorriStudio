@@ -2,7 +2,7 @@
 import {formatVnd} from '@/lib/domain/vietnam-money';
 import { useEffect, useState, type FormEvent } from 'react';
 import type { User } from 'firebase/auth';
-import { CalendarClock, ExternalLink, Save, Trash2, X } from 'lucide-react';
+import { CalendarClock, ExternalLink, FolderOpen, Save, Trash2, X } from 'lucide-react';
 import { DeliveryGrantManager } from './DeliveryGrantManager';
 import type { Staff, StudioEvent } from '@/lib/domain/types';
 import type { EditableChanges } from '@/lib/domain/event-management';
@@ -13,6 +13,7 @@ import {useStaffAvailability} from '@/lib/ui/useStaffAvailability';
 import {isEventReleased} from '@/lib/domain/event-release';
 import {ConceptPhotoGallery} from './ConceptPhotos';
 import {matchingDriveProduct} from '@/lib/domain/drive-duplicate';
+import {desktopDriveFolderId,desktopRawFilterUrl,isDesktopBrowser,openDesktopCommand} from '@/lib/domain/desktop-bridge';
 
 type Detail = Omit<StudioEvent,'products'> & {sourceLinks?:Record<string,string>;products:{id:string;name:string;url:string;mediaType:string}[];phone?:string;note?:string;isRuocDau?:boolean;startTrai?:string;startGai?:string;locTrai?:string;locGai?:string;phoneTrai?:string;phoneGai?:string};
 type Props={id:string|null;staff:Staff[];user:User;onClose:()=>void;onChanged:(newDate?:string)=>void;onDataUpdated?:()=>void};
@@ -37,6 +38,8 @@ export function EventEditor({id,staff,user,onClose,onChanged,onDataUpdated}:Prop
  const [reloadKey,setReloadKey]=useState(0),[sourceDrafts,setSourceDrafts]=useState<Record<string,string>>({});
  const [productId,setProductId]=useState(''),[productName,setProductName]=useState(''),[productUrl,setProductUrl]=useState(''),[productType,setProductType]=useState('auto');
  const [productNotice,setProductNotice]=useState('');
+ const [desktop,setDesktop]=useState(false);
+ useEffect(()=>setDesktop(isDesktopBrowser()),[]);
  const [now,setNow]=useState(()=>Date.now());
  const [hideBusy,setHideBusy]=useState(false);
  const availability=useStaffAvailability(user,{date:form.date||'',start:form.start||'',end:form.end||'',isRuocDau:detail?.isRuocDau===true,startTrai:form.startTrai||'',startGai:form.startGai||'',excludeId:id||'',status:form.status||'pending'},Boolean(id&&detail));
@@ -55,6 +58,27 @@ export function EventEditor({id,staff,user,onClose,onChanged,onDataUpdated}:Prop
    return()=>ctrl.abort();
  },[id,user,reloadKey]);
  useEffect(()=>{if(!id)return;const listener=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!busy){if(deleting)setDeleting(false);else onClose();}};window.addEventListener('keydown',listener);return()=>window.removeEventListener('keydown',listener);},[id,onClose,busy,deleting]);
+ useEffect(()=>{
+   if(!id||!detail)return;
+   const applyDraft=()=>{
+     try{
+       const raw=sessionStorage.getItem('amorriDesktopDriveDraft');if(!raw)return;
+       const draft=JSON.parse(raw) as {eventId?:string;name?:string;url?:string;mediaType?:string};
+       if(draft.eventId!==id)return;
+       if(!draft.name||!draft.url||!/^https:\/\/drive\.google\.com\/drive\/folders\/[A-Za-z0-9_-]+$/.test(draft.url)){
+         sessionStorage.removeItem('amorriDesktopDriveDraft');setError('Folder Drive được gửi từ Desktop không hợp lệ.');return;
+       }
+       if(!isEventReleased(detail,Date.now())){
+         setProductNotice('Folder đã chọn. Lịch chưa kết thúc nên chưa thể cấp link bàn giao.');return;
+       }
+       setProductId('');setProductName(draft.name.slice(0,180));setProductUrl(draft.url);setProductType('image');
+       setProductNotice('Đã đưa folder Drive vào đúng lịch này. Bấm “Thêm sản phẩm” để lưu vào hệ thống.');
+       sessionStorage.removeItem('amorriDesktopDriveDraft');
+     }catch{sessionStorage.removeItem('amorriDesktopDriveDraft');setError('Không đọc được folder Drive từ Desktop.');}
+   };
+   applyDraft();window.addEventListener('amorri:desktop-folder',applyDraft);
+   return()=>window.removeEventListener('amorri:desktop-folder',applyDraft);
+ },[id,detail]);
  if(!id)return null;
  // Capture the guarded ID in an immutable local so callback closures retain string type.
  const eventId: string = id;
@@ -210,6 +234,23 @@ export function EventEditor({id,staff,user,onClose,onChanged,onDataUpdated}:Prop
   finally{setBusy(false);}
  }
  const chooseProduct=(product:{id:string;name:string;url:string;mediaType:string})=>{setProductId(product.id);setProductName(product.name);setProductUrl(product.url);setProductType(product.mediaType||'auto');};
+ // Preserve the original desktop product-level RAW action, but share the validated
+ // command builder with both dashboard views to avoid inconsistent JPG/Drive parsing.
+ async function filterProductRawDesktop(prod:{id:string;name:string;url:string;mediaType:string}){
+   try{
+     if(!desktopDriveFolderId(prod.url))throw new Error('Sản phẩm chưa có đường dẫn Drive Folder hợp lệ.');
+     const response=await authorizedRequest(user,`/api/delivery/${encodeURIComponent(eventId)}/admin-media`);
+     const data=await response.json() as {error?:string;products?:Array<{id:string;selectedNames:string[]}>};
+     if(!response.ok)throw new Error(data.error||'Không đọc được ảnh khách đã chọn.');
+     const names=data.products?.find(item=>item.id===prod.id)?.selectedNames||[];
+     if(!names.length)throw new Error('Khách chưa chọn ảnh JPG cho sản phẩm này.');
+     const command=desktopRawFilterUrl(prod.url,names);
+     if(!command)throw new Error('Danh sách JPG hoặc thư mục Drive không hợp lệ để lọc RAW.');
+     openDesktopCommand(command);
+     setProductNotice('Đã gửi yêu cầu lọc RAW đến Amorri Desktop.');
+   }catch(error){setError(error instanceof Error?error.message:'Không lọc được RAW');}
+ }
+
  async function copyProductUrl(url:string){
    try{await navigator.clipboard.writeText(url);}
    catch{setError('Trình duyệt chặn thao tác copy link.');}
@@ -254,7 +295,7 @@ export function EventEditor({id,staff,user,onClose,onChanged,onDataUpdated}:Prop
          <label className={label}>Chi phí (VND)<VndInput className={input} value={a.cost} onValueChange={v=>editAssignment(s.id,'cost',v)}/></label>
          {detail.isRuocDau&&<label className={label}>Vị trí rước dâu<select className={input} value={a.locType||'Nhà trai'} onChange={e=>editAssignment(s.id,'locType',e.target.value)}><option value="Nhà trai">Nhà trai</option><option value="Nhà gái">Nhà gái</option>{a.locType&&!['Nhà trai','Nhà gái'].includes(a.locType)&&<option value={a.locType}>{a.locType} (legacy)</option>}</select></label>}</div><div className="mt-2 rounded-lg border border-dashed border-slate-200 bg-white p-2">{!released&&<p className="text-xs font-semibold text-amber-800">Source chỉ mở sau {form.date||detail.date} lúc {form.end||detail.end}.</p>}{released&&<><label className={label}>Link Source nhân sự (http/https)<input className={input} type="url" value={sourceDrafts[s.id]||''} onChange={e=>setSourceDrafts(v=>({...v,[s.id]:e.target.value}))} placeholder="Dán link thư mục Source của thợ" maxLength={1500}/></label><button className="mt-2 rounded-lg border bg-indigo-50 px-3 py-2 text-xs font-semibold text-indigo-800 disabled:opacity-40" type="button" disabled={busy||sourceDrafts[s.id]===(detail.sourceLinks?.[s.id]||'')} onClick={()=>void saveSource(s.id)}>Lưu link Source</button></>}</div></>}</div>})}</div>
       </fieldset>
-      <fieldset className="col-span-full rounded-xl border border-indigo-200 p-4"><legend className="px-2 text-sm font-bold text-slate-800">Sản phẩm bàn giao / Google Drive</legend>
+      <fieldset className="col-span-full rounded-xl border border-indigo-200 p-4"><legend className="px-2 text-sm font-bold text-slate-800">{desktop?'Sản phẩm bàn giao · Chọn thư mục Drive':'Sản phẩm bàn giao / Google Drive'}</legend>
        {!released&&<p className="mb-3 rounded-lg bg-amber-50 p-3 text-xs font-semibold text-amber-900">Quản lý link bàn giao chỉ mở sau {form.date||detail.date} lúc {form.end||detail.end}. Link chỉ cấp sau khi kết thúc lịch.</p>}
        {released&&<>
        <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-xl bg-slate-50 p-3">
@@ -264,11 +305,11 @@ export function EventEditor({id,staff,user,onClose,onChanged,onDataUpdated}:Prop
        <div className="mb-3 space-y-2">{detail.products.map(prod=><div key={prod.id} className={`rounded-xl border p-3 text-xs ${productId===prod.id?'border-indigo-500 bg-indigo-50':'bg-slate-50'}`}>
          <div className="flex flex-wrap items-start justify-between gap-2">
            <div className="min-w-0"><strong className="block text-slate-900">{prod.name}</strong><a href={prod.url||'#'} target="_blank" rel="noreferrer" className="mt-1 inline-flex max-w-full items-center gap-1 truncate text-indigo-700 underline underline-offset-2">Mở link Drive <ExternalLink size={12}/></a></div>
-           <div className="flex flex-wrap gap-2"><button type="button" className="rounded-lg border bg-white px-3 py-1.5 font-semibold text-slate-700" onClick={()=>chooseProduct(prod)}>Chỉnh sửa</button><button type="button" className="rounded-lg border bg-white px-3 py-1.5 font-semibold text-slate-700" onClick={()=>void copyProductUrl(prod.url)} disabled={!prod.url}>Copy link</button><button type="button" disabled={busy} className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 font-semibold text-rose-700" onClick={()=>void removeProduct(prod)}>Xóa link</button><DeliveryGrantManager eventId={eventId} productId={prod.id} user={user}/>{detail.completedProductIds?.includes(prod.id)&&<button type="button" disabled={busy} className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 font-semibold text-emerald-700" onClick={()=>void restoreProduct(prod.id)}>Hiện lại</button>}</div>
+           <div className="flex flex-wrap gap-2"><button type="button" className="rounded-lg border bg-white px-3 py-1.5 font-semibold text-slate-700" onClick={()=>chooseProduct(prod)}>Chỉnh sửa</button>{desktop&&prod.mediaType!=='video'&&desktopDriveFolderId(prod.url)&&<button type="button" className="rounded-lg border bg-white px-3 py-1.5 font-semibold text-slate-700" onClick={()=>void filterProductRawDesktop(prod)}>Lọc RAW</button>}<button type="button" className="rounded-lg border bg-white px-3 py-1.5 font-semibold text-slate-700" onClick={()=>void copyProductUrl(prod.url)} disabled={!prod.url}>Copy link</button><button type="button" disabled={busy} className="rounded-lg border border-rose-200 bg-white px-3 py-1.5 font-semibold text-rose-700" onClick={()=>void removeProduct(prod)}>Xóa link</button><DeliveryGrantManager eventId={eventId} productId={prod.id} user={user}/>{detail.completedProductIds?.includes(prod.id)&&<button type="button" disabled={busy} className="rounded-lg border border-emerald-300 bg-white px-3 py-1.5 font-semibold text-emerald-700" onClick={()=>void restoreProduct(prod.id)}>Hiện lại</button>}</div>
          </div>
        </div>)}{!detail.products.length&&<p className="text-xs text-slate-400">Chưa có sản phẩm.</p>}</div>
        <p className="mb-2 text-xs text-slate-500">{productId?'Đang chỉnh sửa. Sau khi lưu, form tự trở về chế độ thêm mới.':'Chế độ thêm mới · dùng link Drive riêng cho từng album hoặc clip.'}</p>
-       <div className="grid gap-2 sm:grid-cols-2"><label className={label}>Tên sản phẩm<input className={input} maxLength={180} value={productName} onChange={e=>setProductName(e.target.value)} placeholder="VD: Album ảnh cưới"/></label><label className={`${label} sm:col-span-2`}>Link Drive (folder hoặc file)<input className={input} value={productUrl} onChange={e=>setProductUrl(e.target.value)} placeholder="https://drive.google.com/drive/folders/..." maxLength={1200}/></label></div>
+       <div className="grid gap-2 sm:grid-cols-2"><label className={label}>Tên sản phẩm<input className={input} maxLength={180} value={productName} onChange={e=>setProductName(e.target.value)} placeholder="VD: Album ảnh cưới"/></label>{desktop&&productType!=='video'?<div className="sm:col-span-2"><div className="mb-2 flex flex-wrap items-center justify-between gap-2"><span className="text-xs font-semibold text-slate-600">Thư mục Google Drive</span><button type="button" className="inline-flex items-center gap-2 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-xs font-bold text-indigo-800 transition hover:bg-indigo-100 disabled:opacity-50" disabled={busy} onClick={()=>openDesktopCommand(`amorri-desktop://drive?eventId=${encodeURIComponent(eventId)}&name=${encodeURIComponent(productName.trim().slice(0,180))}`)}><FolderOpen size={16}/>{productUrl?'Đổi thư mục Drive':'Chọn thư mục Google Drive'}</button></div><div role="status" className="min-h-11 break-all rounded-xl border border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-700">{productUrl?`✓ ${productUrl}`:'Chưa chọn thư mục Drive. Nhấn nút phía trên để duyệt từng cấp thư mục.'}</div></div>:<label className={`${label} sm:col-span-2`}>Link Drive (folder hoặc file)<input className={input} value={productUrl} onChange={e=>setProductUrl(e.target.value)} placeholder="https://drive.google.com/drive/folders/..." maxLength={1200}/></label>}</div>
        {duplicateDrive&&<p role="alert" className="mt-2 rounded-lg border border-amber-300 bg-amber-50 p-2 text-xs font-semibold text-amber-900">Link Google Drive đã được thêm ở sản phẩm “{String(duplicateDrive.name)}”. Không thể thêm trùng ảnh hoặc video.</p>}
        <div className="mt-3 flex flex-wrap gap-2"><button type="button" onClick={()=>void saveProduct()} disabled={busy||!!duplicateDrive||!productName.trim()||!productUrl.trim()} className="rounded-lg bg-indigo-700 px-3 py-2 text-xs font-bold text-white disabled:opacity-40">{productId?'Cập nhật sản phẩm':'Thêm sản phẩm'}</button><button type="button" className="rounded-lg border px-3 py-2 text-xs" onClick={()=>{setProductId('');setProductName('');setProductUrl('');setProductType('auto');}}>Tạo mới</button></div>
       </>}

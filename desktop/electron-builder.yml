@@ -1,0 +1,34 @@
+appId: vn.amorri.studio.desktop
+productName: Amorri Studio
+asar: true
+directories:
+  output: release
+files:
+  - dist/**/*
+  - package.json
+extraResources:
+  - from: assets/tools.html
+    to: tools.html
+  - from: assets/tools.js
+    to: tools.js
+  - from: assets/tools.css
+    to: tools.css
+  - from: desktop.config.json
+    to: desktop.config.json
+  - from: assets/icon.ico
+    to: icon.ico
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  icon: assets/icon.ico
+  artifactName: 'Amorri Studio Setup ${version}.${ext}'
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: Amorri Studio
+publish: null

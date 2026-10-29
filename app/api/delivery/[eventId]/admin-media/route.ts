@@ -14,7 +14,7 @@ export async function GET(request:Request,{params}:{params:Promise<{eventId:stri
   const {value}=await findBooking(eventId);
   const products=pickProducts(value.products);
   if(products.length>100)return json({error:'Quá nhiều sản phẩm để đọc cùng lúc'},413);
-  const result: Array<{id:string;name:string;kind:'video'|'image'|'mixed'|'unknown';videoCount:number;imageCount:number;selectedNames:string[];cover?:{mediaId:string;productId:string;type:'video'|'image';orientation:'landscape'|'portrait'|'unknown'};warning?:string;r2?:R2ProductStatus}> = [];
+  const result: Array<{id:string;name:string;kind:'video'|'image'|'mixed'|'unknown';videoCount:number;imageCount:number;selectedNames:string[];driveUrl?:string;cover?:{mediaId:string;productId:string;type:'video'|'image';orientation:'landscape'|'portrait'|'unknown'};warning?:string;r2?:R2ProductStatus}> = [];
   // Limit concurrency to avoid spawning too many Drive requests from Vercel.
   for(let index=0;index<products.length;index+=3){
    const batch=await Promise.all(products.slice(index,index+3).map(async p=>{
@@ -44,10 +44,10 @@ export async function GET(request:Request,{params}:{params:Promise<{eventId:stri
       }
       const selected=chooseDeliveryCover(media);
       const cover=selected?{mediaId:selected.id,productId:id,type:(selected.isVideo?'video':'image') as 'video'|'image',orientation:coverOrientation(selected)}:undefined;
-      return {id,name,kind,videoCount,imageCount,selectedNames,cover,warning,r2};
+      return {id,name,kind,videoCount,imageCount,selectedNames,driveUrl:String(p.url||''),cover,warning,r2};
     }catch(error){
       // Do not claim unknown media is photos or clips when Google Drive fails.
-      return {id,name,kind:'unknown' as const,videoCount:0,imageCount:0,selectedNames:[],warning:error instanceof Error?error.message:'Không tải được Google Drive'};
+      return {id,name,kind:'unknown' as const,videoCount:0,imageCount:0,selectedNames:[],driveUrl:String(p.url||''),warning:error instanceof Error?error.message:'Không tải được Google Drive'};
     }
    }));result.push(...batch);
   }

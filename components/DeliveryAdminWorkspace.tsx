@@ -1,10 +1,10 @@
 'use client';
 import {useCallback,useEffect,useRef,useState} from 'react';
 import type {User} from 'firebase/auth';
-import {Copy,RefreshCw} from 'lucide-react';
+import {Copy,FolderOpen,RefreshCw} from 'lucide-react';
 import type {CoverInfo} from './AdminThumbnail';
 
-type ProductSummary={id:string;name:string;kind:'video'|'image'|'mixed'|'unknown';videoCount:number;imageCount:number;selectedNames:string[];cover?:CoverInfo;warning?:string};
+type ProductSummary={id:string;name:string;kind:'video'|'image'|'mixed'|'unknown';videoCount:number;imageCount:number;selectedNames:string[];driveUrl?:string;cover?:CoverInfo;warning?:string};
 let activeDiscovery=0;
 const waitingDiscovery:Array<()=>void>=[];
 async function scheduleDiscovery<T>(operation:()=>Promise<T>):Promise<T>{
@@ -53,6 +53,17 @@ export function DeliveryAdminWorkspace({eventId,user,onCover,onSummary}:{eventId
  const photoRows=rows.filter(row=>row.kind==='image'||row.kind==='mixed');
  const selectedNames=photoRows.flatMap(row=>row.selectedNames);
  const selectedCount=photoRows.reduce((total,row)=>total+row.selectedNames.length,0);
+ const [desktopMode,setDesktopMode]=useState(false);
+ useEffect(()=>setDesktopMode(navigator.userAgent.includes('AmorriDesktop/')),[]);
+ const filterRawInDesktop=(row:ProductSummary)=>{
+   if(!row.selectedNames.length)return;
+   const matched=/^https:\/\/drive\.google\.com\/drive\/folders\/([A-Za-z0-9_-]{10,160})(?:\/?|\?.*)$/.exec(row.driveUrl||'');
+   if(!matched){setMessage(`Sản phẩm “${row.name}” chưa có link Drive Folder hợp lệ.`);return;}
+   const command='amorri-desktop://filter?folderId='+encodeURIComponent(matched[1])+'&names='+encodeURIComponent(JSON.stringify(row.selectedNames));
+   if(command.length>200000){setMessage('Danh sách JPG quá lớn để gửi tới Desktop.');return;}
+   window.open(command,'_blank','noopener');
+ };
+
  const copy=async()=>{
    if(!selectedNames.length)return;
    try{await navigator.clipboard.writeText(selectedNames.join('\n'));setMessage(`Đã copy ${selectedNames.length} tên ảnh khách chọn.`);}
@@ -62,9 +73,7 @@ export function DeliveryAdminWorkspace({eventId,user,onCover,onSummary}:{eventId
    {busy&&<span className="delivery-mini-status">Đang nhận diện ảnh / clip…</span>}
    {!busy&&photoRows.length>0&&<div className="delivery-compact-status">
      <span>Khách đã chọn <strong>{selectedCount} ảnh</strong></span>
-     <button className="secondary-button small" type="button" disabled={!selectedNames.length} onClick={()=>void copy()}>
-       <Copy size={14}/> Copy tên ảnh
-     </button>
+     {desktopMode?photoRows.map(row=><button key={row.id} className="secondary-button small" type="button" disabled={!row.selectedNames.length} onClick={()=>filterRawInDesktop(row)}><FolderOpen size={14}/> Tạo folder lọc · {row.name}</button>):<button className="secondary-button small" type="button" disabled={!selectedNames.length} onClick={()=>void copy()}><Copy size={14}/> Copy tên ảnh</button>}
    </div>}
    {rows.length>0 && rows.every(row=>row.kind==='unknown') && <div className="delivery-compact-status">Chưa đọc được loại sản phẩm trên Drive.</div>}
    {rows.filter(row=>row.warning).map(row=><p key={row.id} role="alert" className="delivery-share-toast"><strong>{row.name}:</strong> {row.warning}</p>)}
