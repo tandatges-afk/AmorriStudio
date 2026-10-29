@@ -94,7 +94,7 @@ function EventTable({events,staff,compact=false,onSelect}:{events:StudioEvent[];
     }):<tr><td colSpan={compact?5:6}><Empty title="Chưa có lịch phù hợp" detail="Dữ liệu sẽ hiển thị sau khi được đồng bộ từ Firebase."/></td></tr>}</tbody></table></div>;
 }
 
-type ProductMediaSummary={id:string;name:string;kind:'video'|'image'|'mixed'|'unknown';videoCount:number;imageCount:number;selectedNames:string[];cover?:CoverInfo;warning?:string;r2?:{state:'ready'|'pending'|'invalid'|'error'|'none';readyCount:number;totalCount:number;message:string;checkedAt:number}};
+type ProductMediaSummary={id:string;name:string;url?:string;driveUrl?:string;kind:'video'|'image'|'mixed'|'unknown';videoCount:number;imageCount:number;selectedNames:string[];cover?:CoverInfo;warning?:string;r2?:{state:'ready'|'pending'|'invalid'|'error'|'none';readyCount:number;totalCount:number;message:string;checkedAt:number}};
 function DeliveryProductGroup({event,user,refresh=false}:{event:StudioEvent;user:User;refresh?:boolean}){
  const [products,setProducts]=useState<ProductMediaSummary[]>([]);
  const [error,setError]=useState('');
@@ -162,7 +162,7 @@ function DeliveryProductCard({event,product,user,info,onRefreshR2,onComplete}:{e
  useEffect(()=>setDesktopMode(navigator.userAgent.includes('AmorriDesktop/')),[]);
  const filterRaw=()=>{
   const names=info?.selectedNames||[];if(!names.length)return;
-  const matched=/^https:\/\/drive\.google\.com\/drive\/folders\/([A-Za-z0-9_-]{10,160})(?:\/?|\?.*)$/.exec(product.url||'');
+  const matched=/^https:\/\/drive\.google\.com\/drive\/folders\/([A-Za-z0-9_-]{10,160})(?:\/?|\?.*)$/.exec((info?.url||info?.driveUrl||'')||'');
   if(!matched){setMessage('Sản phẩm chưa dùng link Google Drive Folder hợp lệ.');return;}
   const command='amorri-desktop://filter?folderId='+encodeURIComponent(matched[1])+'&names='+encodeURIComponent(JSON.stringify(names));
   if(command.length>200000){setMessage('Danh sách quá lớn để gửi Desktop một lần.');return;}

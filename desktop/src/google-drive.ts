@@ -314,3 +314,39 @@ export async function uploadLocalJpg(filePath:string,folderId:string):Promise<vo
   const session=r.headers.get('location');if(!session)throw new Error('Google không trả về đường dẫn upload');
   await uploadSingleRequest(session,filePath,mime,stat.size);
 }
+
+/** Load only the direct child folders of the requested Drive folder (lazy navigation). */
+export async function listDriveFolderChildren(parentId='root'){
+  if(parentId!=='root'&&!/^[A-Za-z0-9_-]{10,160}$/.test(parentId))throw new Error('Thư mục Drive không hợp lệ.');
+  const items:Array<{id:string;name:string;parents:string[]}>=[];
+  let token='';
+  for(let page=0;page<30;page++){
+    const query=`'${parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+    const args=new URLSearchParams({q:query,fields:'nextPageToken,files(id,name,parents)',pageSize:'1000'});
+    if(token)args.set('pageToken',token);
+    const result=await driveRequest<DriveList>(`${DRIVE_API}/files?${args}`);
+    for(const file of result.files||[])if(file.id&&file.name)items.push({id:file.id,name:file.name,parents:file.parents||[]});
+    if(!result.nextPageToken)return items.sort((a,b)=>a.name.localeCompare(b.name,'vi'));
+    token=result.nextPageToken;
+  }
+  throw new Error('Thư mục có quá nhiều mục con; đã dừng trước khi hiển thị thiếu dữ liệu.');
+}
+
+/** Search only when the user explicitly requests it; no recursive folder preload. */
+export async function searchDriveFolders(raw:string){
+  const name=raw.trim();
+  if(name.length<2||name.length>100)throw new Error('Nhập từ 2–100 ký tự để tìm folder.');
+  const escaped=name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  const query=`name contains '${escaped}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+  const items:Array<{id:string;name:string;parents:string[]}>=[];
+  let token='';
+  for(let page=0;page<10;page++){
+    const args=new URLSearchParams({q:query,fields:'nextPageToken,files(id,name,parents)',pageSize:'1000'});
+    if(token)args.set('pageToken',token);
+    const result=await driveRequest<DriveList>(`${DRIVE_API}/files?${args}`);
+    for(const file of result.files||[])if(file.id&&file.name)items.push({id:file.id,name:file.name,parents:file.parents||[]});
+    if(!result.nextPageToken)return items.sort((a,b)=>a.name.localeCompare(b.name,'vi'));
+    token=result.nextPageToken;
+  }
+  throw new Error('Có hơn 10.000 folder khớp tìm kiếm. Hãy nhập cụ thể hơn.');
+}
