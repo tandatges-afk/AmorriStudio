@@ -29,6 +29,13 @@ win:
       arch:
         - x64
   icon: assets/icon.ico
+mac:
+  icon: assets/icon.icns
+  category: public.app-category.photography
+  target:
+    - target: dmg
+      arch:
+        - arm64
   artifactName: 'Amorri Studio Setup ${version}.${ext}'
 nsis:
   oneClick: false
