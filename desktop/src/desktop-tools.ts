@@ -5,7 +5,7 @@ import {clientFolderForJpgSource,resolveCustomerJpgFolder,copySelectedRaws,inspe
 import {parseDesktopCommand,type DesktopCommand} from './desktop-commands';
 import {configureDriveOAuth,connectGoogleDrive,connectedGoogleDrive,disconnectGoogleDrive,createPhotoFolder,shareFolderForReader,listCreatedJpgs,uploadLocalJpg,getOrCreateChildFolder,ensureCustomerPublicView,isFolderPubliclyReadable,listAppDriveFolders,createDriveStorageFolder,driveAccountEmail,verifyDriveFolder,pickExistingDriveFolder,connectFullGoogleDrive,googleDriveScopeMode,listDriveFolderChildren,searchDriveFolders} from './google-drive';
 
-type Config={googleOAuthClientId?:string;driveReaderEmail?:string};
+type Config={googleOAuthClientId?:string;googleOAuthClientSecret?:string;driveReaderEmail?:string};
 type DriveMapping={id:string;url:string;shared:boolean;sharingWarning:string;complete?:boolean;parentId?:string;customerFolderId?:string;accountEmail?:string};
 type DriveUploadLink={sourceJpgFolder:string;url:string;accountEmail:string;updatedAt:string;complete:boolean};
 type FolderState={jpgFolder?:string;storageFolderId?:string;driveFolders?:Record<string,DriveMapping>;driveUploads?:Record<string,DriveUploadLink>};
@@ -206,9 +206,10 @@ function localOAuthClientSecret():string{
   const oauth=JSON.parse(fs.readFileSync(candidate,'utf8')) as {googleOAuthClientId?:string;googleOAuthClientSecret?:string};
   if(oauth.googleOAuthClientId&&oauth.googleOAuthClientId!==config.googleOAuthClientId)
    throw new Error('OAuth Client ID trong desktop.oauth.local.json khác desktop.config.json.');
-  return (oauth.googleOAuthClientSecret||'').trim();
+  const candidateSecret=(oauth.googleOAuthClientSecret||'').trim();
+  if(candidateSecret)return candidateSecret;
  }
- return process.env.AMORRI_DESKTOP_GOOGLE_CLIENT_SECRET?.trim()||'';
+ return process.env.AMORRI_DESKTOP_GOOGLE_CLIENT_SECRET?.trim()||config.googleOAuthClientSecret?.trim()||'';
 }
 function clientMappings(){
  const snapshot=state();

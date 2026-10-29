@@ -14,7 +14,7 @@ jobs:
       run:
         working-directory: desktop
     steps:
-      - name: Checkout main source
+      - name: Checkout main
         uses: actions/checkout@v4
 
       - name: Setup Node.js 22
@@ -27,35 +27,41 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Verify macOS and Windows icon assets
+      - name: Verify icons
         run: |
           test -f assets/icon.icns || { echo 'Missing desktop/assets/icon.icns'; exit 1; }
-          test -f assets/icon.ico || { echo 'Missing desktop/assets/icon.ico (required by existing extraResources)'; exit 1; }
+          test -f assets/icon.ico || { echo 'Missing desktop/assets/icon.ico'; exit 1; }
 
-      - name: Create local runtime config (no OAuth secret)
+      - name: Create bundled Amorri runtime config from Actions secret
         env:
           AMORRI_CONFIG_JSON: ${{ secrets.AMORRI_MAC_CONFIG_JSON }}
         run: |
           node <<'NODE'
           const fs = require('node:fs');
-          const raw = process.env.AMORRI_CONFIG_JSON;
-          if (!raw) throw new Error('Set repository secret AMORRI_MAC_CONFIG_JSON before running this workflow.');
-          const config = JSON.parse(raw);
-          if (typeof config.webUrl !== 'string' || !config.webUrl.startsWith('https://')) {
-            throw new Error('AMORRI_MAC_CONFIG_JSON needs a valid HTTPS webUrl');
-          }
-          if (typeof config.googleOAuthClientId !== 'string' || !config.googleOAuthClientId.endsWith('.apps.googleusercontent.com')) {
-            throw new Error('AMORRI_MAC_CONFIG_JSON needs googleOAuthClientId of a Desktop OAuth client');
-          }
-          if ('googleOAuthClientSecret' in config) {
-            throw new Error('Do not embed OAuth client secrets in desktop.config.json / downloadable DMG. Configure the secret privately on the Mac.');
-          }
-          fs.writeFileSync('desktop.config.json', JSON.stringify({
-            webUrl: config.webUrl,
-            googleOAuthClientId: config.googleOAuthClientId,
-            driveReaderEmail: typeof config.driveReaderEmail === 'string' ? config.driveReaderEmail : ''
-          }, null, 2));
-          console.log('Created desktop.config.json (no client secret).');
+          const raw = process.env.AMORRI_CONFIG_JSON || '';
+          if (!raw.trim()) throw new Error('Missing repository Actions secret AMORRI_MAC_CONFIG_JSON');
+          let config;
+          try { config = JSON.parse(raw); }
+          catch { throw new Error('AMORRI_MAC_CONFIG_JSON is not valid JSON'); }
+          if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('Config must be a JSON object');
+          let url;
+          try { url = new URL(config.webUrl); }
+          catch { throw new Error('webUrl must be a valid HTTPS URL'); }
+          if (url.protocol !== 'https:' || !url.hostname || url.username || url.password)
+            throw new Error('webUrl must be an HTTPS URL without credentials');
+          const googleOAuthClientId = String(config.googleOAuthClientId || '').trim();
+          const googleOAuthClientSecret = String(config.googleOAuthClientSecret || '').trim();
+          if (!/^[A-Za-z0-9_.-]+\.apps\.googleusercontent\.com$/.test(googleOAuthClientId))
+            throw new Error('googleOAuthClientId must be a Desktop OAuth Client ID');
+          if (!googleOAuthClientSecret) throw new Error('googleOAuthClientSecret is missing');
+          const output = {
+            webUrl: url.toString(),
+            googleOAuthClientId,
+            googleOAuthClientSecret,
+            driveReaderEmail: typeof config.driveReaderEmail === 'string' ? config.driveReaderEmail.trim() : ''
+          };
+          fs.writeFileSync('desktop.config.json', JSON.stringify(output, null, 2) + '\n', { mode: 0o600 });
+          console.log('Created runtime config including Google OAuth for bundled internal macOS app (values hidden).');
           NODE
 
       - name: Typecheck and compile Electron
@@ -63,10 +69,23 @@ jobs:
           npm run typecheck
           npm run build:main
 
-      - name: Build unsigned DMG for Apple Silicon
+      - name: Build unsigned ARM64 DMG
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
         run: npx electron-builder --mac dmg --arm64 --publish never
+
+      - name: Verify runtime configuration bundled in macOS app
+        run: |
+          CONFIG_FILE="$(find release -path '*/Contents/Resources/desktop.config.json' -type f -print -quit)"
+          if [ -z "$CONFIG_FILE" ]; then
+            echo 'Build missing packaged desktop.config.json'; exit 1;
+          fi
+          node - "$CONFIG_FILE" <<'NODE'
+          const fs = require('node:fs');
+          const config = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
+          if (!config.googleOAuthClientId || !config.googleOAuthClientSecret) throw new Error('Packaged OAuth config incomplete');
+          console.log('Packaged macOS OAuth config verified (values hidden).');
+          NODE
 
       - name: Upload DMG artifact
         uses: actions/upload-artifact@v4
