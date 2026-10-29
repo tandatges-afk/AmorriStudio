@@ -1,43 +1,29 @@
 <!doctype html>
-<html lang="vi">
-<head>
-<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<meta http-equiv="Content-Security-Policy" content="default-src 'none';script-src 'self';style-src 'self';base-uri 'none';form-action 'none'">
-<title>Amorri Desktop · Album</title><link rel="stylesheet" href="tools.css">
-</head>
+<html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'">
+<title>Amorri Studio · Upload JPG</title><link rel="stylesheet" href="tools.css"></head>
 <body>
-<header class="topbar">
-  <div class="brand"><span class="monogram">A.</span><div><strong>AMORRI <span>STUDIO</span></strong><small>DESKTOP WORKSPACE</small></div></div>
-  <div class="account"><span id="oauthStatus" class="chip">Đang kiểm tra</span><button id="login" class="ghost">Kết nối Drive</button></div>
-</header>
+<div class="shell">
+<header class="top"><div class="brand"><span class="brand-icon">a.</span><div><strong>AMORRI STUDIO</strong><small>DRIVE WORKSPACE</small></div></div><div class="account"><span id="accountStatus">Đang kiểm tra kết nối</span><button id="login" class="ghost" type="button">Kết nối Drive</button></div></header>
 <main>
- <div class="page-title"><div><span class="eyebrow">QUẢN LÝ ẢNH BÀN GIAO</span><h1>Album Google Drive</h1><p id="pickerInstruction">Chọn nơi lưu ảnh trên Drive và thư mục JPG từ máy tính.</p></div><button id="reloadDrive" class="ghost compact">Làm mới</button></div>
- <section class="workspace">
-  <div class="panel drive-panel">
-   <div class="panel-heading"><span class="panel-icon">01</span><div><h2>Google Drive</h2><p id="driveEmail">Chưa kết nối</p></div></div>
-   <div class="drive-nav"><button id="backDrive" class="nav-icon" title="Quay về thư mục cha" disabled>‹</button><button id="rootDrive" class="crumb" title="Về thư mục gốc">My Drive</button><span id="drivePath" class="path-crumb"></span></div>
-   <label class="sr-only" for="folderSearch">Tìm thư mục Google Drive</label><input id="folderSearch" type="search" placeholder="Tìm folder trên Drive…" autocomplete="off">
-   <div class="drive-tree" id="driveTree" role="list" aria-label="Thư mục Drive"><p class="placeholder">Kết nối để hiển thị thư mục.</p></div>
-   <div class="picked"><span>ĐANG CHỌN</span><strong id="selectedDrive">My Drive</strong></div>
-   <div class="create-line"><input id="storageName" maxlength="180" placeholder="Tên thư mục mới"><button id="createStorage" class="outline">+ Tạo mới</button></div>
-   <p id="scopeHint" class="scope-hint"></p>
-  </div>
-  <div class="panel local-panel">
-   <div class="panel-heading"><span class="panel-icon">02</span><div><h2>Ảnh JPG trên Windows</h2><p>Chọn thư mục chứa ảnh xuất cho khách</p></div></div>
-   <button id="pick" class="select-local"><span class="folder-glyph">▣</span> Chọn folder JPG / JPEG <span>↗</span></button>
-   <p id="source" class="local-path">Chưa chọn folder</p>
-   <label for="clients">ĐÃ GHI NHỚ</label><div class="inline"><select id="clients"><option>Chưa có khách</option></select><button id="useClient" class="outline">Mở</button></div>
-   <div class="raw-preflight" id="rawPreflight" role="status" aria-live="polite"></div>
-   <div class="picked"><span>ALBUM ĐÃ LIÊN KẾT</span><strong id="mappedDrive">Chưa upload</strong></div>
-   <p class="selection-summary" id="selectionSummary">Chọn folder Drive và folder JPG để tiếp tục</p>
-  </div>
+ <div class="heading"><div><div class="eyebrow">PHOTO DELIVERY</div><h1>Upload JPG</h1><p>Chọn khách, chọn thư mục cha trên Drive. App sẽ tự tạo album và tải ảnh lên.</p></div></div>
+ <div class="steps">
+  <section class="pane">
+   <div class="section-num">01 · WINDOWS</div><h2>Thư mục khách</h2>
+   <button id="pick" class="wide-choice" type="button"><span class="symbol">▣</span><span>Chọn thư mục khách <small>Bên trong có jpg và raw/goc</small></span><span class="chevron">›</span></button>
+   <div class="folder-detail"><span>ẢNH NGUỒN</span><strong id="source">Chưa chọn thư mục</strong></div>
+  </section>
+  <section class="pane">
+   <div class="section-num">02 · GOOGLE DRIVE</div><h2>Đích upload</h2>
+   <button id="chooseParent" class="wide-choice" type="button"><span class="symbol">☁</span><span>Chọn thư mục cha <small>Chọn xong sẽ tự upload</small></span><span class="chevron">›</span></button>
+   <div class="folder-detail"><span>ALBUM CỦA KHÁCH</span><strong id="destination">Chưa upload</strong></div>
+  </section>
+ </div>
+ <section class="results"><div class="result-heading"><div><div class="section-num">UPLOAD ACTIVITY</div><h2>Kết quả upload</h2></div><span id="progressLabel" class="state">Sẵn sàng</span></div>
+  <div id="resultSummary" class="metrics" hidden><div><strong id="numberUploaded">0</strong><span>Ảnh mới</span></div><div><strong id="numberSkipped">0</strong><span>Đã có</span></div><div><strong id="numberFailed">0</strong><span>Lỗi</span></div></div>
+  <pre id="driveResult" aria-live="polite">Chưa có lượt upload.</pre>
  </section>
- <section class="actionbar"><div><span class="eyebrow">UPLOAD</span><h2>Tải ảnh lên Google Drive</h2><p>Chỉ tải ảnh JPG mới, ghi nhớ album để dùng lại lần sau.</p></div><button id="upload" class="primary">Tải JPG lên Drive</button></section>
- <section class="handoff-row" id="handoffRow"><div><h2>Liên kết vào lịch bàn giao</h2><p id="driveEventHint">Mở đúng lịch trên Amorri Desktop để chọn folder.</p></div><button id="handoff" class="outline">Gắn vào lịch</button></section>
- <details class="advanced"><summary>Công cụ RAW thủ công</summary><div class="details-body"><p>Chỉ dùng khi cần nhập danh sách ảnh chọn thủ công.</p><textarea id="names" rows="3" placeholder="C9155.jpg&#10;IMG_0021.jpg"></textarea><div class="inline"><button id="scan" class="outline">Kiểm tra</button><button id="copy" class="outline">Tạo folder loc</button><button id="open" class="outline">Mở loc</button></div><pre id="rawResult"></pre></div></details>
- <pre id="driveResult" class="log" aria-live="polite"></pre>
 </main>
-<footer><span class="footer-dot"></span><span id="status" role="status" aria-live="polite">Sẵn sàng</span><button id="logout" class="text-button">Ngắt tài khoản Google</button></footer>
-<script src="tools.js"></script>
-</body>
-</html>
+<footer><span id="status" role="status" aria-live="polite">Sẵn sàng</span><button id="logout" class="foot-action" type="button">Ngắt kết nối Google</button></footer>
+</div><script src="tools.js"></script>
+</body></html>

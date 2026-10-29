@@ -20,3 +20,9 @@ export function openDesktopCommand(command:string):void{
  // Electron handles this trusted internal scheme in setWindowOpenHandler.
  window.open(command,'_blank','noopener');
 }
+
+/** Open only the folder previously created by the trusted Electron RAW filter. */
+export function desktopOpenFilteredFolderUrl(url:string):string|null{
+ const id=desktopDriveFolderId(url);
+ return id?`amorri-desktop://open-loc?folderId=${encodeURIComponent(id)}`:null;
+}

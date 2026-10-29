@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-export const RAW_EXTENSIONS = new Set(['.raw', '.arw', '.cr2', '.cr3']);
+export const RAW_EXTENSIONS = new Set(['.raw', '.arw', '.cr2', '.cr3', '.nef', '.dng', '.raf', '.rw2', '.orf']);
 const JPG_EXTENSIONS = new Set(['.jpg', '.jpeg']);
 export type RawMatch = { selected: string; source: string; size: number };
 export type RawReport = {
@@ -25,6 +25,22 @@ export function clientFolderForJpgSource(source: string): string {
   return ['jpg','jpeg','hinh','hinh-jpg','photos','photos-jpg','images','anh'].includes(basename)
     ? path.dirname(selected):selected;
 }
+/** Customer-folder-first workflow: <customer>/jpg is uploaded, <customer>/raw or goc is never uploaded. */
+export function resolveCustomerJpgFolder(selectedPath:string):{clientRoot:string;jpgFolder:string;rawFolder:string|null}{
+  const original=fs.realpathSync(selectedPath);
+  if(!isRealDirectory(original))throw new Error('Thư mục khách không tồn tại.');
+  const root=path.basename(original).toLowerCase()==='jpg'?path.dirname(original):original;
+  if(path.parse(root).root===root)throw new Error('Không chọn toàn bộ ổ đĩa. Hãy chọn thư mục tên khách.');
+  const folders=fs.readdirSync(root,{withFileTypes:true}).filter(x=>x.isDirectory()&&!x.isSymbolicLink());
+  const jpgEntry=folders.find(x=>x.name.toLowerCase()==='jpg');
+  if(!jpgEntry)throw new Error('Thư mục khách phải có thư mục con jpg chứa ảnh bàn giao.');
+  const jpgFolder=fs.realpathSync(path.join(root,jpgEntry.name));
+  if(!realSubpath(root,jpgFolder))throw new Error('JPG không thuộc thư mục khách.');
+  const rawEntry=folders.find(x=>x.name.toLowerCase()==='raw')||folders.find(x=>x.name.toLowerCase()==='goc');
+  const rawFolder=rawEntry?fs.realpathSync(path.join(root,rawEntry.name)):null;
+  return {clientRoot:root,jpgFolder,rawFolder};
+}
+
 function validName(input:unknown):string|null {
   if(typeof input!=='string'||input.length>255||/[\\/\x00-\x1f]/.test(input))return null;
   const b=path.basename(input.trim());
@@ -45,7 +61,11 @@ export function inspectRawMatches(sourceJpgFolder:string, selectedNames:unknown,
   }
   const raws=new Map<string,Array<{file:string;size:number}>>();
   let scanned=0;
-  const stack=[{folder:root,depth:0}];
+  const folders=fs.readdirSync(root,{withFileTypes:true}).filter(x=>x.isDirectory()&&!x.isSymbolicLink());
+  const preferred=folders.find(x=>x.name.toLowerCase()==='raw')||folders.find(x=>x.name.toLowerCase()==='goc');
+  // Never search unrelated folders when the customer has no RAW/goc directory.
+  if(!preferred)throw new Error('Không tìm thấy thư mục raw hoặc goc trong folder khách. Hãy bổ sung folder RAW đúng khách trước khi lọc.');
+  const stack=[{folder:path.join(root,preferred.name),depth:0}];
   while(stack.length){
     const {folder,depth}=stack.pop()!;
     if(depth>12)throw new Error('Cấu trúc thư mục khách quá sâu (giới hạn 12 cấp).');
@@ -110,7 +130,10 @@ export function inspectRawPresence(sourceJpgFolder:string, limit=20_000):RawPres
   const root=clientFolderForJpgSource(sourceJpgFolder);
   let checked=0;
   let tooDeep=false;
-  const stack=[{folder:root,depth:0}];
+  const folders=fs.readdirSync(root,{withFileTypes:true}).filter(x=>x.isDirectory()&&!x.isSymbolicLink());
+  const preferred=folders.find(x=>x.name.toLowerCase()==='raw')||folders.find(x=>x.name.toLowerCase()==='goc');
+  if(!preferred)return {status:'missing',clientRoot:root,checked,reason:'Thư mục khách chưa có raw hoặc goc.'};
+  const stack=[{folder:path.join(root,preferred.name),depth:0}];
   try {
     while(stack.length){
       const {folder,depth}=stack.pop()!;

@@ -13,6 +13,12 @@ extraResources:
     to: tools.js
   - from: assets/tools.css
     to: tools.css
+  - from: assets/picker.html
+    to: picker.html
+  - from: assets/picker.js
+    to: picker.js
+  - from: assets/picker.css
+    to: picker.css
   - from: desktop.config.json
     to: desktop.config.json
   - from: assets/icon.ico

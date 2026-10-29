@@ -24,6 +24,7 @@ import {
   Sparkles, Users, WalletCards, X
 } from 'lucide-react';
 import { browserAuth } from '@/lib/firebase/client';
+import {desktopRawFilterUrl,desktopOpenFilteredFolderUrl,isDesktopBrowser,openDesktopCommand} from '@/lib/domain/desktop-bridge';
 import { NewBookingDialog } from './NewBookingDialog';
 import { EventEditor } from './EventEditor';
 import { BookingDetailPanel } from './BookingDetailPanel';
@@ -144,6 +145,19 @@ function DeliveryProductGroup({event,user,refresh=false}:{event:StudioEvent;user
 function DeliveryProductCard({event,product,user,info,onRefreshR2,onComplete}:{event:StudioEvent;product:StudioEvent['products'][number];user:User;info?:ProductMediaSummary;onRefreshR2:()=>void;onComplete:()=>void}){
  const [completing,setCompleting]=useState(false),[message,setMessage]=useState('');
  const [copied,setCopied]=useState(false);
+ const [desktop,setDesktop]=useState(false),[locReady,setLocReady]=useState(false);
+ useEffect(()=>setDesktop(isDesktopBrowser()),[]);
+ useEffect(()=>{
+  setLocReady(false);
+  const listener=(event:Event)=>{
+   const detail=(event as CustomEvent<{folderId?:string;done?:boolean}>).detail;
+   const url=info?.url||info?.driveUrl||'';
+   const folderId=url.match(/\/folders\/([A-Za-z0-9_-]{10,160})/)?.[1];
+   if(detail?.done && folderId && detail.folderId===folderId)setLocReady(true);
+  };
+  window.addEventListener('amorri:raw-filter-done',listener);
+  return ()=>window.removeEventListener('amorri:raw-filter-done',listener);
+ },[info?.url,info?.driveUrl]);
  const isVideo=info?.kind==='video'||info?.kind==='mixed'||product.mediaType==='video';
  const isPhoto=info?.kind==='image'||info?.kind==='mixed'||(!info&&product.mediaType==='image');
  const complete=async()=>{
@@ -157,25 +171,22 @@ function DeliveryProductCard({event,product,user,info,onRefreshR2,onComplete}:{e
   }catch(e){setMessage(e instanceof Error?e.message:'Không thể hoàn thành');}
   finally{setCompleting(false);}
  };
- const copyNames=async()=>{try{await navigator.clipboard.writeText((info?.selectedNames||[]).join('\n'));setCopied(true);setTimeout(()=>setCopied(false),2000);}catch{setMessage('Trình duyệt chặn sao chép');}};
- const [desktopMode,setDesktopMode]=useState(false);
- useEffect(()=>setDesktopMode(navigator.userAgent.includes('AmorriDesktop/')),[]);
- const filterRaw=()=>{
-  const names=info?.selectedNames||[];if(!names.length)return;
-  const matched=/^https:\/\/drive\.google\.com\/drive\/folders\/([A-Za-z0-9_-]{10,160})(?:\/?|\?.*)$/.exec((info?.url||info?.driveUrl||'')||'');
-  if(!matched){setMessage('Sản phẩm chưa dùng link Google Drive Folder hợp lệ.');return;}
-  const command='amorri-desktop://filter?folderId='+encodeURIComponent(matched[1])+'&names='+encodeURIComponent(JSON.stringify(names));
-  if(command.length>200000){setMessage('Danh sách quá lớn để gửi Desktop một lần.');return;}
-  window.open(command,'_blank','noopener');
+ const copyNames=async()=>{
+  const names=info?.selectedNames||[];
+  if(desktop){
+   const command=desktopRawFilterUrl(info?.url||info?.driveUrl||'',names);
+   if(!command){setMessage('Không lọc được: cần link folder Drive và danh sách JPG hợp lệ. Nếu danh sách quá lớn, hãy chia nhỏ album.');return;}
+   setLocReady(false);openDesktopCommand(command);return;
+  }
+  try{await navigator.clipboard.writeText(names.join('\n'));setCopied(true);setTimeout(()=>setCopied(false),2000);}catch{setMessage('Trình duyệt chặn sao chép');}
  };
-
  return <article className="delivery-card" aria-label={`Bàn giao sản phẩm ${product.name}`}>
    <div className="delivery-art"><AdminThumbnail eventId={event.id} user={user} cover={info?.cover}/>
      <div className="delivery-art-meta delivery-art-meta--single"><span>{isVideo?'VIDEO DELIVERY':isPhoto?'PHOTO DELIVERY':'STUDIO DELIVERY'}</span></div>
    </div>
    <div className="delivery-details"><div className="delivery-date"><CalendarDays size={13}/>{dateDisplay(event.date)} · {event.eventType}</div>
      <h3>{product.name}</h3><p className="delivery-project-owner">Lịch: {event.name}</p>
-     {isPhoto&&<div className="delivery-product-action-row"><span>Khách đã chọn <b>{info?.selectedNames.length||0} ảnh</b></span>{desktopMode?<button type="button" className="secondary-button small" disabled={!info?.selectedNames.length} onClick={filterRaw}><FolderOpen size={14}/> Tạo folder lọc</button>:<button type="button" className="secondary-button small" disabled={!info?.selectedNames.length} onClick={()=>void copyNames()}><Copy size={14}/>{copied?'Đã copy':'Copy tên ảnh'}</button>}</div>}
+     {isPhoto&&<div className="delivery-product-action-row"><span>Khách đã chọn <b>{info?.selectedNames.length||0} ảnh</b></span><button type="button" className="secondary-button small" disabled={!info?.selectedNames.length} onClick={()=>void copyNames()}>{desktop?<FolderOpen size={14}/>:<Copy size={14}/>} {desktop?'Lọc RAW':copied?'Đã copy':'Copy tên ảnh'}</button>{desktop&&locReady&&<button type="button" className="secondary-button small" onClick={()=>{const cmd=desktopOpenFilteredFolderUrl(info?.url||info?.driveUrl||'');if(cmd)openDesktopCommand(cmd);}}>Mở folder lọc</button>}</div>}
      {isVideo&&<div className="delivery-product-action-row delivery-product-video-action">
        <DeliveryReviewManager eventId={event.id} productId={product.id} user={user}/>
        <button type="button" onClick={onRefreshR2}
@@ -212,6 +223,22 @@ export function Dashboard(){
   const [newBookingDate,setNewBookingDate]=useState('');
   const createBooking=(date='')=>{setNewBookingDate(date);setNewBookingOpen(true);};
   const [editEventId,setEditEventId]=useState<string|null>(null);
+  // The native app deposits a draft for a specific booking. Open that exact editor.
+  // No Firebase secret or token crosses the desktop bridge.
+  useEffect(()=>{
+    const openDraft=()=>{
+      try{
+        const stored=sessionStorage.getItem('amorriDesktopDriveDraft');if(!stored)return;
+        const draft=JSON.parse(stored) as {eventId?:string};
+        if(draft.eventId&&/^[A-Za-z0-9_-]{1,160}$/.test(draft.eventId)){
+          setTab('calendar');setSelected(null);setEditEventId(draft.eventId);
+        }
+      }catch{sessionStorage.removeItem('amorriDesktopDriveDraft');}
+    };
+    window.addEventListener('amorri:desktop-folder',openDraft);
+    if(user)openDraft();
+    return()=>window.removeEventListener('amorri:desktop-folder',openDraft);
+  },[user]);
 
   useEffect(()=>{
     try {

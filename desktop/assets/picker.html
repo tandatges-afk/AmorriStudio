@@ -1,0 +1,8 @@
+<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none';script-src 'self';style-src 'self';base-uri 'none';form-action 'none'"><title>Amorri · Chọn Drive</title><link rel="stylesheet" href="picker.css"></head>
+<body><div class="picker"><header><div class="title"><span class="logo">a.</span><div><h1 id="heading">Chọn thư mục Google Drive</h1><p id="description">Chọn thư mục để sử dụng trong lịch.</p></div></div></header>
+<div class="finder"><div class="pathbar"><button id="back" disabled title="Trở về thư mục cha" aria-label="Trở về thư mục cha">‹</button><button id="root" title="My Drive">My Drive</button><span id="crumb"></span></div>
+<label class="search"><span>⌕</span><input id="search" type="search" placeholder="Tìm theo tên thư mục..." autocomplete="off" aria-label="Tìm thư mục Google Drive"></label>
+<div id="folders" class="folders" role="list"><p class="empty">Đang tải Drive...</p></div></div>
+<footer><div class="selected"><span>ĐÃ CHỌN</span><strong id="chosen">Chưa chọn thư mục</strong></div><button id="confirm" disabled>Chọn thư mục này</button></footer><p id="message" role="status" aria-live="polite"></p>
+</div><script src="picker.js"></script></body></html>

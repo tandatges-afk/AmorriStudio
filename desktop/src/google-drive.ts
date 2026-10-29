@@ -250,6 +250,40 @@ export async function listAppDriveFolders():Promise<Array<{id:string;name:string
   }
   throw new Error('Danh sách Drive quá lớn; tạm dừng để tránh bỏ sót thư mục.');
 }
+/** Request only one folder level at a time; never expand the whole Drive tree. */
+export async function listDriveFolderChildren(parentId='root'){
+  if(parentId!=='root'&&!/^[A-Za-z0-9_-]{10,160}$/.test(parentId))throw new Error('Thư mục Drive không hợp lệ.');
+  const items:Array<{id:string;name:string;parents:string[]}>=[];
+  let token='';
+  for(let page=0;page<30;page++){
+    const query=`'${parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+    const args=new URLSearchParams({q:query,fields:'nextPageToken,files(id,name,parents)',pageSize:'1000'});
+    if(token)args.set('pageToken',token);
+    const result=await driveRequest<DriveList>(`${DRIVE_API}/files?${args}`);
+    for(const file of result.files||[])if(file.id&&file.name)items.push({id:file.id,name:file.name,parents:file.parents||[]});
+    if(!result.nextPageToken)return items.sort((a,b)=>a.name.localeCompare(b.name,'vi'));
+    token=result.nextPageToken;
+  }
+  throw new Error('Thư mục có quá nhiều mục con; đã dừng trước khi hiển thị thiếu dữ liệu.');
+}
+/** Search is a separate intentional request, not an eager recursive scan. */
+export async function searchDriveFolders(raw:string){
+  const name=raw.trim();
+  if(name.length<2||name.length>100)throw new Error('Nhập từ 2–100 ký tự để tìm folder.');
+  const escaped=name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+  const query=`name contains '${escaped}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
+  const items:Array<{id:string;name:string;parents:string[]}>=[];
+  let token='';
+  for(let page=0;page<10;page++){
+    const args=new URLSearchParams({q:query,fields:'nextPageToken,files(id,name,parents)',pageSize:'1000'});
+    if(token)args.set('pageToken',token);
+    const result=await driveRequest<DriveList>(`${DRIVE_API}/files?${args}`);
+    for(const file of result.files||[])if(file.id&&file.name)items.push({id:file.id,name:file.name,parents:file.parents||[]});
+    if(!result.nextPageToken)return items.sort((a,b)=>a.name.localeCompare(b.name,'vi'));
+    token=result.nextPageToken;
+  }
+  throw new Error('Có hơn 10.000 folder khớp tìm kiếm. Hãy nhập cụ thể hơn.');
+}
 export async function createDriveStorageFolder(name:string,parentFolderId?:string){
   return createPhotoFolder(name,undefined,parentFolderId);
 }
@@ -263,14 +297,26 @@ export async function verifyDriveFolder(folderId:string):Promise<void>{
   if(item.mimeType!=='application/vnd.google-apps.folder')throw new Error('Không tìm thấy quyền truy cập thư mục Drive.');
 }
 
+/** Idempotent backend Drive Reader sharing, including a previously granted permission. */
 export async function shareFolderForReader(folderId:string,readerEmail?:string):Promise<{shared:boolean;sharingWarning:string}>{
   if(!readerEmail)return {shared:false,sharingWarning:'Chưa cấu hình driveReaderEmail của backend.'};
   if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(readerEmail))throw new Error('Email Drive reader không hợp lệ.');
+  if(!/^[a-zA-Z0-9_-]{10,160}$/.test(folderId))throw new Error('ID folder Drive không hợp lệ.');
+  const url=`${DRIVE_API}/files/${encodeURIComponent(folderId)}/permissions`;
+  const hasReader=async()=>{
+    const list=await driveRequest<{permissions?:Array<{type?:string;role?:string;emailAddress?:string}>}>(`${url}?fields=permissions(type,role,emailAddress)&pageSize=1000`);
+    return !!list.permissions?.some(item=>item.type==='user'&&item.emailAddress?.toLowerCase()===readerEmail.toLowerCase()&&['reader','commenter','writer','owner','organizer','fileOrganizer'].includes(item.role||''));
+  };
   try{
-    await driveRequest(`${DRIVE_API}/files/${encodeURIComponent(folderId)}/permissions?sendNotificationEmail=false&fields=id`,{
+    if(await hasReader())return {shared:true,sharingWarning:''};
+    await driveRequest(`${url}?sendNotificationEmail=false&fields=id`,{
       method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({role:'reader',type:'user',emailAddress:readerEmail})
     });return {shared:true,sharingWarning:''};
-  }catch(error){return {shared:false,sharingWarning:error instanceof Error?error.message:String(error)};}
+  }catch(error){
+    // A concurrent client or inherited permission may have already completed the grant.
+    try{if(await hasReader())return {shared:true,sharingWarning:''};}catch{}
+    return {shared:false,sharingWarning:error instanceof Error?error.message:String(error)};
+  }
 }
 export async function listCreatedJpgs(folderId:string):Promise<Set<string>>{
   const found=new Set<string>();let pageToken='';
@@ -315,38 +361,46 @@ export async function uploadLocalJpg(filePath:string,folderId:string):Promise<vo
   await uploadSingleRequest(session,filePath,mime,stat.size);
 }
 
-/** Load only the direct child folders of the requested Drive folder (lazy navigation). */
-export async function listDriveFolderChildren(parentId='root'){
-  if(parentId!=='root'&&!/^[A-Za-z0-9_-]{10,160}$/.test(parentId))throw new Error('Thư mục Drive không hợp lệ.');
-  const items:Array<{id:string;name:string;parents:string[]}>=[];
-  let token='';
-  for(let page=0;page<30;page++){
-    const query=`'${parentId}' in parents and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-    const args=new URLSearchParams({q:query,fields:'nextPageToken,files(id,name,parents)',pageSize:'1000'});
-    if(token)args.set('pageToken',token);
-    const result=await driveRequest<DriveList>(`${DRIVE_API}/files?${args}`);
-    for(const file of result.files||[])if(file.id&&file.name)items.push({id:file.id,name:file.name,parents:file.parents||[]});
-    if(!result.nextPageToken)return items.sort((a,b)=>a.name.localeCompare(b.name,'vi'));
-    token=result.nextPageToken;
-  }
-  throw new Error('Thư mục có quá nhiều mục con; đã dừng trước khi hiển thị thiếu dữ liệu.');
+/** Reuse an exact folder name within one parent. Never make duplicates on retry. */
+export async function getOrCreateChildFolder(parentId:string,name:string):Promise<{id:string;url:string}>{
+ if(parentId!=='root'&&!/^[A-Za-z0-9_-]{10,160}$/.test(parentId))throw new Error('ID thư mục cha không hợp lệ.');
+ if(!name.trim()||name.length>180||/[\/\x00-\x1f]/.test(name))throw new Error('Tên folder không hợp lệ.');
+ const matches=(await listDriveFolderChildren(parentId)).filter(x=>x.name===name);
+ if(matches.length>1)throw new Error(`Có nhiều folder cùng tên "${name}" trên Drive. Hãy xử lý trùng trước khi upload.`);
+ if(matches.length)return {id:matches[0].id,url:`https://drive.google.com/drive/folders/${matches[0].id}`};
+ const created=await createDriveStorageFolder(name,parentId==='root'?undefined:parentId);
+ return {id:created.id,url:created.url};
+}
+type DrivePermission={type?:string;role?:string};
+async function hasPublicReader(folderId:string):Promise<boolean>{
+ const p=await driveRequest<{permissions?:DrivePermission[]}>(`${DRIVE_API}/files/${encodeURIComponent(folderId)}/permissions?fields=permissions(type,role)&pageSize=100`);
+ return !!p.permissions?.some(x=>x.type==='anyone'&&['reader','commenter','writer','organizer','fileOrganizer'].includes(x.role||''));
+}
+/** Google inherits public access from the parent. Only change the customer folder when needed. */
+export async function ensureCustomerPublicView(customerId:string,parentId:string):Promise<void>{
+ if((parentId!=='root'&&await hasPublicReader(parentId))||await hasPublicReader(customerId))return;
+ await driveRequest(`${DRIVE_API}/files/${encodeURIComponent(customerId)}/permissions?fields=id`,{
+   method:'POST',headers:{'Content-Type':'application/json'},
+   body:JSON.stringify({type:'anyone',role:'reader',allowFileDiscovery:false})
+ });
+ if(!await hasPublicReader(customerId))throw new Error('Google chưa xác nhận quyền xem bằng link của thư mục khách.');
 }
 
-/** Search only when the user explicitly requests it; no recursive folder preload. */
-export async function searchDriveFolders(raw:string){
-  const name=raw.trim();
-  if(name.length<2||name.length>100)throw new Error('Nhập từ 2–100 ký tự để tìm folder.');
-  const escaped=name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-  const query=`name contains '${escaped}' and mimeType = 'application/vnd.google-apps.folder' and trashed = false`;
-  const items:Array<{id:string;name:string;parents:string[]}>=[];
-  let token='';
-  for(let page=0;page<10;page++){
-    const args=new URLSearchParams({q:query,fields:'nextPageToken,files(id,name,parents)',pageSize:'1000'});
-    if(token)args.set('pageToken',token);
-    const result=await driveRequest<DriveList>(`${DRIVE_API}/files?${args}`);
-    for(const file of result.files||[])if(file.id&&file.name)items.push({id:file.id,name:file.name,parents:file.parents||[]});
-    if(!result.nextPageToken)return items.sort((a,b)=>a.name.localeCompare(b.name,'vi'));
-    token=result.nextPageToken;
-  }
-  throw new Error('Có hơn 10.000 folder khớp tìm kiếm. Hãy nhập cụ thể hơn.');
+/** Public LINK viewer, not search-discoverable. Verify before uploading customer photos. */
+export async function ensureDriveLinkViewer(folderId:string):Promise<{alreadyPublic:boolean}>{
+  if(!/^[a-zA-Z0-9_-]{10,160}$/.test(folderId))throw new Error('ID Google Drive không hợp lệ.');
+  type Permission={type?:string;role?:string;allowFileDiscovery?:boolean};
+  const endpoint=`${DRIVE_API}/files/${encodeURIComponent(folderId)}/permissions`;
+  const found=await driveRequest<{permissions?:Permission[]}>(`${endpoint}?fields=permissions(id,type,role,allowFileDiscovery)&pageSize=1000`);
+  const publicView=(found.permissions||[]).some(p=>p.type==='anyone'&&['reader','commenter','writer','owner'].includes(p.role||''));
+  if(publicView)return {alreadyPublic:true};
+  try{
+    await driveRequest(`${endpoint}?fields=id`,{
+      method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({type:'anyone',role:'reader',allowFileDiscovery:false})
+    });
+  }catch(e){throw new Error('Không thể bật “Bất kỳ ai có đường liên kết – Người xem” cho album khách. Kiểm tra chính sách Google Workspace: '+(e instanceof Error?e.message:String(e)));}
+  return {alreadyPublic:false};
 }
+
+export async function isFolderPubliclyReadable(id:string){return hasPublicReader(id);}

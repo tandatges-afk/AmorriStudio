@@ -4,6 +4,7 @@
 export type DesktopCommand =
   | {kind:'filter'; folderId:string; names:string[]}
   | {kind:'drive'; eventId:string; name?:string}
+  | {kind:'open-loc';folderId:string}
   | {kind:'legacy-raw'; names:string[]};
 const folderIdPattern=/^[a-zA-Z0-9_-]{10,160}$/;
 const eventIdPattern=/^[a-zA-Z0-9_-]{1,160}$/;
@@ -36,6 +37,11 @@ export function parseDesktopCommand(raw:string):DesktopCommand {
   const folderId=u.searchParams.get('folderId')||'';
   if(!folderIdPattern.test(folderId))throw new Error('Sản phẩm chưa có thư mục Google Drive hợp lệ.');
   return {kind:'filter',folderId,names:checkedNames(u.searchParams.get('names'))};
+ }
+ if(u.hostname==='open-loc'){
+   const folderId=u.searchParams.get('folderId')||'';
+   if(!folderIdPattern.test(folderId))throw new Error('ID album Drive không hợp lệ.');
+   return {kind:'open-loc',folderId};
  }
  if(u.hostname==='drive'){
   const eventId=u.searchParams.get('eventId')||'';
