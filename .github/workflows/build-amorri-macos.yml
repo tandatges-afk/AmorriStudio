@@ -94,3 +94,16 @@ jobs:
           path: desktop/release/*.dmg
           if-no-files-found: error
           retention-days: 7
+      - name: Verify Amorri app signature
+        shell: bash
+        run: |
+          APP="$(find release -type d -name '*.app' -print -quit)"
+
+          if [ -z "$APP" ]; then
+            echo "ERROR: Amorri Studio.app not found"
+            exit 1
+          fi
+
+          codesign --verify --deep --strict --verbose=2 "$APP"
+
+          echo "APP SIGNATURE VERIFIED"
