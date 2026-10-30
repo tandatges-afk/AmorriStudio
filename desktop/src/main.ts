@@ -86,7 +86,7 @@ function writeSettings(next: LocalSettings): void {
 }
 
 function chooseDownloadFolder(): void {
-  if (!mainWindow) return;
+  if (!mainWindow || mainWindow.isDestroyed()) return;
   const chosen = dialog.showOpenDialogSync(mainWindow, {
     title: 'Chọn thư mục tải ảnh Amorri Studio',
     defaultPath: readSettings().downloadDirectory || app.getPath('downloads'),
@@ -117,6 +117,7 @@ function freeFilePath(folder: string, suggested: string): string {
 
 function configureDownloads(win: BrowserWindow): void {
   win.webContents.session.on('will-download', (event, item: DownloadItem, source) => {
+    if (win.isDestroyed()) { event.preventDefault(); return; }
     if (source.id !== win.webContents.id) {
       event.preventDefault();
       return;
@@ -149,13 +150,14 @@ function configureDownloads(win: BrowserWindow): void {
 
     item.on('updated', (_e, state) => {
       if (state === 'interrupted') {
-        win.setProgressBar(-1);
+        if (!win.isDestroyed()) win.setProgressBar(-1);
         return;
       }
       const total = item.getTotalBytes();
-      if (total > 0) win.setProgressBar(item.getReceivedBytes() / total);
+      if (total > 0 && !win.isDestroyed()) win.setProgressBar(item.getReceivedBytes() / total);
     });
     item.once('done', (_e, state) => {
+      if (win.isDestroyed()) return;
       win.setProgressBar(-1);
       if (state === 'completed') {
         // File is already in Windows Downloads or the user's selected folder.
@@ -169,12 +171,29 @@ function configureDownloads(win: BrowserWindow): void {
   });
 }
 
-function buildMenu(win: BrowserWindow): void {
+// Hotfix 161: menus belong to the application, not an individual BrowserWindow.
+// Resolve the CURRENT window on each click; macOS can close it while the app remains active.
+function showHomeWindow(): void {
+  const current = mainWindow;
+  if (!current || current.isDestroyed()) {
+    createWindow();
+    return;
+  }
+  if (current.isMinimized()) current.restore();
+  current.show();
+  current.focus();
+  void current.loadURL(websiteUrl).catch((error: unknown) => {
+    // A navigation may complete after the user closes the window.
+    if (!current.isDestroyed()) console.error('Amorri: cannot open home page:', error);
+  });
+}
+
+function buildMenu(): void {
   const menu = Menu.buildFromTemplate([
     {
       label: 'Amorri',
       submenu: [
-        { label: 'Trang chủ', click: () => void win.loadURL(websiteUrl) },
+        { label: 'Trang chủ', click: () => showHomeWindow() },
         { label: 'Mở website bằng trình duyệt', click: () => openApprovedExternalUrl(websiteUrl) },
         { type: 'separator' },
         { label: 'Google Drive + Lọc RAW…', click: () => openDesktopTools() },
@@ -232,8 +251,10 @@ function createWindow(): void {
   mainWindow = win;
   setupDesktopTools(win);
   win.webContents.setUserAgent(win.webContents.getUserAgent() + ' AmorriDesktop/1.2');
-  win.once('ready-to-show', () => win.show());
-  win.on('closed', () => { mainWindow = null; });
+   win.once('ready-to-show', () => { if (!win.isDestroyed()) win.show(); });
+   // Some macOS WebViews never emit ready-to-show on a second launch.
+   win.webContents.once('did-finish-load', () => { if (!win.isDestroyed() && !win.isVisible()) win.show(); });
+  win.on('closed', () => { if (mainWindow === win) mainWindow = null; });
 
   win.webContents.on('will-attach-webview', (event) => event.preventDefault());
   win.webContents.on('will-navigate', (event, url) => {
@@ -245,7 +266,7 @@ function createWindow(): void {
   win.webContents.setWindowOpenHandler(({ url }) => {
     if (url.startsWith('amorri-desktop://')) { acceptDesktopWebsiteCommand(url); return { action: 'deny' }; }
     if (isInternalUrl(url)) {
-      void win.loadURL(url);
+      if (!win.isDestroyed()) void win.loadURL(url).catch(() => {});
     } else {
       openApprovedExternalUrl(url);
     }
@@ -265,8 +286,9 @@ function createWindow(): void {
   });
 
   configureDownloads(win);
-  buildMenu(win);
+  buildMenu();
   void win.loadURL(websiteUrl).catch((err: unknown) => {
+    if (win.isDestroyed()) return;
     win.show();
     void dialog.showMessageBox(win, {
       type: 'error',
@@ -288,6 +310,10 @@ app.whenReady().then(() => {
     return;
   }
   createWindow();
-  app.on('activate', () => { if (BrowserWindow.getAllWindows().length === 0) createWindow(); });
+   app.on('activate', () => {
+     // Other hidden tool windows must not prevent recreating the main window.
+     if (!mainWindow || mainWindow.isDestroyed()) createWindow();
+     else { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.show(); mainWindow.focus(); }
+   });
 });
-app.on('window-all-closed', () => app.quit());
+app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });

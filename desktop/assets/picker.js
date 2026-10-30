@@ -3,6 +3,8 @@ const api=window.amorriDesktopTools;
 const el=id=>document.getElementById(id);
 const stack=[{id:'root',name:'My Drive'}];let chosen=null,mode='product',list=[],results=null,epoch=0,timer=null,busy=false;
 const hint=s=>{el('message').textContent=String(s)};
+el('closePicker').onclick=()=>void api.closeWindow().catch(e=>hint(e.message||String(e)));
+if(typeof document.addEventListener==='function')document.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();void api.closeWindow().catch(err=>hint(err.message||String(err)));}});
 const show=items=>{
  const host=el('folders');host.replaceChildren();
  if(!items.length){const empty=document.createElement('p');empty.className='empty';empty.textContent='Không tìm thấy thư mục phù hợp.';host.append(empty);return;}

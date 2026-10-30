@@ -304,7 +304,7 @@ export async function shareFolderForReader(folderId:string,readerEmail?:string):
   if(!/^[a-zA-Z0-9_-]{10,160}$/.test(folderId))throw new Error('ID folder Drive không hợp lệ.');
   const url=`${DRIVE_API}/files/${encodeURIComponent(folderId)}/permissions`;
   const hasReader=async()=>{
-    const list=await driveRequest<{permissions?:Array<{type?:string;role?:string;emailAddress?:string}>}>(`${url}?fields=permissions(type,role,emailAddress)&pageSize=1000`);
+    const list=await driveRequest<{permissions?:Array<{type?:string;role?:string;emailAddress?:string}>}>(`${url}?fields=permissions(type,role,emailAddress)&pageSize=100`);
     return !!list.permissions?.some(item=>item.type==='user'&&item.emailAddress?.toLowerCase()===readerEmail.toLowerCase()&&['reader','commenter','writer','owner','organizer','fileOrganizer'].includes(item.role||''));
   };
   try{
@@ -391,7 +391,7 @@ export async function ensureDriveLinkViewer(folderId:string):Promise<{alreadyPub
   if(!/^[a-zA-Z0-9_-]{10,160}$/.test(folderId))throw new Error('ID Google Drive không hợp lệ.');
   type Permission={type?:string;role?:string;allowFileDiscovery?:boolean};
   const endpoint=`${DRIVE_API}/files/${encodeURIComponent(folderId)}/permissions`;
-  const found=await driveRequest<{permissions?:Permission[]}>(`${endpoint}?fields=permissions(id,type,role,allowFileDiscovery)&pageSize=1000`);
+  const found=await driveRequest<{permissions?:Permission[]}>(`${endpoint}?fields=permissions(id,type,role,allowFileDiscovery)&pageSize=100`);
   const publicView=(found.permissions||[]).some(p=>p.type==='anyone'&&['reader','commenter','writer','owner'].includes(p.role||''));
   if(publicView)return {alreadyPublic:true};
   try{

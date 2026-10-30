@@ -30,8 +30,9 @@ function result(report){
  text('progressLabel',report.errors?.length?'Có lỗi':'Hoàn tất');
  text('driveResult',`Máy upload: ${report.deviceName||'Không rõ'}\nĐợt upload: ${report.batchId||'Không rõ'}\nKhách: ${report.customer||''}\nAlbum JPG: ${report.url}\nẢnh mới: ${report.uploaded} · Đã có: ${report.skipped} · Lỗi: ${report.errors?.length||0}`+
    (report.errors?.length?'\n'+report.errors.slice(0,15).join('\n'):''));
- announce(report.errors?.length?'Upload có file lỗi. Kiểm tra bên dưới.':'Upload JPG đã hoàn tất.');
+ announce(report.errors?.length?'Upload có file lỗi. Kiểm tra bên dưới.':(report.folderWarning?'Cảnh báo: '+report.folderWarning:(report.reusedExistingAlbum?'Đã upload vào album Drive đã liên kết trước đó.':'Upload JPG đã hoàn tất.')));
 }
+el('closeTools').onclick=()=>void api.closeWindow().catch(e=>error(e));
 el('renameDevice').onclick=()=>run(async()=>{
  const state=await api.status();
  const name=prompt('Đặt tên máy để đồng nghiệp nhận biết trên Drive:',state.device?.deviceName||'');
@@ -41,7 +42,7 @@ el('renameDevice').onclick=()=>run(async()=>{
 });
 el('pick').onclick=()=>run(async()=>{
  const r=await api.pickJpg();if(r?.cancelled)return;
- await status();announce('Đã chọn thư mục khách.');
+ await status();announce(r.warning?'Cảnh báo: '+r.warning:`Đã kiểm tra: ${r.jpgCount} JPG và ${r.locCount} file trong loc/lọc. Sẵn sàng upload.`);
 });
 el('chooseParent').onclick=()=>run(async()=>{
  const s=await api.status();if(!s.jpgFolder)throw new Error('Chọn thư mục khách trên Windows trước.');
