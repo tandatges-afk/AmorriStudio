@@ -1,14 +1,16 @@
 import {app,BrowserWindow,dialog,ipcMain,shell} from 'electron';
 import fs from 'node:fs';
+import {randomUUID} from 'node:crypto';
+import {loadDeviceIdentity,renameDevice,originFromRecords,verifyLocalJpgSample,type OriginSummary} from './device-origin';
 import path from 'node:path';
 import {clientFolderForJpgSource,resolveCustomerJpgFolder,copySelectedRaws,inspectRawMatches,inspectRawPresence,type RawReport} from './raw-match';
 import {parseDesktopCommand,type DesktopCommand} from './desktop-commands';
-import {configureDriveOAuth,connectGoogleDrive,connectedGoogleDrive,disconnectGoogleDrive,createPhotoFolder,shareFolderForReader,listCreatedJpgs,uploadLocalJpg,getOrCreateChildFolder,ensureCustomerPublicView,isFolderPubliclyReadable,listAppDriveFolders,createDriveStorageFolder,driveAccountEmail,verifyDriveFolder,pickExistingDriveFolder,connectFullGoogleDrive,googleDriveScopeMode,listDriveFolderChildren,searchDriveFolders} from './google-drive';
+import {configureDriveOAuth,connectGoogleDrive,connectedGoogleDrive,disconnectGoogleDrive,createPhotoFolder,shareFolderForReader,listCreatedJpgs,uploadLocalJpg,getOrCreateChildFolder,ensureCustomerPublicView,isFolderPubliclyReadable,listAppDriveFolders,createDriveStorageFolder,driveAccountEmail,verifyDriveFolder,pickExistingDriveFolder,connectFullGoogleDrive,googleDriveScopeMode,listDriveFolderChildren,searchDriveFolders,listDriveJpgRecords,driveParentOf} from './google-drive';
 
 type Config={googleOAuthClientId?:string;googleOAuthClientSecret?:string;driveReaderEmail?:string};
 type DriveMapping={id:string;url:string;shared:boolean;sharingWarning:string;complete?:boolean;parentId?:string;customerFolderId?:string;accountEmail?:string};
 type DriveUploadLink={sourceJpgFolder:string;url:string;accountEmail:string;updatedAt:string;complete:boolean};
-type FolderState={jpgFolder?:string;storageFolderId?:string;driveFolders?:Record<string,DriveMapping>;driveUploads?:Record<string,DriveUploadLink>};
+type FolderState={jpgFolder?:string;storageFolderId?:string;driveFolders?:Record<string,DriveMapping>;driveUploads?:Record<string,DriveUploadLink>;rawLinks?:Record<string,{sourceJpgFolder:string;deviceId:string;verifiedAt:string}>};
 let main:BrowserWindow;
 let toolsWindow:BrowserWindow|null=null;
 let pickerWindow:BrowserWindow|null=null;
@@ -87,13 +89,37 @@ function findJpgForDriveId(folderId:string):string|null{
  if(path.parse(clientRoot).root===clientRoot)throw new Error('Không được lọc RAW từ ổ đĩa gốc.');
  return folder;
 }
-async function getJpgForFilter(folderId:string):Promise<string|null>{
+async function getJpgForFilter(folderId:string,provenance:OriginSummary,names:string[]):Promise<string|null>{
+ const device=loadDeviceIdentity(rootFolder());
  const existing=findJpgForDriveId(folderId);
- if(existing)return existing;
- const confirm=await dialog.showMessageBox(main,{type:'question',buttons:['Chọn thư mục khách','Hủy'],defaultId:0,cancelId:1,
-  title:'Liên kết RAW lần đầu',message:'Album Drive này chưa được liên kết với thư mục JPG trên máy.',
-  detail:'Chọn đúng thư mục JPG của khách. Desktop chỉ tìm và sao chép RAW trong thư mục khách tương ứng, không tìm toàn bộ ổ đĩa.'});
+ const past=state().rawLinks?.[folderId];
+ // Uploading from this same machine has its own trusted local map. Cross-machine
+ // mappings require verification of JPG content, not only identical filenames.
+ if(existing && provenance.kind==='self')return existing;
+ if(existing && past?.sourceJpgFolder===existing && past.deviceId===device.deviceId){
+   verifyLocalJpgSample(existing,provenance.records);
+   return existing;
+ }
+ const where=provenance.labels.join(', ')||'Không rõ nguồn (album cũ)';
+ const intro=provenance.kind==='self'?'Album này chưa được liên kết với máy hiện tại.':
+  provenance.kind==='mixed'?'Album có ảnh được upload từ nhiều máy.':
+  provenance.kind==='unknown'?'Chưa xác định được máy đã upload bộ ảnh này.':
+  'Album được upload từ máy khác.';
+ const confirm=await dialog.showMessageBox(main,{type:'warning',buttons:[existing?'Kiểm tra RAW đang liên kết':'Liên kết thư mục RAW','Hủy'],defaultId:1,cancelId:1,
+  title:'Amorri — Kiểm tra nguồn ảnh',message:intro,
+  detail:`Máy upload: ${where}\nMáy đang lọc: ${device.deviceName}\nJPG đã chọn: ${names.length}\n\nAmorri sẽ so checksum JPG trên Drive và trên máy trước khi cho phép lọc RAW.`});
  if(confirm.response!==0)return null;
+ if(existing){
+   const report=inspectRawMatches(existing,names);
+   if(!report.matches.length)throw new Error('Không tìm thấy RAW nào khớp trên máy này. Hãy chuyển đúng bộ RAW trước.');
+   const verified=verifyLocalJpgSample(existing,provenance.records);
+   const approval=await dialog.showMessageBox(main,{type:'question',buttons:['Xác nhận nguồn RAW','Hủy'],defaultId:1,cancelId:1,
+     title:'Xác minh RAW trên máy này',message:`Đã kiểm tra ${verified.verified} JPG bằng checksum Drive`,
+     detail:`Có RAW: ${report.matches.length}/${report.requested}\nThiếu: ${report.missing.length} · Trùng tên RAW: ${report.ambiguous.length}\nNguồn: ${report.clientRoot}`});
+   if(approval.response!==0)return null;
+   persist({...state(),rawLinks:{...state().rawLinks,[folderId]:{sourceJpgFolder:existing,deviceId:device.deviceId,verifiedAt:new Date().toISOString()}}});
+   return existing;
+ }
  const chosen=dialog.showOpenDialogSync(main,{title:'Chọn thư mục JPG của đúng khách để lọc RAW',properties:['openDirectory'],
   defaultPath:state().jpgFolder||app.getPath('desktop')});
  if(!chosen?.[0])return null;
@@ -103,8 +129,12 @@ async function getJpgForFilter(folderId:string):Promise<string|null>{
  if(path.parse(root).root===root)throw new Error('Không thể chọn ổ đĩa gốc.');
  const conflict=state().driveFolders?.[folder];
  if(conflict?.id&&conflict.id!==folderId)throw new Error('Thư mục khách này đã gắn một album Drive khác. Không tự ý thay thế.');
+ const verify=verifyLocalJpgSample(folder,provenance.records);
+ const report=inspectRawMatches(folder,names);
+ if(!report.matches.length)throw new Error('Không tìm được RAW tương ứng trong raw/goc. Hãy chọn đúng thư mục khách có RAW.');
  const approval=await dialog.showMessageBox(main,{type:'question',buttons:['Đúng khách — Liên kết','Hủy'],defaultId:1,cancelId:1,
-  title:'Xác nhận liên kết RAW',message:`Khách: ${path.basename(root)}`,detail:`Drive folder: ${folderId}\nThư mục JPG: ${folder}\n\nXác nhận để ghi nhớ liên kết trên máy này.`});
+  title:'Xác nhận liên kết RAW',message:`Đã đối chiếu ${verify.verified} JPG theo checksum`,
+  detail:`Máy upload: ${where}\nKhách: ${path.basename(root)}\nDrive folder: ${folderId}\nRAW khớp: ${report.matches.length}/${report.requested}\nThiếu: ${report.missing.length} · Trùng: ${report.ambiguous.length}\nThư mục JPG: ${folder}\n\nChỉ liên kết khi đúng bộ ảnh.`});
  if(approval.response!==0)return null;
  const snapshot=state();
  persist({...snapshot,jpgFolder:folder,driveFolders:{...snapshot.driveFolders,[folder]:{
@@ -113,16 +143,27 @@ async function getJpgForFilter(folderId:string):Promise<string|null>{
  }},driveUploads:{...snapshot.driveUploads,[folderId]:{
   sourceJpgFolder:folder,url:`https://drive.google.com/drive/folders/${folderId}`,
   accountEmail:conflict?.accountEmail||'',updatedAt:new Date().toISOString(),complete:!!conflict?.complete
- }}});
+ }},rawLinks:{...snapshot.rawLinks,[folderId]:{sourceJpgFolder:folder,deviceId:device.deviceId,verifiedAt:new Date().toISOString()}}});
  return folder;
 }
 async function runOneClickFilter(folderId:string,names:string[]){
  if(busy)throw new Error('Desktop đang upload hoặc đang lọc. Hãy thử lại sau.');
  busy=true;
  try{
-  const folder=await getJpgForFilter(folderId);
+  const device=loadDeviceIdentity(rootFolder());
+  const records=await listDriveJpgRecords(folderId);
+  const provenance=originFromRecords(records,names,device.deviceId);
+  if(provenance.missing.length)throw new Error('Drive không có '+provenance.missing.length+' JPG được chọn (ví dụ '+provenance.missing[0]+'). Hãy tải lại sản phẩm.');
+  const folder=await getJpgForFilter(folderId,provenance,names);
   if(!folder)return;
   const report=inspectRawMatches(folder,names);
+  if(!report.matches.length)throw new Error('Không tìm được RAW phù hợp trên máy này. Không tạo folder loc.');
+  if(report.missing.length||report.ambiguous.length||report.skippedInvalid.length){
+    const warning=await dialog.showMessageBox(main,{type:'warning',buttons:['Chỉ lọc RAW tìm thấy','Hủy'],defaultId:1,cancelId:1,
+      title:'RAW chưa đủ hoặc bị trùng',message:`Có ${report.matches.length}/${report.requested} RAW phù hợp`,
+      detail:`Thiếu ${report.missing.length} RAW: ${report.missing.slice(0,8).join(', ')}\nTrùng ${report.ambiguous.length} mã ảnh. Chỉ sao chép các RAW xác định duy nhất.`});
+    if(warning.response!==0)return;
+  }
   const result=copySelectedRaws(report);
   const counts=`Đã lọc ${result.copied.length} RAW mới; ${result.alreadyPresent.length} file đã có.\nThiếu RAW: ${report.missing.length}; mã trùng: ${report.ambiguous.length}; lỗi: ${result.errors.length}.`;
   const notes=[...report.missing.slice(0,15).map(x=>'Không có RAW: '+x),
@@ -155,11 +196,26 @@ async function uploadCustomerToParent(parentId:string){
    if(!email)throw new Error('Google Drive chưa kết nối.');
    if(parentId!=='root')await verifyDriveFolder(parentId);
    const previous=state().driveFolders?.[jpgFolder];
+   const device=loadDeviceIdentity(rootFolder());
+   const batchId=randomUUID();
    if(previous?.accountEmail && previous.accountEmail!==email)throw new Error('Folder khách đã gắn tài khoản Google khác.');
    if(previous?.parentId && previous.parentId!==parentId)throw new Error('Folder khách đã từng upload vào thư mục cha Drive khác. Không tự đổi đích để tránh lẫn ảnh.');
-   notifyProgress('Đang chuẩn bị folder '+customer+'/jpg…');
-   const customerFolder=await getOrCreateChildFolder(parentId,customer);
-   const jpgDrive=await getOrCreateChildFolder(customerFolder.id,'jpg');
+   notifyProgress('Đang chuẩn bị album cho '+device.deviceName+'…');
+   // Existing albums keep their original folder IDs/links, including pre-1.5.9.
+   // New albums live under a unique, stable per-device folder.
+   const customerFolder=previous?.id
+     ?{id:previous.customerFolderId||await driveParentOf(previous.id)}
+     :await (async()=>{
+       const machine=await getOrCreateChildFolder(parentId,device.driveFolderName);
+       return getOrCreateChildFolder(machine.id,customer);
+     })();
+   // Old album ID is the source of truth: never create another customer/jpg
+   // or silently move an album when older local metadata lacks customerFolderId.
+   if(previous?.id && !previous.customerFolderId){
+     const legacyParent=await driveParentOf(customerFolder.id);
+     if(legacyParent!==parentId)throw new Error('Album cũ nằm trong thư mục cha Drive khác. Hãy chọn lại đúng thư mục cha gốc trước khi upload.');
+   }
+   const jpgDrive=previous?.id?{id:previous.id}:await getOrCreateChildFolder(customerFolder.id,'jpg');
    if(previous?.id&&previous.id!==jpgDrive.id)throw new Error('Folder khách đã liên kết album JPG khác. Dừng để tránh ghi đè.');
    const earlyUrl=`https://drive.google.com/drive/folders/${jpgDrive.id}`;
    persist({...state(),driveFolders:{...state().driveFolders,[jpgFolder]:{
@@ -177,12 +233,20 @@ async function uploadCustomerToParent(parentId:string){
      parentId,customerFolderId:customerFolder.id,accountEmail:email};
    persist({...state(),storageFolderId:parentId,driveFolders:{...state().driveFolders,[jpgFolder]:mapping}});
    const existing=await listCreatedJpgs(jpgDrive.id);
+   let remoteExisting:Awaited<ReturnType<typeof listDriveJpgRecords>>|null=null;
    let uploaded=0,skipped=0;const errors:string[]=[];
    for(let i=0;i<files.length;i++){
      const file=files[i];
-     if(existing.has(path.basename(file).toLowerCase())){skipped++;continue;}
+     if(existing.has(path.basename(file).toLowerCase())){
+       // Name-only skips are unsafe if a machine reuses DSC001.jpg for a different client.
+       if(!remoteExisting)remoteExisting=await listDriveJpgRecords(jpgDrive.id);
+       const matching=remoteExisting.filter(x=>x.name.toLowerCase()===path.basename(file).toLowerCase());
+       if(matching.length!==1)throw new Error('JPG '+path.basename(file)+' trùng tên hoặc không có metadata hợp lệ trên Drive. Không bỏ qua file này.');
+       verifyLocalJpgSample(jpgFolder,matching,1);
+       skipped++;continue;
+     }
      notifyProgress(`${i+1}/${files.length} · ${path.basename(file)}`);
-     try{await uploadLocalJpg(file,jpgDrive.id);uploaded++;}
+     try{await uploadLocalJpg(file,jpgDrive.id,{deviceId:device.deviceId,deviceName:device.deviceName,batchId});uploaded++;}
      catch(error){errors.push(path.basename(file)+': '+msg(error));if(errors.length>=10)break;}
    }
    const complete=errors.length===0;
@@ -192,7 +256,7 @@ async function uploadCustomerToParent(parentId:string){
        sourceJpgFolder:jpgFolder,url,accountEmail:email,updatedAt:new Date().toISOString(),complete
      }}:current.driveUploads});
    notifyProgress(`Upload hoàn tất: ${uploaded} mới · ${skipped} đã có · ${errors.length} lỗi`);
-   return {url,customer,uploaded,skipped,errors,total:files.length,complete};
+   return {url,customer,uploaded,skipped,errors,total:files.length,complete,deviceName:device.deviceName,batchId};
  }finally{busy=false;}
 }
 
@@ -224,7 +288,8 @@ export function setupDesktopTools(win:BrowserWindow){
  try{config=JSON.parse(fs.readFileSync(getResource('desktop.config.json'),'utf8')) as Config;}catch{}
  configureDriveOAuth(config.googleOAuthClientId||'',localOAuthClientSecret());
  registered('tools:known-folders',()=>({folders:readyDriveFolders(),pendingEventId:pendingDriveEventId,pendingProductName:pendingDriveProductName||''}));
- registered('tools:status',async()=>({jpgFolder:state().jpgFolder||'',clientRoot:state().jpgFolder&&isExistingJpgFolder(state().jpgFolder!)?clientFolderForJpgSource(state().jpgFolder!):'',
+ registered('tools:device-rename',(value:unknown)=>renameDevice(rootFolder(),value));
+ registered('tools:status',async()=>({device:loadDeviceIdentity(rootFolder()),jpgFolder:state().jpgFolder||'',clientRoot:state().jpgFolder&&isExistingJpgFolder(state().jpgFolder!)?clientFolderForJpgSource(state().jpgFolder!):'',
    selectedNames,storageFolderId:state().storageFolderId||'',clients:clientMappings(),
    googleConnected:await connectedGoogleDrive().catch(()=>false),oauthConfigured:!!config.googleOAuthClientId,
    readerConfigured:!!config.driveReaderEmail,knownFolder:state().driveFolders?.[state().jpgFolder||'']||null}));

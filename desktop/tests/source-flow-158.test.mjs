@@ -3,7 +3,7 @@ import {getCompiledSource} from './compile-desktop-source.mjs';
 const require=createRequire(import.meta.url);
 const base=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../src');
 function load(name,mocks={}){const js=getCompiledSource(name);
- const mod={exports:{}};vm.runInNewContext(js,{module:mod,exports:mod.exports,require:n=>mocks[n]||require(n),__dirname:base,process,Buffer,URL,console,Date,setTimeout,clearTimeout,fetch:async()=>{throw Error('no network')} });return mod.exports;}
+ const mod={exports:{}};vm.runInNewContext(js,{module:mod,exports:mod.exports,require:n=>mocks[n]||(n==='./device-origin'?load('device-origin.ts'):require(n)),__dirname:base,process,Buffer,URL,console,Date,setTimeout,clearTimeout,fetch:async()=>{throw Error('no network')} });return mod.exports;}
 test('customer folder picks direct JPG, filters only RAW/goc, and writes loc under customer',()=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'amorri-158-source-'));
  try{const customer=path.join(root,'Lan Anh');for(const dir of ['jpg','raw','unrelated'])fs.mkdirSync(path.join(customer,dir),{recursive:true});fs.writeFileSync(path.join(customer,'jpg','DSC_01.jpg'),'jpg');fs.writeFileSync(path.join(customer,'raw','DSC_01.cr3'),'RAW');fs.writeFileSync(path.join(customer,'unrelated','DSC_01.CR3'),'wrong');
@@ -28,7 +28,7 @@ test('upload creates customer/jpg under chosen parent, shares customer and remem
  // Use active toolsWindow's webContents via the fake constructor's shared mainFrame event.
  const calls=[];for(const [name,fn]of ipc)calls.push(name);
  const invoke=async(name,...args)=>{const handler=ipc.get(name);assert.ok(handler,name);return handler({sender:{},senderFrame:{}},...args)};
- assert.ok(calls.includes('tools:pick-jpg'));assert.match(fs.readFileSync(path.join(base,'desktop-tools.ts'),'utf8'),/getOrCreateChildFolder\(parentId,customer\)/);
+ assert.ok(calls.includes('tools:pick-jpg'));assert.match(fs.readFileSync(path.join(base,'desktop-tools.ts'),'utf8'),/getOrCreateChildFolder\(machine.id,customer\)/);
  // Full IPC trust is covered by production sender validation; assert required functions instead of bypassing it here.
  assert.ok(calls.includes('tools:create-upload'));assert.ok(calls.includes('tools:open-upload-picker'));
  }finally{fs.rmSync(temp,{recursive:true,force:true})}

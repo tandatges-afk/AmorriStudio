@@ -7,7 +7,7 @@ import https from 'node:https';
 
 type Tokens={access_token:string;refresh_token?:string;expires_at:number;scope?:string};
 type OAuthResponse={access_token?:string;refresh_token?:string;expires_in?:number;scope?:string;error?:string;error_description?:string};
-type DriveFile={id:string;name?:string;mimeType?:string;webViewLink?:string;parents?:string[]};
+type DriveFile={id:string;name?:string;mimeType?:string;webViewLink?:string;parents?:string[];md5Checksum?:string;appProperties?:Record<string,string>};
 type DriveList={files?:DriveFile[];nextPageToken?:string};
 const GOOGLE_SCOPE='https://www.googleapis.com/auth/drive.file';
 const GOOGLE_FULL_SCOPE='https://www.googleapis.com/auth/drive';
@@ -346,7 +346,7 @@ function uploadSingleRequest(url:string, filename:string, mime:string, fileSize:
     fs.createReadStream(filename).on('error',reject).pipe(request);
   });
 }
-export async function uploadLocalJpg(filePath:string,folderId:string):Promise<void>{
+export async function uploadLocalJpg(filePath:string,folderId:string,origin?:{deviceId:string;deviceName:string;batchId:string}):Promise<void>{
   const stat=fs.statSync(filePath);if(!stat.isFile())throw new Error('Không phải file ảnh');
   if(stat.size>120*1024*1024)throw new Error('File JPG quá 120 MB');
   const filename=path.basename(filePath);
@@ -354,7 +354,7 @@ export async function uploadLocalJpg(filePath:string,folderId:string):Promise<vo
   const r=await fetch(`https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name`,{
     method:'POST',headers:{Authorization:`Bearer ${await accessToken()}`,'Content-Type':'application/json; charset=UTF-8',
       'X-Upload-Content-Type':mime,'X-Upload-Content-Length':String(stat.size)},
-    body:JSON.stringify({name:filename,mimeType:mime,parents:[folderId]})
+    body:JSON.stringify({name:filename,mimeType:mime,parents:[folderId],...(origin?{appProperties:{amorriDeviceId:origin.deviceId,amorriDeviceName:origin.deviceName,amorriBatchId:origin.batchId}}:{})})
   });
   if(!r.ok)throw new Error(`Không khởi tạo upload: ${r.status} ${(await r.text()).slice(0,350)}`);
   const session=r.headers.get('location');if(!session)throw new Error('Google không trả về đường dẫn upload');
@@ -404,3 +404,30 @@ export async function ensureDriveLinkViewer(folderId:string):Promise<{alreadyPub
 }
 
 export async function isFolderPubliclyReadable(id:string){return hasPublicReader(id);}
+
+/** Fetch only metadata, never download client JPGs to another machine. */
+export async function listDriveJpgRecords(folderId:string):Promise<import('./device-origin').DriveJpgRecord[]>{
+ if(!/^[A-Za-z0-9_-]{10,160}$/.test(folderId))throw new Error('ID folder ảnh không hợp lệ.');
+ const records:import('./device-origin').DriveJpgRecord[]=[];let pageToken='';
+ for(let page=0;page<30;page++){
+  const q=`'${folderId}' in parents and trashed = false`;
+  const qs=new URLSearchParams({q,fields:'nextPageToken,files(id,name,md5Checksum,appProperties)',pageSize:'1000'});
+  if(pageToken)qs.set('pageToken',pageToken);
+  const data=await driveRequest<DriveList>(`${DRIVE_API}/files?${qs}`);
+  for(const item of data.files||[]){if(!item.name||!/\.jpe?g$/i.test(item.name))continue;
+   const props=item.appProperties||{};
+   records.push({name:item.name,md5Checksum:item.md5Checksum,deviceId:props.amorriDeviceId,deviceName:props.amorriDeviceName,batchId:props.amorriBatchId});
+  }
+  if(!data.nextPageToken)return records;
+  pageToken=data.nextPageToken;
+ }
+ throw new Error('Album Drive có quá 30.000 ảnh; dừng để tránh đối chiếu không đầy đủ.');
+}
+
+/** Resolve the direct parent for a pre-1.5.9 album without moving it. */
+export async function driveParentOf(folderId:string):Promise<string>{
+ if(!/^[A-Za-z0-9_-]{10,160}$/.test(folderId))throw new Error('ID Drive không hợp lệ.');
+ const file=await driveRequest<DriveFile>(`${DRIVE_API}/files/${encodeURIComponent(folderId)}?fields=id,parents,mimeType,trashed`);
+ if(file.mimeType!=='application/vnd.google-apps.folder'||!file.parents?.length)throw new Error('Album JPG cũ không có thư mục cha hợp lệ. Hãy kiểm tra quyền Drive.');
+ return file.parents[0];
+}

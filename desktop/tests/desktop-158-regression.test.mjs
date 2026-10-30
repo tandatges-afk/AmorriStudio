@@ -25,7 +25,7 @@ test('picker lazily loads one folder level and searches only when requested',()=
 });
 test('upload creates customer/jpg, never uploads RAW',()=>{
  const source=read('src/desktop-tools.ts');
- assert.match(source,/getOrCreateChildFolder\(parentId,customer\)/);
+ assert.match(source,/getOrCreateChildFolder\(machine.id,customer\)/);
  assert.match(source,/getOrCreateChildFolder\(customerFolder\.id,'jpg'\)/);
  assert.match(source,/\.jpe\?g\$/);assert.match(source,/driveUploads:uploaded\+skipped>0/);
 });

@@ -35,7 +35,7 @@ function ensureCompiled(){
   if(result.signal)throw new Error('tsc bị dừng: '+result.signal);
   // The Desktop's npm run typecheck is the authoritative diagnostic gate.
   // Here, only emitted JS is needed for controlled, mocked behavior tests.
-  for(const name of ['desktop-commands','raw-match','desktop-tools']){
+  for(const name of ['desktop-commands','raw-match','device-origin','desktop-tools']){
    const js=path.join(tmp,name+'.js');
    if(!fs.existsSync(js)){
     throw new Error('tsc không tạo '+name+'.js. '+[result.stdout,result.stderr].filter(Boolean).join('\n').slice(0,1600));
@@ -47,6 +47,6 @@ function ensureCompiled(){
  return output;
 }
 export function getCompiledSource(name){
- if(!/^(desktop-commands|raw-match|desktop-tools)\.ts$/.test(name))throw new Error('Tên module test không hợp lệ: '+name);
+ if(!/^(desktop-commands|raw-match|device-origin|desktop-tools)\.ts$/.test(name))throw new Error('Tên module test không hợp lệ: '+name);
  return ensureCompiled().get(name);
 }

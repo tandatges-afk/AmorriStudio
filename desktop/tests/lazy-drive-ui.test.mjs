@@ -46,7 +46,7 @@ test('popup searches Drive folders, navigates one level at a time and confirms s
 test('raw and Drive share remain local IPC-only; no browser receives local file paths',()=>{
  const ts=fs.readFileSync(path.join(src,'desktop-tools.ts'),'utf8');
  assert.match(ts,/driveUploads:/);assert.match(ts,/stageDriveDraft/);assert.match(ts,/amorri:raw-filter-done/);
- assert.match(ts,/getOrCreateChildFolder\(parentId,customer\)/);
+ assert.match(ts,/getOrCreateChildFolder\(machine.id,customer\)/);
  assert.match(ts,/getOrCreateChildFolder\(customerFolder\.id,'jpg'\)/);
  const gd=fs.readFileSync(path.join(src,'google-drive.ts'),'utf8');
  assert.match(gd,/allowFileDiscovery:false/);

@@ -1,5 +1,6 @@
 {
-  "webUrl": "https://YOUR-DOMAIN.vercel.app/",
-  "googleOAuthClientId": "",
-  "driveReaderEmail": ""
+    "webUrl":  "https://amorri.vercel.app/",
+    "googleOAuthClientId":  "REPLACE_WITH_GOOGLE_CLIENT_ID",
+    "driveReaderEmail":  "amorri-drive-video@ammori-c4905.iam.gserviceaccount.com",
+    "googleOAuthClientSecret":  "REPLACE_WITH_GOOGLE_CLIENT_SECRET"
 }

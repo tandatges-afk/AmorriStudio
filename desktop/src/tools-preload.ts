@@ -1,7 +1,7 @@
 import {contextBridge,ipcRenderer} from 'electron';
 const call=(name:string,...args:unknown[])=>ipcRenderer.invoke(name,...args);
 contextBridge.exposeInMainWorld('amorriDesktopTools',{
- status:()=>call('tools:status'),pickJpg:()=>call('tools:pick-jpg'),setNames:(s:string[])=>call('tools:set-names',s),
+ status:()=>call('tools:status'),renameDevice:(name:string)=>call('tools:device-rename',name),pickJpg:()=>call('tools:pick-jpg'),setNames:(s:string[])=>call('tools:set-names',s),
  rawPreflight:()=>call('tools:raw-preflight'),scanRaw:()=>call('tools:scan-raw'),copyRaw:()=>call('tools:copy-raw'),openOutput:()=>call('tools:open-output'),
  driveLogin:()=>call('tools:drive-login'),driveFullLogin:()=>call('tools:drive-full-login'),driveLogout:()=>call('tools:drive-logout'),
  createUpload:(name:string)=>call('tools:create-upload',name),stageFolder:(name:string)=>call('tools:stage-folder',name),
