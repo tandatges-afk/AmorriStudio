@@ -2,3 +2,10 @@
 
 /* amorri-160-close */
 .title{justify-content:space-between}.title #closePicker{margin-left:auto;border:1px solid #dfe8dd;background:#fff;color:#263b33;border-radius:9px;padding:8px 10px;font-size:12px;font-weight:650;white-space:nowrap}.title #closePicker:hover{background:#eef4ef}
+
+/* Hotfix 163: a visible, non-destructive upload stop action */
+footer #cancelUpload:not([hidden]){background:#fff4f1;color:#b84029;border:1px solid #e8c5bc;padding:11px 12px}
+footer #cancelUpload:hover{background:#fce5df}
+footer #cancelUpload[hidden]{display:none}
+
+#uploadFileErrors[hidden]{display:none}#uploadFileErrors{padding:8px 24px 12px;background:#fff8f5;color:#a34534;font-size:12px;border-top:1px solid #f0d3c9}#uploadFileErrors pre{white-space:pre-wrap;max-height:110px;overflow:auto;margin:5px 0 0;font:11px/1.5 monospace}

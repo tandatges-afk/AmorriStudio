@@ -4,5 +4,5 @@
 <div class="finder"><div class="pathbar"><button id="back" disabled title="Trở về thư mục cha" aria-label="Trở về thư mục cha">‹</button><button id="root" title="My Drive">My Drive</button><span id="crumb"></span></div>
 <label class="search"><span>⌕</span><input id="search" type="search" placeholder="Tìm theo tên thư mục..." autocomplete="off" aria-label="Tìm thư mục Google Drive"></label>
 <div id="folders" class="folders" role="list"><p class="empty">Đang tải Drive...</p></div></div>
-<footer><div class="selected"><span>ĐÃ CHỌN</span><strong id="chosen">Chưa chọn thư mục</strong></div><button id="confirm" disabled>Chọn thư mục này</button></footer><p id="message" role="status" aria-live="polite"></p>
+<footer><div class="selected"><span>ĐÃ CHỌN</span><strong id="chosen">Chưa chọn thư mục</strong></div><button id="cancelUpload" type="button" hidden>Dừng upload</button><button id="confirm" disabled>Chọn thư mục này</button></footer><p id="message" role="status" aria-live="polite"></p><div id="uploadFileErrors" role="alert" aria-live="polite" hidden><strong>File không upload được</strong><pre id="uploadFailedNames"></pre></div>
 </div><script src="picker.js"></script></body></html>

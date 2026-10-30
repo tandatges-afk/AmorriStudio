@@ -4,6 +4,17 @@ const el=id=>document.getElementById(id);
 const stack=[{id:'root',name:'My Drive'}];let chosen=null,mode='product',list=[],results=null,epoch=0,timer=null,busy=false;
 const hint=s=>{el('message').textContent=String(s)};
 el('closePicker').onclick=()=>void api.closeWindow().catch(e=>hint(e.message||String(e)));
+el('cancelUpload').onclick=async()=>{
+ el('cancelUpload').disabled=true;
+ hint('Đã yêu cầu dừng, ảnh đã upload thành công sẽ được giữ nguyên.');
+ try{await api.cancelUpload();}catch(e){hint(e.message||String(e));}
+};
+api.onProgress?.(message=>{
+ if(mode!=='upload')return;
+ hint(message);
+ if(message.startsWith('Ảnh lỗi: ')){el('uploadFileErrors').hidden=false;el('uploadFailedNames').textContent+=message.slice(9)+'\n';}
+ if(/đang chuẩn bị album|\d+\/\d+|ảnh lỗi/i.test(message.toLowerCase()))el('cancelUpload').hidden=false;
+});
 if(typeof document.addEventListener==='function')document.addEventListener('keydown',e=>{if(e.key==='Escape'){e.preventDefault();void api.closeWindow().catch(err=>hint(err.message||String(err)));}});
 const show=items=>{
  const host=el('folders');host.replaceChildren();
@@ -24,7 +35,7 @@ el('back').onclick=async()=>{if(stack.length<=1)return;stack.pop();chosen=stack.
 el('root').onclick=async()=>{stack.splice(1);chosen=mode==='upload'?{id:'root',name:'My Drive'}:null;el('chosen').textContent=chosen?.name||'Chưa chọn thư mục';el('confirm').disabled=!chosen;results=null;el('search').value='';await load();};
 el('search').oninput=()=>{clearTimeout(timer);const term=el('search').value.trim();if(!term){++epoch;results=null;show(list);return;}if(term.length<2){show([]);return;}timer=setTimeout(async()=>{const token=++epoch;try{const found=await api.driveSearch(term);if(token!==epoch)return;results=found;show(found);}catch(e){hint(e.message||String(e));}},250);};
 el('confirm').onclick=async()=>{if(!chosen||busy)return;busy=true;el('confirm').disabled=true;hint(mode==='upload'?'Đang tạo folder và upload JPG…':'Đang đưa folder vào sản phẩm…');
- try{await api.pickerConfirm(chosen.id,chosen.name);}catch(e){hint('Lỗi: '+(e.message||String(e)));busy=false;el('confirm').disabled=false;}
+ try{await api.pickerConfirm(chosen.id,chosen.name);}catch(e){hint('Lỗi: '+(e.message||String(e)));busy=false;el('confirm').disabled=false;el('cancelUpload').hidden=true;}
 };
 (async()=>{try{const context=await api.pickerContext();mode=context.mode==='upload'?'upload':'product';
  if(mode==='upload'){el('heading').textContent='Chọn thư mục cha';el('description').textContent='Chọn xong app sẽ tạo tenkhach/jpg và tự upload.';el('confirm').textContent='Chọn & Upload JPG';}

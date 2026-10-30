@@ -4,3 +4,10 @@
 
 /* amorri-160-close */
 .close-btn{border:1px solid #dce5da!important;border-radius:9px;padding:9px 12px;background:#fff;color:#263b33;font-weight:650;white-space:nowrap}.close-btn:hover{background:#edf3ed}
+
+/* Hotfix 163: per-filename error display and upload stop */
+#uploadErrors{margin-top:14px;padding:14px;border:1px solid #efd3c9;border-radius:11px;background:#fff8f5;color:#963e30}
+#uploadErrors[hidden],#cancelUpload[hidden]{display:none}
+#uploadErrors strong{display:block;font-size:12px}
+#uploadErrors pre{color:#aa4c39;margin-top:5px;max-height:185px}
+#cancelUpload{margin-top:14px;color:#ac452e;border-color:#dfb3a8;background:#fff8f5}

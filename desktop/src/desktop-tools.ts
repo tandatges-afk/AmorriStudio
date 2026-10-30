@@ -20,18 +20,36 @@ let pendingDriveEventId:string|null=null;
 let pendingDriveProductName:string|null=null;
 let latestReport:RawReport|null=null;
 let busy=false;
+let uploadRunning=false;
+let cancelRequested=false;
+let uploadController:AbortController|null=null;
+const guardedWindows=new WeakSet<BrowserWindow>();
+let guardedApp=false;
 let config:Config={};
 const rootFolder=()=>app.getPath('userData');
 const localSettings=()=>path.join(rootFolder(),'desktop-tools-settings.json');
 function state():FolderState{try{return JSON.parse(fs.readFileSync(localSettings(),'utf8')) as FolderState;}catch{return {};}}
 function persist(next:FolderState){fs.mkdirSync(rootFolder(),{recursive:true});fs.writeFileSync(localSettings(),JSON.stringify(next,null,2),'utf8');}
 function msg(error:unknown){return error instanceof Error?error.message:String(error);}
-function notifyProgress(s:string){if(toolsWindow&&!toolsWindow.isDestroyed())toolsWindow.webContents.send('amorri-tools-progress',s);}
+function notifyProgress(s:string){
+ for(const win of [toolsWindow,pickerWindow])if(win&&!win.isDestroyed())win.webContents.send('amorri-tools-progress',s);
+}
 function isTrustedEvent(e:Electron.IpcMainInvokeEvent){return [toolsWindow,pickerWindow].some(win=>win&&!win.isDestroyed()&&e.sender===win.webContents&&e.senderFrame===win.webContents.mainFrame);}
 function registered<T>(name:string,fn:(...args:any[])=>Promise<T>|T){
+ // Rebuilding the Mac main window must never register the same IPC channel twice.
+ ipcMain.removeHandler(name);
  ipcMain.handle(name,async(e,...args)=>{
    if(!isTrustedEvent(e))throw new Error('IPC chỉ hỗ trợ cửa sổ Desktop Tools nội bộ.');
    return await fn(...args);
+ });
+}
+function preventCloseDuringUpload(win:BrowserWindow){
+ if(guardedWindows.has(win))return;guardedWindows.add(win);
+ win.on('close',event=>{
+  if(!uploadRunning)return;
+  event.preventDefault();
+  if(!win.isDestroyed()){win.show();win.focus();}
+  notifyProgress('Đang upload. Bấm Dừng upload và đợi file hiện tại kết thúc trước khi đóng ứng dụng.');
  });
 }
 function getResource(name:string){
@@ -88,9 +106,8 @@ async function stageDriveDraft(name:string,url:string,eventId:string|null){
  const data={name:name.trim(),url,mediaType:'image',createdAt:Date.now(),...(eventId?{eventId}:{})};
  // Store draft on the authenticated site. Dashboard listens for this event and opens
  // the precise booking editor, instead of leaving the value in an invisible form.
- await main.webContents.executeJavaScript(`sessionStorage.setItem('amorriDesktopDriveDraft',${JSON.stringify(JSON.stringify(data))});window.dispatchEvent(new Event('amorri:desktop-folder'));`,true);
- const currentPage=new URL(main.webContents.getURL());
- if(currentPage.pathname!=='/studio')await main.loadURL(new URL('/studio',currentPage.origin).toString());
+ await main.webContents.executeJavaScript(`sessionStorage.setItem('amorriDesktopDriveDraft',${JSON.stringify(JSON.stringify(data))});window.dispatchEvent(new CustomEvent('amorri:desktop-folder',{detail:${JSON.stringify(data)}}));`,true);
+ // Do not navigate/reload: the current product editing form holds unsaved changes.
  main.show();main.focus();
  return {linkedToForm:true,url,eventId};
 }
@@ -220,7 +237,7 @@ async function uploadCustomerToParent(parentId:string){
  if(!customer||customer.length>180||/[\/\x00-\x1f]/.test(customer))throw new Error('Tên folder khách không hợp lệ.');
  const files=fs.readdirSync(jpgFolder,{withFileTypes:true}).filter(x=>x.isFile()&&/\.jpe?g$/i.test(x.name)).map(x=>path.join(jpgFolder,x.name));
  if(!files.length||files.length>2500)throw new Error('Folder jpg phải có từ 1–2.500 ảnh JPG/JPEG.');
- busy=true;
+ busy=true;uploadRunning=true;cancelRequested=false;uploadController=new AbortController();
  try{
    const email=await driveAccountEmail();
    if(!email)throw new Error('Google Drive chưa kết nối.');
@@ -231,15 +248,13 @@ async function uploadCustomerToParent(parentId:string){
    if(previous?.accountEmail && previous.accountEmail!==email)throw new Error('Folder khách đã gắn tài khoản Google khác.');
    let uploadParentId=previous?.parentId||parentId;
    if(previous?.parentId && previous.parentId!==parentId)notifyProgress('Album này đã liên kết Drive trước đó. Đang dùng lại album cũ để tránh tạo trùng.');
-   notifyProgress('Đang chuẩn bị album cho '+device.deviceName+'…');
+   notifyProgress('Đang chuẩn bị album khách '+customer+'…');
    // Existing albums keep their original folder IDs/links, including pre-1.5.9.
-   // New albums live under a unique, stable per-device folder.
+   // New albums: selected parent / customer / jpg. Never create device folders.
+   // Provenance lives in Drive appProperties, invisible in the customer-facing tree.
    const customerFolder=previous?.id
      ?{id:previous.customerFolderId||await driveParentOf(previous.id)}
-     :await (async()=>{
-       const machine=await getOrCreateChildFolder(uploadParentId,device.driveFolderName);
-       return getOrCreateChildFolder(machine.id,customer);
-     })();
+     :await getOrCreateChildFolder(uploadParentId,customer);
    // Old album ID is the source of truth: never create another customer/jpg
    // or silently move an album when older local metadata lacks customerFolderId.
    if(previous?.id && !previous.customerFolderId){
@@ -268,6 +283,7 @@ async function uploadCustomerToParent(parentId:string){
    let remoteExisting:Awaited<ReturnType<typeof listDriveJpgRecords>>|null=null;
    let uploaded=0,skipped=0;const errors:string[]=[];
    for(let i=0;i<files.length;i++){
+     if(cancelRequested)break;
      const file=files[i];
      if(existing.has(path.basename(file).toLowerCase())){
        // Name-only skips are unsafe if a machine reuses DSC001.jpg for a different client.
@@ -278,19 +294,26 @@ async function uploadCustomerToParent(parentId:string){
        skipped++;continue;
      }
      notifyProgress(`${i+1}/${files.length} · ${path.basename(file)}`);
-     try{await uploadLocalJpg(file,jpgDrive.id,{deviceId:device.deviceId,deviceName:device.deviceName,batchId});uploaded++;}
-     catch(error){errors.push(path.basename(file)+': '+msg(error));if(errors.length>=10)break;}
+     try{await uploadLocalJpg(file,jpgDrive.id,{deviceId:device.deviceId,deviceName:device.deviceName,batchId},uploadController!.signal);uploaded++;}
+     catch(error){
+       if(cancelRequested)break;
+       errors.push(path.basename(file)+': '+msg(error));
+       notifyProgress('Ảnh lỗi: '+path.basename(file)+' — '+msg(error));
+       // Prevent repeated network/API failures from hammering Google.
+       if(errors.length>=10)break;
+     }
    }
-   const complete=errors.length===0;
+   const unattempted=Math.max(0,files.length-uploaded-skipped-errors.length);
+   const complete=!cancelRequested&&errors.length===0&&unattempted===0;
    const current=state();
    persist({...current,driveFolders:{...current.driveFolders,[jpgFolder]:{...mapping,complete}},
      driveUploads:uploaded+skipped>0?{...current.driveUploads,[jpgDrive.id]:{
        sourceJpgFolder:jpgFolder,url,accountEmail:email,updatedAt:new Date().toISOString(),complete
      }}:current.driveUploads});
-   notifyProgress(`Upload hoàn tất: ${uploaded} mới · ${skipped} đã có · ${errors.length} lỗi`);
-   return {url,customer,uploaded,skipped,errors,total:files.length,complete,deviceName:device.deviceName,batchId,
+   notifyProgress(`${cancelRequested?'Đã dừng':'Upload hoàn tất'}: ${uploaded} mới · ${skipped} đã có · ${errors.length} lỗi · ${unattempted} chưa thử`);
+   return {url,customer,uploaded,skipped,errors,total:files.length,unattempted,cancelled:cancelRequested,complete,deviceName:device.deviceName,batchId,
      reusedExistingAlbum:!!previous?.id && !!previous.parentId && previous.parentId!==parentId,folderWarning:checked.warning};
- }finally{busy=false;}
+ }finally{busy=false;uploadRunning=false;uploadController=null;cancelRequested=false;}
 }
 
 function localOAuthClientSecret():string{
@@ -318,6 +341,10 @@ function clientMappings(){
 }
 export function setupDesktopTools(win:BrowserWindow){
  main=win;
+ preventCloseDuringUpload(win);
+ if(!guardedApp){guardedApp=true;app.on('before-quit',event=>{
+   if(uploadRunning){event.preventDefault();notifyProgress('Upload chưa kết thúc. Bấm Dừng upload trước khi thoát.');}
+ });}
  try{config=JSON.parse(fs.readFileSync(getResource('desktop.config.json'),'utf8')) as Config;}catch{}
  configureDriveOAuth(config.googleOAuthClientId||'',localOAuthClientSecret());
  registered('tools:known-folders',()=>({folders:readyDriveFolders(),pendingEventId:pendingDriveEventId,pendingProductName:pendingDriveProductName||''}));
@@ -392,6 +419,12 @@ export function setupDesktopTools(win:BrowserWindow){
    if(!fs.existsSync(target))throw new Error('Chưa có thư mục loc.');
    return shell.openPath(target);
  });
+ registered('tools:cancel-upload',()=>{
+  if(!uploadRunning)return {cancelling:false};
+  cancelRequested=true;uploadController?.abort();
+  notifyProgress('Đã yêu cầu dừng. Giữ nguyên các ảnh đã upload thành công.');
+  return {cancelling:true};
+ });
  registered('tools:drive-login',async()=>connectGoogleDrive());
  registered('tools:drive-logout',async()=>{await disconnectGoogleDrive();return {connected:false};});
  // A single selection of the Drive PARENT triggers customer/jpg creation and JPG upload.
@@ -404,6 +437,7 @@ export function setupDesktopTools(win:BrowserWindow){
  ipcMain.handle('tools:close-window',e=>{
    const matched=[toolsWindow,pickerWindow].find(w=>w&&!w.isDestroyed()&&w.webContents===e.sender&&e.senderFrame===w.webContents.mainFrame);
    if(!matched)throw new Error('Không thể đóng cửa sổ không thuộc Desktop Tools.');
+   if(uploadRunning)throw new Error('Đang upload. Hãy bấm Dừng upload trước khi đóng.');
    matched.close();return {closed:true};
  });
  registered('tools:picker-context',()=>({mode:pickerMode,productName:pendingDriveProductName||''}));
@@ -429,7 +463,7 @@ export function setupDesktopTools(win:BrowserWindow){
      pickerWindow.close();return result;
    }
    const result=await uploadCustomerToParent(id);
-   pickerWindow.close();
+   if(pickerWindow&&!pickerWindow.isDestroyed())pickerWindow.close();
    if(toolsWindow&&!toolsWindow.isDestroyed()){
      toolsWindow.webContents.send('amorri-upload-result',result);
      toolsWindow.show();toolsWindow.focus();
@@ -476,6 +510,7 @@ export function openDesktopTools(names?:string[]){
    parent:main,modal:false,show:false,webPreferences:{preload:path.join(__dirname,'tools-preload.js'),
      nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,devTools:!app.isPackaged}});
  toolsWindow.once('ready-to-show',()=>toolsWindow?.show());
+ preventCloseDuringUpload(toolsWindow);
  toolsWindow.on('closed',()=>{toolsWindow=null;});
  toolsWindow.webContents.on('will-navigate',e=>e.preventDefault());
  toolsWindow.webContents.setWindowOpenHandler(()=>({action:'deny'}));
@@ -492,6 +527,7 @@ function openDrivePicker(mode:'product'|'upload'){
    backgroundColor:'#f7f8f7',webPreferences:{preload:path.join(__dirname,'tools-preload.js'),nodeIntegration:false,
      contextIsolation:true,sandbox:true,webSecurity:true,devTools:!app.isPackaged}});
  pickerWindow.once('ready-to-show',()=>pickerWindow?.show());
+ preventCloseDuringUpload(pickerWindow);
  pickerWindow.on('closed',()=>{pickerWindow=null;});
  pickerWindow.webContents.on('will-navigate',e=>e.preventDefault());
  pickerWindow.webContents.setWindowOpenHandler(()=>({action:'deny'}));

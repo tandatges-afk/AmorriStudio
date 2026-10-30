@@ -23,6 +23,8 @@
  <section class="results"><div class="result-heading"><div><div class="section-num">UPLOAD ACTIVITY</div><h2>Kết quả upload</h2></div><span id="progressLabel" class="state">Sẵn sàng</span></div>
   <div id="resultSummary" class="metrics" hidden><div><strong id="numberUploaded">0</strong><span>Ảnh mới</span></div><div><strong id="numberSkipped">0</strong><span>Đã có</span></div><div><strong id="numberFailed">0</strong><span>Lỗi</span></div></div>
   <pre id="driveResult" aria-live="polite">Chưa có lượt upload.</pre>
+  <div id="uploadErrors" role="alert" aria-live="polite" hidden><strong>Danh sách file upload lỗi</strong><pre id="failedFiles"></pre></div>
+  <button id="cancelUpload" class="ghost" type="button" hidden>Dừng toàn bộ upload</button>
  </section>
 </main>
 <footer><span id="status" role="status" aria-live="polite">Sẵn sàng</span><button id="logout" class="foot-action" type="button">Ngắt kết nối Google</button></footer>

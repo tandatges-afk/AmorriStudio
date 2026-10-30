@@ -1,0 +1,14 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
+import {dirname,resolve} from 'node:path';
+const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
+const read=(p)=>readFileSync(resolve(root,p),'utf8');
+test('handler may be installed twice after macOS reactivation',()=>{let s=read('src/desktop-tools.ts');assert.match(s,/ipcMain\.removeHandler\(name\);/);assert.match(s,/ipcMain\.handle\(name,/);});
+test('upload is cancellable and closure is blocked while running',()=>{let s=read('src/desktop-tools.ts');assert.match(s,/tools:cancel-upload/);assert.match(s,/uploadController\?\.abort\(\)/);assert.match(s,/preventCloseDuringUpload/);assert.match(s,/before-quit/);assert.match(s,/if\(uploadRunning\)throw new Error/);});
+test('Drive JPG upload can abort streaming request and source stream',()=>{let s=read('src/google-drive.ts');assert.match(s,/signal\?:AbortSignal/);assert.match(s,/method:'PUT',signal/);assert.match(s,/stream\.destroy/);});
+test('Drive customer path is direct, not prefixed by device',()=>{let s=read('src/desktop-tools.ts');assert.match(s,/getOrCreateChildFolder\(uploadParentId,customer\)/);assert.doesNotMatch(s,/getOrCreateChildFolder\(uploadParentId,device\.driveFolderName\)/);assert.match(s,/deviceId:device\.deviceId/);});
+test('popup and upload workspaces expose Stop and file failure detail',()=>{assert.match(read('assets/tools.html'),/id="failedFiles"/);assert.match(read('assets/tools.html'),/id="cancelUpload"/);assert.match(read('assets/picker.html'),/id="cancelUpload"/);assert.match(read('assets/picker.js'),/api\.cancelUpload/);assert.match(read('assets/picker.html'),/id="uploadFailedNames"/);assert.match(read('assets/tools.js'),/report\.errors\.join/);assert.match(read('assets/tools.css'),/#uploadErrors/);});
+test('product picker does not reload the web product editor',()=>{let s=read('src/desktop-tools.ts');assert.doesNotMatch(s,/await main\.loadURL\(new URL\('\/studio'/);assert.match(s,/CustomEvent\('amorri:desktop-folder'/);});
+test('menu no longer exposes obsolete download directory controls',()=>{let s=read('src/main.ts');assert.doesNotMatch(s,/label: 'Chọn thư mục tải ảnh…'/);assert.doesNotMatch(s,/label: 'Mở thư mục tải ảnh'/);});

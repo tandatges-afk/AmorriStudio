@@ -331,34 +331,39 @@ export async function listCreatedJpgs(folderId:string):Promise<Set<string>>{
   }
   throw new Error('Thư mục Drive có quá nhiều file. Dừng để tránh tải trùng.');
 }
-function uploadSingleRequest(url:string, filename:string, mime:string, fileSize:number):Promise<void>{
+function uploadSingleRequest(url:string, filename:string, mime:string, fileSize:number,signal?:AbortSignal):Promise<void>{
   return new Promise((resolve,reject)=>{
     const target=new URL(url);
     if(target.protocol!=='https:'||target.hostname!=='www.googleapis.com'||!target.pathname.startsWith('/upload/drive/')){
       reject(new Error('Google upload session URI không hợp lệ.'));return;
     }
-    const request=https.request(target,{method:'PUT',headers:{'Content-Type':mime,'Content-Length':String(fileSize)}},res=>{
+    const request=https.request(target,{method:'PUT',signal,headers:{'Content-Type':mime,'Content-Length':String(fileSize)}},res=>{
       let body='';res.setEncoding('utf8');res.on('data',chunk=>{if(body.length<1000)body+=chunk;});
       res.on('end',()=>res.statusCode && res.statusCode>=200&&res.statusCode<300?resolve():reject(new Error(`Google upload ${res.statusCode}: ${body.slice(0,350)}`)));
     });
     request.setTimeout(300000,()=>request.destroy(new Error('Upload đã vượt giới hạn chờ 5 phút.')));
     request.on('error',reject);
-    fs.createReadStream(filename).on('error',reject).pipe(request);
+    const stream=fs.createReadStream(filename);
+    const abort=()=>stream.destroy(new Error('Đã dừng upload theo yêu cầu.'));
+    if(signal?.aborted)abort();
+    else signal?.addEventListener('abort',abort,{once:true});
+    request.once('close',()=>signal?.removeEventListener('abort',abort));
+    stream.on('error',reject).pipe(request);
   });
 }
-export async function uploadLocalJpg(filePath:string,folderId:string,origin?:{deviceId:string;deviceName:string;batchId:string}):Promise<void>{
+export async function uploadLocalJpg(filePath:string,folderId:string,origin?:{deviceId:string;deviceName:string;batchId:string},signal?:AbortSignal):Promise<void>{
   const stat=fs.statSync(filePath);if(!stat.isFile())throw new Error('Không phải file ảnh');
   if(stat.size>120*1024*1024)throw new Error('File JPG quá 120 MB');
   const filename=path.basename(filePath);
   const mime=/\.jpeg$/i.test(filename)?'image/jpeg':'image/jpeg';
   const r=await fetch(`https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&fields=id,name`,{
-    method:'POST',headers:{Authorization:`Bearer ${await accessToken()}`,'Content-Type':'application/json; charset=UTF-8',
+    method:'POST',signal,headers:{Authorization:`Bearer ${await accessToken()}`,'Content-Type':'application/json; charset=UTF-8',
       'X-Upload-Content-Type':mime,'X-Upload-Content-Length':String(stat.size)},
     body:JSON.stringify({name:filename,mimeType:mime,parents:[folderId],...(origin?{appProperties:{amorriDeviceId:origin.deviceId,amorriDeviceName:origin.deviceName,amorriBatchId:origin.batchId}}:{})})
   });
   if(!r.ok)throw new Error(`Không khởi tạo upload: ${r.status} ${(await r.text()).slice(0,350)}`);
   const session=r.headers.get('location');if(!session)throw new Error('Google không trả về đường dẫn upload');
-  await uploadSingleRequest(session,filePath,mime,stat.size);
+  await uploadSingleRequest(session,filePath,mime,stat.size,signal);
 }
 
 /** Reuse an exact folder name within one parent. Never make duplicates on retry. */

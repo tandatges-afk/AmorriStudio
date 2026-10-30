@@ -11,7 +11,7 @@ async function run(action){if(busy)return;setBusy(true);try{await action()}catch
 async function status(){
  const s=await api.status();const base=s.clientRoot||'';
  text('deviceName',s.device?.deviceName||'Chưa nhận diện');
- text('deviceHint',s.device?.driveFolderName?'Drive: '+s.device.driveFolderName:'Mỗi máy có thư mục riêng');
+ text('deviceHint','Tên máy chỉ lưu trong thông tin nguồn ảnh, không tạo thư mục trên Drive');
  text('source',base||'Chưa chọn thư mục');el('source').title=base;
  const existing=s.knownFolder;
  text('destination',existing?.url||'Chưa upload');
@@ -27,12 +27,15 @@ function result(report){
  el('resultSummary').hidden=false;
  text('numberUploaded',report.uploaded);text('numberSkipped',report.skipped);text('numberFailed',report.errors?.length||0);
  text('destination',report.url||'');
- text('progressLabel',report.errors?.length?'Có lỗi':'Hoàn tất');
+ text('progressLabel',report.cancelled?'Đã dừng':report.errors?.length?'Có lỗi':'Hoàn tất');
+ el('uploadErrors').hidden=!(report.errors?.length);text('failedFiles',(report.errors||[]).join('\n'));
+ el('cancelUpload').hidden=true;
  text('driveResult',`Máy upload: ${report.deviceName||'Không rõ'}\nĐợt upload: ${report.batchId||'Không rõ'}\nKhách: ${report.customer||''}\nAlbum JPG: ${report.url}\nẢnh mới: ${report.uploaded} · Đã có: ${report.skipped} · Lỗi: ${report.errors?.length||0}`+
-   (report.errors?.length?'\n'+report.errors.slice(0,15).join('\n'):''));
- announce(report.errors?.length?'Upload có file lỗi. Kiểm tra bên dưới.':(report.folderWarning?'Cảnh báo: '+report.folderWarning:(report.reusedExistingAlbum?'Đã upload vào album Drive đã liên kết trước đó.':'Upload JPG đã hoàn tất.')));
+   (report.errors?.length?'\n'+report.errors.join('\n'):'')+`\nChưa thử: ${report.unattempted||0}`);
+ announce(report.cancelled?'Đã dừng upload; các ảnh thành công được giữ nguyên.':report.errors?.length?'Upload có file lỗi. Xem danh sách file bên dưới.':(report.folderWarning?'Cảnh báo: '+report.folderWarning:(report.reusedExistingAlbum?'Đã upload vào album Drive đã liên kết trước đó.':'Upload JPG đã hoàn tất.')));
 }
 el('closeTools').onclick=()=>void api.closeWindow().catch(e=>error(e));
+el('cancelUpload').onclick=async()=>{el('cancelUpload').disabled=true;text('progressLabel','Đang dừng');announce('Đang dừng upload, giữ lại ảnh thành công…');try{await api.cancelUpload();}catch(e){error(e);}finally{el('cancelUpload').disabled=false;}};
 el('renameDevice').onclick=()=>run(async()=>{
  const state=await api.status();
  const name=prompt('Đặt tên máy để đồng nghiệp nhận biết trên Drive:',state.device?.deviceName||'');
@@ -60,6 +63,6 @@ el('logout').onclick=()=>run(async()=>{
  if(!confirm('Ngắt kết nối tài khoản Google Drive trên máy này?'))return;
  await api.driveLogout();await status();announce('Đã ngắt tài khoản.');
 });
-api.onProgress?.(message=>{announce(message);text('progressLabel','Đang xử lý');});
+api.onProgress?.(message=>{announce(message);text('progressLabel',/dừng/i.test(message)?'Đang dừng':'Đang xử lý');if(/đang chuẩn bị album|\d+\/\d+|đang tạo/i.test(message.toLowerCase()))el('cancelUpload').hidden=false;});
 api.onUploadResult?.(report=>{result(report);void status().catch(error);});
 void status().catch(error);

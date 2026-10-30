@@ -196,13 +196,7 @@ function buildMenu(): void {
         { label: 'Trang chủ', click: () => showHomeWindow() },
         { label: 'Mở website bằng trình duyệt', click: () => openApprovedExternalUrl(websiteUrl) },
         { type: 'separator' },
-        { label: 'Google Drive + Lọc RAW…', click: () => openDesktopTools() },
-        { type: 'separator' },
-        { label: 'Chọn nơi tải file mặc định (không phải thư mục upload)…', click: () => chooseDownloadFolder() },
-        { label: 'Mở nơi tải file mặc định', click: () => {
-          const folder = readSettings().downloadDirectory || app.getPath('downloads');
-          void shell.openPath(folder);
-        } },
+        { label: 'Up Drive…', click: () => openDesktopTools() },
         { type: 'separator' },
         { role: 'quit', label: 'Thoát' },
       ],
