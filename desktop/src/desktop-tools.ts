@@ -25,6 +25,7 @@ let cancelRequested=false;
 let uploadController:AbortController|null=null;
 const guardedWindows=new WeakSet<BrowserWindow>();
 let guardedApp=false;
+let toolsIpcRegistered = false;
 let config:Config={};
 const rootFolder=()=>app.getPath('userData');
 const localSettings=()=>path.join(rootFolder(),'desktop-tools-settings.json');
@@ -342,6 +343,9 @@ function clientMappings(){
 export function setupDesktopTools(win:BrowserWindow){
  main=win;
  preventCloseDuringUpload(win);
+ if(toolsIpcRegistered)return;
+ toolsIpcRegistered=true;
+
  if(!guardedApp){guardedApp=true;app.on('before-quit',event=>{
    if(uploadRunning){event.preventDefault();notifyProgress('Upload chưa kết thúc. Bấm Dừng upload trước khi thoát.');}
  });}

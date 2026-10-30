@@ -13,6 +13,13 @@ type LocalSettings = { downloadDirectory?: string };
 
 const APP_ID = 'vn.amorri.studio.desktop';
 let mainWindow: BrowserWindow | null = null;
+let quitRequested = false;
+function quitAppOnce(): void {
+  if (quitRequested) return;
+  quitRequested = true;
+  app.quit();
+}
+
 let allowedOrigin = '';
 let websiteUrl = '';
 
@@ -174,6 +181,7 @@ function configureDownloads(win: BrowserWindow): void {
 // Hotfix 161: menus belong to the application, not an individual BrowserWindow.
 // Resolve the CURRENT window on each click; macOS can close it while the app remains active.
 function showHomeWindow(): void {
+  if (quitRequested) return;
   const current = mainWindow;
   if (!current || current.isDestroyed()) {
     createWindow();
@@ -243,6 +251,15 @@ function createWindow(): void {
     },
   });
   mainWindow = win;
+  // AMORRI_HOTFIX164_QUIT_ON_MAIN_CLOSE
+  win.once('closed', () => {
+    // Closing the main window means Quit (including macOS), not a background process.
+    // A blocked upload never reaches `closed`, since its close event is prevented.
+    if (mainWindow === win) {
+      mainWindow = null;
+      quitAppOnce();
+    }
+  });
   setupDesktopTools(win);
   win.webContents.setUserAgent(win.webContents.getUserAgent() + ' AmorriDesktop/1.2');
    win.once('ready-to-show', () => { if (!win.isDestroyed()) win.show(); });
@@ -305,9 +322,10 @@ app.whenReady().then(() => {
   }
   createWindow();
    app.on('activate', () => {
+     if (quitRequested) return;
      // Other hidden tool windows must not prevent recreating the main window.
      if (!mainWindow || mainWindow.isDestroyed()) createWindow();
      else { if (mainWindow.isMinimized()) mainWindow.restore(); mainWindow.show(); mainWindow.focus(); }
    });
 });
-app.on('window-all-closed', () => { if (process.platform !== 'darwin') app.quit(); });
+app.on('window-all-closed', () => { quitAppOnce(); });
