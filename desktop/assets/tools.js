@@ -15,7 +15,8 @@ async function status(){
  text('source',base||'Chưa chọn thư mục');el('source').title=base;
  const existing=s.knownFolder;
  text('destination',existing?.url||'Chưa upload');
- const account=await api.driveAccount();
+ let account={scopeMode:'disconnected',email:''};
+ try { account=await api.driveAccount(); } catch(e) { console.warn('Drive not connected yet:', e); }
  const connected=account.scopeMode==='full';
  text('accountStatus',connected?(account.email||'Drive đã kết nối'):'Chưa cấp quyền Drive');
  el('accountStatus').classList.toggle('connected',connected);
@@ -48,7 +49,8 @@ el('chooseParent').onclick=()=>run(async()=>{
  await api.openUploadPicker();
 });
 el('login').onclick=()=>run(async()=>{
- const account=await api.driveAccount();
+ let account={scopeMode:'disconnected'};
+ try { account=await api.driveAccount(); } catch(e) { console.warn('Drive not connected yet:', e); }
  if(account.scopeMode==='full'&&!confirm('Đổi tài khoản Google Drive đang kết nối?'))return;
  if(account.scopeMode!=='full'&&!confirm('Amorri cần quyền Drive đầy đủ một lần để tạo folder và upload JPG. Tiếp tục?'))return;
  await api.driveFullLogin();await status();announce('Google Drive đã kết nối.');
