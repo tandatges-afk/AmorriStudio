@@ -113,7 +113,7 @@ function DeliveryProductGroup({event,user,refresh=false}:{event:StudioEvent;user
   if(!visible)return;
   let active=true;
   void (async()=>{setBusy(true);try{
-   const doFetch=async(forceToken=false)=>fetch(`/api/delivery/${encodeURIComponent(event.id)}/admin-media?refresh=1`,{headers:{Authorization:`Bearer ${await user.getIdToken(forceToken)}`},cache:'no-store'});
+   const doFetch=async(forceToken=false)=>fetch(`/api/delivery/${encodeURIComponent(event.id)}/admin-media${refresh?'?refresh=1':''}`,{headers:{Authorization:`Bearer ${await user.getIdToken(forceToken)}`},cache:'no-store'});
    let response=await doFetch();if(response.status===401)response=await doFetch(true);
    const data=await response.json();if(!response.ok)throw new Error(data.error||'Không đọc được Google Drive');
    if(active)setProducts(data.products||[]);

@@ -3,9 +3,10 @@ test('health and home are reachable',async ({page,request})=>{
  const health=await request.get('/api/health');expect(health.ok()).toBeTruthy();
  await page.goto('/');await expect(page).toHaveTitle(/Amorri Studio/i);
 });
-test('legacy event and client gallery DOM are served',async ({request})=>{
- const response=await request.get('/studio');expect(response.ok()).toBeTruthy();
- const html=await response.text();expect(html).toContain('id="eventModal"');expect(html).toContain('id="clientGalleryView"');
+test('retired /studio preserves a redirect to the current dashboard',async({request})=>{
+ const response=await request.get('/studio',{maxRedirects:0});
+ expect([307,308]).toContain(response.status());
+ expect(response.headers()['location']).toBe('/');
 });
 test('anonymous booking creation denied',async ({request})=>{
  const response=await request.post('/api/events',{data:{}});expect([401,403]).toContain(response.status());
@@ -31,9 +32,9 @@ test('2.5 private delivery API refuses missing token and does not return custome
  await expect(page.getByText('Link bàn giao thiếu mã truy cập.',{exact:false})).toBeVisible();
 });
 
-test('2.7 uses Drive only and protects compatibility video endpoint',async({request})=>{
+test('R2-only video route is private and legacy GET stays retired',async({request})=>{
   const health=await request.get('/api/health');
-  const version=await health.json();expect(version.streamingApi).toBe('google-drive-only');
+  const version=await health.json();expect(version.streamingApi).toBe('r2-only-1080p-signed-url-no-vercel-video');
   const playback=await request.post('/api/delivery/example-event/playback',{data:{productId:'example-product',mediaId:'0123456789abcdef'}});
   expect(playback.status()).toBe(401);
   const response=await request.post('/api/drive-video',{data:{}});
@@ -53,6 +54,6 @@ test('2.9 release identity and no Cloudflare return',async({request})=>{
  const response=await request.get('/api/health');
  expect(response.status()).toBe(200);
  const payload=await response.json();
- expect(payload.release).toBe('unified-studio-20261013-r1');
- expect(payload.streamingApi).toBe('google-drive-only');
+ expect(payload.currentRelease).toBe('amorri-3.2.5-r2-only');
+ expect(payload.streamingApi).toBe('r2-only-1080p-signed-url-no-vercel-video');
 });

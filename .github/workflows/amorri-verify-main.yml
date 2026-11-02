@@ -1,0 +1,32 @@
+name: Amorri source verification
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.16.0'
+          cache: npm
+      - name: Install exact dependencies
+        run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Node regression suite
+        run: npm test
+      - name: Static architecture checks
+        run: node scripts/check-static.mjs
+      - name: Vitest unit tests
+        run: npm run test:unit
+      - name: Production build
+        run: npm run build

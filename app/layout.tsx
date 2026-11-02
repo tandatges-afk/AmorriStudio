@@ -5,7 +5,7 @@ import './amorri-premium-v2.css';
 import './amorri-depth-contrast.css';
 
 export const metadata: Metadata = {
-  title: 'Amorri Studio — VNext 2.5',
+  title: 'Amorri Studio — Studio OS 3.2.5',
   description: 'Điều hành lịch quay chụp, đội ngũ, sản phẩm và hoạt động studio.',
 };
 export const viewport: Viewport = { width: 'device-width', initialScale: 1 };

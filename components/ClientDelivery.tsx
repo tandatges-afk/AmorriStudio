@@ -111,7 +111,7 @@ function VideoReview({eventId,productId,file,token}:{eventId:string;productId:st
   </section>;
 }
 function PhotoProduct({eventId,productId,files,preselected,token}:{eventId:string;productId:string;files:DeliveryMedia[];preselected:string[];token:string}){
-  const [checked,setChecked]=useState<string[]>(preselected),[filter,setFilter]=useState<'all'|'selected'>('all');
+  const [checked,setChecked]=useState<string[]>(preselected),[filter,setFilter]=useState<'all'|'selected'|'unselected'>('all');
   const [busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[downloading,setDownloading]=useState('');
   const images=files.filter(f=>!f.isVideo);
   const photoFeedback=usePhotoFeedback(eventId,productId,token);
@@ -120,32 +120,49 @@ function PhotoProduct({eventId,productId,files,preselected,token}:{eventId:strin
       const value=await r.json();if(!r.ok)throw new Error(value.error||'Không lưu được ảnh');setNotice(`Đã đồng bộ ${value.selected} ảnh với Studio`);
     }catch(err){setNotice(err instanceof Error?err.message:'Không thể đồng bộ');}finally{setBusy(false);}
   };
-  const download=async(photo:DeliveryMedia)=>{
+  // Use a native form POST so the browser streams an attachment into its
+  // download manager. Do not buffer up to 150 MB in a JavaScript Blob.
+  const download=(photo:DeliveryMedia)=>{
     if(downloading)return;
     setDownloading(photo.id);setNotice('');
     try{
-      // Preserve authentication and invoke Chrome's native download manager (Ctrl+J)
-      // instead of File System Access API's save picker.
-      const response=await fetch(`/api/delivery/${encodeURIComponent(eventId)}/photo-download`,{
-        method:'POST',headers:{'Content-Type':'application/json','x-amorri-delivery-token':token},
-        body:JSON.stringify({productId,mediaId:photo.id}),cache:'no-store'
+      const frame=document.createElement('iframe');
+      frame.name=`amorri-photo-download-${crypto.randomUUID()}`;
+      frame.hidden=true;frame.setAttribute('aria-hidden','true');
+      document.body.appendChild(frame);
+      const form=document.createElement('form');
+      form.method='POST';
+      form.action=`/api/delivery/${encodeURIComponent(eventId)}/photo-download`;
+      form.target=frame.name;form.hidden=true;
+      for(const [key,value] of Object.entries({productId,mediaId:photo.id,deliveryToken:token})){
+        const input=document.createElement('input');input.type='hidden';input.name=key;input.value=value;
+        form.appendChild(input);
+      }
+      // On a rejected download, the iframe receives a JSON error response.
+      // Read the same-origin error without replacing the client's gallery.
+      frame.addEventListener('load',()=>{
+        try{
+          const raw=frame.contentDocument?.body?.textContent||'';
+          if(raw.trim().startsWith('{')){
+            const value=JSON.parse(raw) as {error?:string};
+            if(value.error)setNotice(value.error);
+          }
+        }catch{/* A successful attachment does not render a document. */}
       });
-      if(!response.ok){const data=await response.json().catch(()=>({}));throw new Error(data.error||`Không thể tải ảnh gốc (HTTP ${response.status})`);}
-      const blob=await response.blob();
-      const objectURL=URL.createObjectURL(blob);
-      const link=document.createElement('a');
-      link.href=objectURL;link.download=photo.name||'amorri-photo';
-      document.body.append(link);link.click();link.remove();
-      window.setTimeout(()=>URL.revokeObjectURL(objectURL),60000);
-      setNotice(`Đã gửi ảnh tới trình quản lý tải xuống Chrome: ${photo.name}`);
-    }catch(err){setNotice(err instanceof Error?err.message:'Không thể tải ảnh. Hãy thử lại.');}
-    finally{setDownloading('');}
+      document.body.appendChild(form);
+      form.submit();
+      form.remove();
+      setNotice(`Đã yêu cầu tải ${photo.name}. Theo dõi tiến trình bằng Ctrl+J trong Chrome.`);
+      // Keep the target alive while Chrome receives the attachment.
+      window.setTimeout(()=>frame.remove(),10*60*1000);
+    }catch(err){setNotice(err instanceof Error?err.message:'Không thể bắt đầu tải ảnh.');}
+    finally{window.setTimeout(()=>setDownloading(''),1000);}
   };
   if(!images.length)return null;
   return <><div className="delivery-photo-toolbar"><strong>Ảnh đã chọn: {checked.length}/{images.length}</strong>
-    <div><button className={filter==='all'?'active':''} onClick={()=>setFilter('all')}>Tất cả</button><button className={filter==='selected'?'active':''} onClick={()=>setFilter('selected')}>Đã chọn</button>
+    <div><button className={filter==='all'?'active':''} onClick={()=>setFilter('all')}>Tất cả</button><button className={filter==='selected'?'active':''} onClick={()=>setFilter('selected')}>Đã chọn</button><button className={filter==='unselected'?'active':''} onClick={()=>setFilter('unselected')}>Chưa chọn</button>
     <button className="delivery-primary" disabled={busy} onClick={save}>{busy?'Đang đồng bộ…':'Gửi lựa chọn'}</button></div></div>
-    <div className="delivery-photos">{images.filter(i=>filter==='all'||checked.includes(i.id)).map(i=><article className={`delivery-photo ${checked.includes(i.id)?'is-selected':''}`} key={i.id}>
+    <div className="delivery-photos">{images.filter(i=>filter==='all'||(filter==='selected'?checked.includes(i.id):!checked.includes(i.id))).map(i=><article className={`delivery-photo ${checked.includes(i.id)?'is-selected':''}`} key={i.id}>
       <div className="delivery-photo-image"><img loading="lazy" alt={i.name} src={i.thumb}/><small className="delivery-photo-name" title={i.name}>{i.name}</small></div>
       <div className="delivery-photo-footer">
         <div className="delivery-photo-actions">

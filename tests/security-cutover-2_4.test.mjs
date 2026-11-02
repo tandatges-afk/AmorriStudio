@@ -4,6 +4,7 @@ import {readFileSync,writeFileSync,mkdtempSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {join} from 'node:path';
 import {execFileSync} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
 import {legacyAdminWriteMode,legacyCanWrite} from '../lib/domain/legacy-policy.ts';
 import {summarizeKeys} from '../lib/domain/migration.ts';
 const read=(file)=>readFileSync(new URL('../'+file,import.meta.url),'utf8');
@@ -40,7 +41,7 @@ test('rules proposal does not modify source file, preserves other nodes and deni
   const input=join(folder,'current.json'),output=join(folder,'proposal.json');
   const rules={rules:{'.read':false,'.write':false,studioPlanner_v1:{'.read':true,'.write':'auth!=null',events:{'.write':true,'.indexOn':['date']},staff:{'.write':'auth!=null'}},videoReviews_v1:{'.read':true,'.write':true},amorriDeliveryAccess_v1:{child:{'.read':true,'.write':true}}}};
   writeFileSync(input,JSON.stringify(rules));
-  execFileSync('node',[new URL('../scripts/prepare-rtdb-rules.mjs',import.meta.url).pathname,input,output,'--ack-breaks-legacy-writes']);
+  execFileSync(process.execPath,[fileURLToPath(new URL('../scripts/prepare-rtdb-rules.mjs',import.meta.url)),input,output,'--ack-breaks-legacy-writes']);
   assert.deepEqual(JSON.parse(readFileSync(input,'utf8')),rules);
   const prepared=JSON.parse(readFileSync(output,'utf8'));
   assert.equal(prepared.rules.studioPlanner_v1['.write'],false);
@@ -59,9 +60,9 @@ test('rules proposal aborts on a permissive root write or missing source',()=>{
  const folder=mkdtempSync(join(tmpdir(),'amorri-v24-'));
  try{
   const input=join(folder,'current.json');writeFileSync(input,JSON.stringify({rules:{'.read':false,'.write':true,studioPlanner_v1:{}}}));
-  assert.throws(()=>execFileSync('node',[new URL('../scripts/prepare-rtdb-rules.mjs',import.meta.url).pathname,input,join(folder,'unsafe.json'),'--ack-breaks-legacy-writes'],{stdio:'pipe'}));
+  assert.throws(()=>execFileSync(process.execPath,[fileURLToPath(new URL('../scripts/prepare-rtdb-rules.mjs',import.meta.url)),input,join(folder,'unsafe.json'),'--ack-breaks-legacy-writes'],{stdio:'pipe'}));
   writeFileSync(input,JSON.stringify({rules:{'.read':true,'.write':false,studioPlanner_v1:{}}}));
-  assert.throws(()=>execFileSync('node',[new URL('../scripts/prepare-rtdb-rules.mjs',import.meta.url).pathname,input,join(folder,'unsafe-read.json'),'--ack-breaks-legacy-writes'],{stdio:'pipe'}));
+  assert.throws(()=>execFileSync(process.execPath,[fileURLToPath(new URL('../scripts/prepare-rtdb-rules.mjs',import.meta.url)),input,join(folder,'unsafe-read.json'),'--ack-breaks-legacy-writes'],{stdio:'pipe'}));
  }finally{rmSync(folder,{recursive:true,force:true});}
 });
 test('release marker and migration page included',()=>{

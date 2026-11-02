@@ -17,10 +17,27 @@ function filename(name:string){
 export async function POST(request:Request,{params}:{params:Promise<{eventId:string}>}){
   try{
     const {eventId}=await params;
-    const body=await payload(request,1024);
+    // A native form POST keeps large image downloads out of browser memory.
+    // The guest token is accepted in POST body only, never in a URL.
+    let body:Record<string,unknown>;
+    let authRequest=request;
+    if((request.headers.get('content-type')||'').startsWith('application/x-www-form-urlencoded')){
+      if(Number(request.headers.get('content-length')||0)>2048)
+        throw new DeliveryError(400,'PHOTO_BAD_BODY','Yêu cầu tải ảnh quá lớn');
+      const raw=await request.text();
+      if(raw.length>2048)throw new DeliveryError(400,'PHOTO_BAD_BODY','Yêu cầu tải ảnh quá lớn');
+      const fields=new URLSearchParams(raw);
+      if(['productId','mediaId','deliveryToken'].some(key=>fields.getAll(key).length!==1))
+        throw new DeliveryError(400,'PHOTO_BAD_BODY','Thiếu thông tin tải ảnh');
+      const deliveryToken=fields.get('deliveryToken')||'';
+      body={productId:fields.get('productId'),mediaId:fields.get('mediaId')};
+      authRequest=new Request(request.url,{method:'POST',headers:{'x-amorri-delivery-token':deliveryToken}});
+    }else{
+      body=await payload(request,1024);
+    }
     const productId=String(body.productId||''),mediaId=String(body.mediaId||'');
     if(!validId(productId)||!DRIVE_ID.test(mediaId))throw new DeliveryError(400,'PHOTO_BAD_ID','Mã sản phẩm hoặc ảnh không hợp lệ');
-    const {value}=await deliveryEvent(request,eventId,false,productId);
+    const {value}=await deliveryEvent(authRequest,eventId,false,productId);
     const product=productById(value,productId);
     const media=await listDeliveryMedia(product);
     const photo=media.find(item=>item.id===mediaId&&!item.isVideo&&item.mimeType.startsWith('image/'));

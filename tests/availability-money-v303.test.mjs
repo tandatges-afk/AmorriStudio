@@ -28,10 +28,11 @@ test('preview is admin-only and uses authoritative booking conflict rules',()=>{
   assert.match(ui,/availability\.busy/);
  }
 });
-test('money editor displays a permanently fixed .000 suffix and scales user digits once',()=>{
+test('money editor uses one field, scales thousands once and preserves legacy VND',()=>{
  const field=read('lib/ui/VndInput.tsx');
  assert.match(field,/Math\.trunc\(safe\/1000\)/);
- assert.match(field,/unit\*1000/);
- assert.match(field,/>\.000<\/span>/);
- assert.match(field,/safe%1000!==0/); // Preserve historical amounts not divisible by 1,000
+ assert.match(field,/number\*1000/);
+ assert.match(field,/safe%1000!==0/);
+ assert.match(field,/value=\{display\}/);
+ assert.doesNotMatch(field,/<span[^>]*>\.000<\/span>/);
 });

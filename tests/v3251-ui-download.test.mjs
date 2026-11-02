@@ -22,10 +22,11 @@ test('Chrome download uses native attachment navigation, not save picker/Blob',(
   assert.match(server,/Content-Disposition/);
   assert.match(server,/attachment; filename=/);
 });
-test('money displays one complete amount, retains thousands entry and legacy precision',()=>{
-  const input=source('lib/ui/VndInput.tsx');
-  assert.match(input,/formatter\.format\(rawNumber\)\+\(focused\?'':' đ'\)/);
-  assert.match(input,/unit\*1000/);
-  assert.match(input,/safe%1000!==0\?'vnd':'thousands'/);
-  assert.doesNotMatch(input,/<span[^>]+>\.000<\/span>/);
+test('money renders one complete visible amount and preserves non-thousand legacy values',()=>{
+ const input=source('lib/ui/VndInput.tsx');
+ assert.match(input,/safe%1000!==0/);
+ assert.match(input,/Math\.trunc\(safe\/1000\)/);
+ assert.match(input,/const next=legacy\?number:number\*1000/);
+ assert.match(input,/value=\{display\}/);
+ assert.doesNotMatch(input,/<span[^>]+>\.000<\/span>/);
 });

@@ -5,10 +5,11 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 const cwd=resolve(import.meta.dirname,'..');
 const tmp=mkdtempSync(join(tmpdir(),'amorri-domain-'));
 try{
-  execFileSync('tsc',['--target','es2020','--module','commonjs','--moduleResolution','node','--skipLibCheck','--outDir',tmp,'lib/domain/studio.ts','lib/domain/types.ts'],{cwd,stdio:'pipe'});
+  execFileSync(process.execPath,[fileURLToPath(new URL('../node_modules/typescript/bin/tsc',import.meta.url)),'--target','es2020','--module','commonjs','--moduleResolution','node','--skipLibCheck','--outDir',tmp,'lib/domain/studio.ts','lib/domain/types.ts'],{cwd,stdio:'pipe'});
   const require=createRequire(import.meta.url);
   const domain=require(join(tmp,'studio.js'));
   const staff={"3":{id:'s1',name:'Hà',role:'Quay'},"7":{id:'s2',name:'Hùng',role:'Chụp'}};

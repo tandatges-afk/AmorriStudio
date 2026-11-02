@@ -33,10 +33,10 @@ test('2.9 instrumentation returns diagnostic request IDs without client fields',
  assert.match(dashboard,/kind:err instanceof Error\?err.name:'unknown'/);
  assert.match(source('components/Dashboard.tsx'),/Mã tra cứu/);
 });
-test('V3.0.1 retires legacy UI while preserving Google Drive streaming',()=>{
+test('V3.2.5 retires legacy UI while preserving private R2 1080p',()=>{
  assert.doesNotMatch(source('next.config.ts'),/source: '\/studio'/);
  assert.match(source('app/studio/page.tsx'),/redirect\('\/'\)/);
- assert.match(source('app/api/health/route.ts'),/google-drive-only/);
+ assert.match(source('app/api/health/route.ts'),/r2-only-1080p-signed-url-no-vercel-video/);
  assert.match(source('components/Dashboard.tsx'),/DeliveryProductGroup/);
 });
 test('2.9 analytics uses month-scoped counts and does not claim deposit as revenue',()=>{

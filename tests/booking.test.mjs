@@ -5,11 +5,12 @@ import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createRequire } from 'node:module';
+import { fileURLToPath } from 'node:url';
 const cwd=resolve(import.meta.dirname,'..');
 const tmp=mkdtempSync(join(tmpdir(),'amorri-booking-'));
 const base={id:'93bac6bd-01b8-4b95-a615-6cf0ff662c0b',name:'Cưới Lan An',date:'2026-11-28',start:'08:00',end:'16:00',eventType:'Cưới',location:'Cần Thơ',status:'pending',price:10_000_000,deposit:3_000_000};
 try {
- execFileSync('tsc',['--target','es2020','--module','commonjs','--moduleResolution','node','--skipLibCheck','--outDir',tmp,'lib/domain/booking.ts','lib/domain/types.ts'],{cwd});
+ execFileSync(process.execPath,[fileURLToPath(new URL('../node_modules/typescript/bin/tsc',import.meta.url)),'--target','es2020','--module','commonjs','--moduleResolution','node','--skipLibCheck','--outDir',tmp,'lib/domain/booking.ts','lib/domain/types.ts'],{cwd});
  const {validateBooking}=createRequire(import.meta.url)(join(tmp,'booking.js'));
  test('validates creation payload with VND amounts',()=>{
    const result=validateBooking(base);assert.equal(result.ok,true);
