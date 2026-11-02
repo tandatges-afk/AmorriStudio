@@ -340,6 +340,28 @@ function clientMappings(){
   lastUploadedAt:snapshot.driveUploads?.[drive.id]?.updatedAt||''
  })).sort((a,b)=>a.customer.localeCompare(b.customer,'vi'));
 }
+/** Fall back to a real local folder when a previously selected customer was moved.
+ * Do not remove Drive mappings; the user can choose the customer folder again. */
+function safeCustomerPickerDefaultPath(){
+ const previous=state().jpgFolder;
+ if(previous&&isExistingJpgFolder(previous)){
+   try{
+     const customer=clientFolderForJpgSource(previous);
+     if(isExistingJpgFolder(customer))return customer;
+   }catch{/* A remembered folder was moved or access was revoked. */}
+ }
+ try{
+   const desktop=app.getPath('desktop');
+   if(isExistingJpgFolder(desktop))return desktop;
+ }catch{}
+ try{
+   const home=app.getPath('home');
+   if(isExistingJpgFolder(home))return home;
+ }catch{}
+ // Electron can choose the default location when no existing path is available.
+ return undefined;
+}
+
 export function setupDesktopTools(win:BrowserWindow){
  main=win;
  preventCloseDuringUpload(win);
@@ -359,7 +381,7 @@ export function setupDesktopTools(win:BrowserWindow){
    readerConfigured:!!config.driveReaderEmail,knownFolder:state().driveFolders?.[state().jpgFolder||'']||null}));
  registered('tools:pick-jpg',()=>{
    const chosen=dialog.showOpenDialogSync(toolsWindow!,{title:'Chọn thư mục TÊN KHÁCH (có jpg và loc/lọc, đều có file)',
-     defaultPath:state().jpgFolder?clientFolderForJpgSource(state().jpgFolder!):app.getPath('desktop'),properties:['openDirectory']});
+     defaultPath:safeCustomerPickerDefaultPath(),properties:['openDirectory']});
    if(!chosen?.[0])return {cancelled:true};
    const {jpgFolder,clientRoot}=resolveCustomerJpgFolder(chosen[0]);
    const checked=validateCustomerUpload(jpgFolder);
