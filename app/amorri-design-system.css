@@ -1,0 +1,412 @@
+/*
+ * Amorri Studio — Unified visual system 4.0
+ * One semantic palette for the admin workspace, warm coordinated public pages.
+ * Designed to replace amorri-depth-contrast.css, NOT sit on top of it.
+ * CSS-only depth: no timers, WebGL, external assets or video processing.
+ * The palette is deliberately text-first; never lower opacity on entire calendar cells.
+ */
+:root {
+  --amorri-plum-950: #18131f;
+  --amorri-plum-900: #211a2b;
+  --amorri-plum-800: #2d2437;
+  --amorri-plum-700: #392d44;
+  --amorri-plum-600: #493951;
+  --amorri-champagne: #f4c990;
+  --amorri-champagne-soft: #ffe0b7;
+  --amorri-cream: #faf3ec;
+  --amorri-positive: #a0f1c9;
+  --amorri-warning: #ffdda2;
+  --amorri-danger: #ffc0cc;
+  --amorri-duration-fast: 160ms;
+  --amorri-duration-mid: 260ms;
+  --amorri-ease: cubic-bezier(.2,.75,.3,1);
+}
+
+/* Admin tokens are inherited by every tab, modal, card, toolbar, table and field. */
+.shell {
+  --am-bg: var(--amorri-plum-950);
+  --am-bg-deep: #120f19;
+  --am-sidebar: var(--amorri-plum-900);
+  --am-surface: var(--amorri-plum-800);
+  --am-surface-alt: var(--amorri-plum-700);
+  --am-raised: var(--amorri-plum-600);
+  --am-input: #231c2d;
+  --am-ink: #fff8f4;
+  --am-body: #f2e8ef;
+  --am-muted: #d4c3d3;
+  --am-subtle: #bdaac2;
+  --am-border: rgba(250,219,191,.27);
+  --am-border-subtle: rgba(250,219,191,.15);
+  --am-accent: var(--amorri-champagne);
+  --am-accent-hover: var(--amorri-champagne-soft);
+  --am-accent-ink: #2c2134;
+  --am-success: var(--amorri-positive);
+  --am-warn: var(--amorri-warning);
+  --am-danger: var(--amorri-danger);
+  --am-focus: #ffdfac;
+  --am-shadow: 0 20px 48px rgba(7,4,15,.31),0 4px 13px rgba(7,4,15,.15);
+  --am-shadow-hover: 0 27px 55px rgba(7,4,15,.41),0 7px 17px rgba(7,4,15,.2);
+  /* Compat: existing operations code still uses older token names. */
+  --navy: var(--am-sidebar);
+  --base: var(--am-bg);
+  --panel: var(--am-surface);
+  --ink: var(--am-ink);
+  --muted: var(--am-muted);
+  --line: var(--am-border);
+  --blue: #c5aedc;
+  --amber: var(--am-accent);
+  --green: var(--am-success);
+  --violet: #d4b9e2;
+  --shadow: var(--am-shadow);
+  --ops-ink: var(--am-ink);
+  --ops-mute: var(--am-muted);
+  --ops-line: var(--am-border);
+  --ops-brand: var(--am-accent);
+  --ops-bg: var(--am-surface);
+  color: var(--am-body);
+  color-scheme: dark;
+  isolation: isolate;
+  background: radial-gradient(ellipse 65% 38% at 90% -5%,rgba(163,103,139,.16),transparent 78%),
+    radial-gradient(ellipse 48% 42% at 0% 98%,rgba(108,74,137,.13),transparent 78%),
+    linear-gradient(125deg,#211929 0%,#18131f 80%);
+  min-width: 0;
+}
+body:has(.shell) {background:var(--amorri-plum-950);color:#fff8f4;}
+.shell ::selection {background:rgba(244,201,144,.38);color:var(--am-ink);}
+.shell :is(h1,h2,h3,h4,h5,h6) {color:var(--am-ink);}
+.shell :is(strong,b) {color:inherit;}
+.shell :is(p,small,dd,dt,figcaption) {color:inherit;}
+.shell .content {min-width:0;}
+.shell .content-inner {max-width:1780px;}
+.shell .eyebrow {color:var(--am-accent);}
+.shell .page-heading {border-color:var(--am-border-subtle);}
+.shell .page-heading h1 {color:var(--am-ink);text-shadow:0 2px 24px rgba(244,201,144,.12);}
+.shell .page-heading p {color:var(--am-muted);}
+.shell :is(.hint,.delivery-browser-hint,.footer,.empty-state,.loading-state) {color:var(--am-muted);}
+
+/* Navigation & top bar */
+.shell .sidebar {background:linear-gradient(165deg,#241b30,#201829 64%,#191320);border-right:1px solid var(--am-border-subtle);color:var(--am-body);}
+.shell .brand-square {background:linear-gradient(140deg,#fff0dc,#e2b583);color:#2c2134;box-shadow:0 12px 26px rgba(6,3,13,.3);}
+.shell .brand-word,.shell .user-meta strong {color:var(--am-ink);}
+.shell .brand small,.shell .user-meta span,.shell .sidebar-label {color:var(--am-muted);}
+.shell .nav-item {color:#e8d8e8;border:1px solid transparent;transition:transform var(--amorri-duration-fast) var(--amorri-ease),background-color var(--amorri-duration-fast),color var(--amorri-duration-fast);}
+.shell .nav-item:hover {background:rgba(255,224,185,.11);color:#fff9f2;transform:translateX(3px);}
+.shell .nav-item.nav-active {background:linear-gradient(96deg,rgba(244,201,144,.22),rgba(197,147,186,.11));color:#fff4e5;border:1px solid rgba(250,212,161,.39);box-shadow:inset 3px 0 var(--am-accent),0 8px 20px rgba(8,5,16,.2);}
+.shell .nav-item.nav-active i {background:var(--am-accent);}
+.shell .user-identity {border-color:var(--am-border);}
+.shell .sidebar :is(.migration-tile,.legacy-link) {display:none!important;}
+.shell .topbar {background:rgba(34,26,44,.94);color:var(--am-ink);border-color:var(--am-border-subtle);backdrop-filter:blur(14px);}
+.shell .topbar-right,.shell .breadcrumb {color:var(--am-muted);}
+.shell .breadcrumb span {color:var(--am-accent);}
+.shell .top-icon {background:rgba(255,245,234,.06);border:1px solid var(--am-border);color:var(--am-accent);}
+.shell .top-icon:hover {background:rgba(244,201,144,.15);border-color:var(--am-accent);transform:translateY(-2px);}
+.shell .topbar-right .live-dot {background:var(--am-success);box-shadow:0 0 0 4px rgba(160,241,201,.16);}
+
+/* A single depth vocabulary, rather than each feature inventing its own white card. */
+.shell :is(.surface,.metric,.staff-card,.delivery-card,.calendar-surface,.ops29-hub,.ops29-calendar,
+  .ops29-analytics-intro,.ops29-analytics-kpis article,.ops29-analytics-columns>section,
+  .ops30-health-hero,.ops30-health-item,.ops30-health-metrics>div,.panel,.card) {
+  background:linear-gradient(145deg,#3b2d45 0%,#30263b 65%,#292234 100%);
+  border:1px solid var(--am-border);
+  border-radius:18px;
+  color:var(--am-body);
+  box-shadow:var(--am-shadow),inset 0 1px 0 rgba(255,244,230,.08);
+}
+.shell :is(.surface-title,.ops29-calendar-toolbar,.ops29-queue,.ops29-week-navigation) {border-color:var(--am-border);}
+.shell .surface-title {background:rgba(15,11,23,.15);color:var(--am-body);}
+.shell .surface-title :is(h2,h3,h4) {color:var(--am-ink);}
+.shell .surface-title .eyebrow {color:var(--am-accent);}
+.shell .metric {min-height:150px;}
+.shell .metric>span,.shell .metric small {color:var(--am-muted);}
+.shell .metric strong {color:var(--am-ink);font-size:clamp(23px,2.2vw,33px);}
+.shell .metric-icon {color:var(--am-accent);background:rgba(244,201,144,.15);border:1px solid rgba(244,201,144,.28);box-shadow:inset 0 1px rgba(255,255,255,.09);}
+.shell .staff-role {background:rgba(216,174,226,.16);border:1px solid rgba(240,211,239,.27);color:#fae8fb;}
+.shell .staff-avatar,.shell .activity-symbol {background:linear-gradient(145deg,#ffe0b8,#d8a98b);color:var(--am-accent-ink);}
+.shell .staff-card-bottom,.shell .activity-item {border-color:var(--am-border-subtle);}
+.shell .upcoming-row {background:transparent;border-color:var(--am-border-subtle);color:var(--am-body);}
+.shell .upcoming-row:hover {background:rgba(244,201,144,.09);}
+.shell .upcoming-row>svg {color:var(--am-accent);}
+.shell .upcoming-date {background:rgba(255,240,227,.09);color:var(--am-ink);border:1px solid var(--am-border-subtle);}
+.shell :is(.upcoming-info>span,.upcoming-date span,.breakdown-row span,.breakdown-copy span) {color:var(--am-muted);}
+.shell :is(.upcoming-info strong,.month-title,.breakdown-row b) {color:var(--am-ink);}
+.shell .progress-track {background:rgba(255,237,222,.14);}
+.shell .progress-track>div {background:linear-gradient(90deg,#d3a2ac,var(--am-accent));}
+.shell .status {font-weight:800;border:1px solid transparent;}
+.shell .status-confirmed,.shell .status-done {color:var(--am-success);background:#24483e;border-color:#4d8b73;}
+.shell .status-pending {color:var(--am-warn);background:#57412b;border-color:#967045;}
+.shell .status-cancelled {color:var(--am-danger);background:#58333f;border-color:#9e6174;}
+
+/* Dashboard hero is the primary 2.5D focal point; it is a static illustration. */
+.shell .welcome-band {
+  background:radial-gradient(circle at 79% 30%,rgba(242,182,131,.18),transparent 38%),linear-gradient(110deg,#332541,#49314b 55%,#2a2138);
+  border:1px solid rgba(255,213,165,.39);
+  border-radius:24px;
+  box-shadow:0 26px 57px rgba(8,4,16,.39),inset 0 1px rgba(255,247,234,.14);
+  isolation:isolate;
+}
+.shell .welcome-band::after {content:"";position:absolute;right:-5%;top:-58%;width:58%;height:130%;border:1px solid rgba(255,229,195,.18);border-radius:50%;transform:rotate(-24deg);pointer-events:none;}
+.shell .welcome-band :is(h2,h2 em) {color:var(--am-ink);}
+.shell .welcome-band :is(p,.welcome-kicker) {color:#f0dce7;}
+.shell .welcome-art {filter:drop-shadow(0 19px 25px rgba(9,5,16,.42));}
+.shell .art-ring {border-color:rgba(255,227,189,.28);transform:rotateX(54deg) rotateZ(-15deg);}
+.shell .ring-two {border-color:rgba(255,227,189,.37);}
+.shell .art-center {background:linear-gradient(145deg,#886585,#46304f 52%,#251d34);color:var(--am-ink);border:1px solid rgba(255,219,176,.5);box-shadow:inset 4px 4px 16px rgba(255,234,217,.16),inset -9px -11px 25px rgba(8,4,17,.4),0 25px 40px rgba(9,4,16,.46);transform:perspective(700px) rotateY(-11deg) rotateX(8deg) rotateZ(-6deg);}
+.shell .art-center span {color:var(--am-accent);}
+
+/* Calendar — no opacity on entire days (which also fades text and events). */
+.shell :is(.ops29-hub,.ops29-calendar,.ops29-analytics) {--ops-ink:var(--am-ink);--ops-mute:var(--am-muted);--ops-line:var(--am-border);--ops-bg:var(--am-surface);--ops-brand:var(--am-accent);}
+.shell .ops29-header :is(h2,p),.shell .ops29-copy strong,.shell .ops29-queue-title,.shell .ops29-value {color:var(--am-ink);}
+.shell .ops29-header p,.shell .ops29-copy small,.shell .ops29-queue-title small {color:var(--am-muted);}
+.shell .ops29-action,.shell .ops29-queue-items button {background:rgba(27,19,38,.62);border:1px solid var(--am-border);border-radius:13px;color:var(--am-body);}
+.shell .ops29-action:hover,.shell .ops29-queue-items button:hover {background:rgba(244,201,144,.14);border-color:var(--am-accent);}
+.shell .ops29-icon {background:rgba(244,201,144,.16);color:var(--am-accent);}
+.shell .ops29-status {background:#254c40;color:var(--am-success);border:1px solid #548d76;}
+.shell .ops29-queue-items button :is(b,span) {color:var(--am-ink);}
+.shell .ops29-month-grid,.shell .ops29-week-grid {background:var(--am-surface);}
+.shell .ops29-day-headers b {background:#44334a;color:var(--am-ink);border-color:var(--am-border);}
+.shell .ops29-month-day {background:#352a40;border-color:var(--am-border-subtle);color:var(--am-body);opacity:1;transition:background-color var(--amorri-duration-fast),box-shadow var(--amorri-duration-fast);}
+.shell .ops29-month-day.outside {background:#2a2333;opacity:1;}
+.shell .ops29-month-day.outside .ops325-solar-day {color:var(--am-subtle);}
+.shell .ops29-month-day:is(:hover,:focus-within),.shell .ops29-month-day.ops325-create-day:hover {background:#493650;box-shadow:inset 0 0 0 1px rgba(255,219,182,.26);}
+.shell .ops29-month-day.outside:hover {background:#392d42;}
+.shell .ops325-date-head .ops325-solar-day,.shell .ops29-week-day h3,.shell .ops29-week-day h3 b {color:var(--am-ink);}
+.shell .ops325-lunar-date,.shell .ops29-month-day .ops325-lunar-date.is-first,.shell .ops29-week-day>h3 .ops325-lunar-date {color:var(--am-muted);}
+.shell .ops29-month-day.today .ops325-solar-day {background:var(--am-accent);color:var(--am-accent-ink);border-radius:50%;}
+.shell .ops29-week-day {background:#352a40;border-color:var(--am-border-subtle);color:var(--am-body);}
+.shell .ops29-week-day.ops325-create-day:hover {background:#493650;}
+.shell .ops29-week-day h3 {background:#44334a;color:var(--am-ink);border-color:var(--am-border);}
+.shell .ops29-day-empty,.shell .ops29-extra {color:var(--am-muted);}
+.shell .ops29-event {background:#35465d;color:#f2f5ff;border:1px solid #7798bd;border-left:3px solid #b5d3fa;transition:transform var(--amorri-duration-fast),border-color var(--amorri-duration-fast);}
+.shell .ops29-event.s-pending {background:#59432c;color:var(--am-warn);border-color:#b9874a;border-left-color:#ffdaa0;}
+.shell .ops29-event.s-confirmed {background:#2b4e45;color:var(--am-success);border-color:#59967b;border-left-color:var(--am-success);}
+.shell .ops29-event.s-done {background:#295344;color:var(--am-success);border-color:#67a989;border-left-color:#a0f1c9;}
+.shell .ops29-event.s-cancelled {background:#4d3542;color:var(--am-danger);border-color:#9a6176;border-left-color:#f0a8bc;}
+.shell .ops29-event:hover {transform:translateY(-1px);filter:brightness(1.12);}
+.shell .ops29-view-switch {background:#261e31;border:1px solid var(--am-border);}
+.shell .ops29-view-switch button {color:var(--am-body);}
+.shell .ops29-view-switch button.selected {background:var(--am-accent);color:var(--am-accent-ink);box-shadow:0 5px 14px rgba(10,5,20,.24);}
+.shell .ops29-view-switch button.selected * {color:var(--am-accent-ink);}
+.shell .ops29-staff-filter {color:var(--am-muted);border-color:var(--am-border);}
+.shell .ops29-staff-filter select {background:var(--am-input);color:var(--am-ink);}
+.shell .ops29-week-navigation {color:var(--am-body);}
+.shell .ops29-week-navigation :is(button,small) {color:var(--am-muted);border-color:var(--am-border);}
+.shell .ops29-list>button {background:transparent;color:var(--am-body);border-color:var(--am-border-subtle);transition:background-color var(--amorri-duration-fast),box-shadow var(--amorri-duration-fast);}
+.shell .ops29-list>button:is(:hover,:focus-visible) {background:#48374e;color:var(--am-ink);box-shadow:inset 3px 0 var(--am-accent);}
+.shell .ops29-date,.shell .ops29-main b {color:var(--am-ink);}
+.shell .ops29-main small,.shell .ops29-calendar-foot,.shell .ops29-empty {color:var(--am-muted);}
+.shell .ops29-calendar-foot,.shell .ops29-empty {background:rgba(18,13,26,.3);}
+.shell .ops29-status-text.s-confirmed,.shell .ops29-status-text.s-done {color:var(--am-success);}
+.shell .ops29-status-text.s-pending {color:var(--am-warn);}
+.shell .ops29-status-text.s-cancelled {color:var(--am-danger);}
+.shell .ops29-warning {background:#54402d;color:var(--am-warn);border:1px solid #99764c;}
+
+/* Payroll, data, operations analytics — numeric text must remain readable on every row. */
+.shell .table-scroll {background:rgba(20,15,28,.3);border:1px solid var(--am-border);border-radius:14px;overflow-x:auto;}
+.shell .data-table {background:transparent;color:var(--am-body);}
+.shell .data-table :is(thead,th) {background:#493648;color:#ffe2b6;border-color:var(--am-border);}
+.shell .data-table th {letter-spacing:.04em;font-size:11px;}
+.shell .data-table tbody tr,.shell .data-table tbody td {background:transparent;color:var(--am-body);border-color:var(--am-border-subtle);}
+.shell .data-table tbody tr:nth-child(even),.shell .data-table tbody tr:nth-child(even) td {background:#302638;color:var(--am-body);}
+.shell .data-table tbody tr:is(:hover,:focus-within) td {background:#49364e;color:var(--am-ink);}
+.shell .data-table tbody td :is(strong,b,.event-name,.date-cell) {color:var(--am-ink);}
+.shell .data-table tbody td strong.positive-amount,.shell .data-table tbody td .positive-amount {color:var(--am-success);}
+.shell .data-table tbody td strong.negative-amount,.shell .data-table tbody td .negative-amount {color:var(--am-warn);}
+.shell .data-table .hint {color:var(--am-muted);}
+.shell .ops29-analytics-intro :is(h2,p),.shell .ops29-analytics-columns h3 {color:var(--am-ink);}
+.shell .ops29-analytics-intro p,.shell .ops29-analytics-kpis article small,.shell .ops29-muted {color:var(--am-muted);}
+.shell .ops29-analytics-kpis article strong {color:var(--am-ink);}
+.shell .ops29-chart-row :is(span,b) {color:var(--am-body);}
+.shell .ops29-chart-rail {background:rgba(255,235,220,.18);}
+.shell .ops29-analytics-columns>section {min-width:0;}
+.shell .amorri-payroll .surface>div>div>p {color:var(--am-muted);}
+.shell .amorri-payroll .grid>div.bg-slate-50 {background:#3b2e45;border:1px solid var(--am-border-subtle);color:var(--am-ink);}
+.shell .amorri-payroll .grid>div.bg-slate-50 p {color:var(--am-muted);}
+
+/* System health, migration, diagnostics: no invisible ivory-on-white headings. */
+.shell .ops30-health {--health-ink:var(--am-ink);--health-muted:var(--am-muted);}
+.shell .ops30-health :is(h2,h3,strong) {color:var(--am-ink);}
+.shell .ops30-health-hero p,.shell .ops30-health-item>p,.shell .ops30-health-metrics span,.shell .ops30-health-footer,.shell .ops30-health-disclaimer {color:var(--am-muted);}
+.shell .ops30-health-metrics strong {color:var(--am-ink);}
+.shell .ops30-health-icon {background:rgba(244,201,144,.14);color:var(--am-accent);}
+.shell .ops30-health-item-head span {background:#264d40;color:var(--am-success);border:1px solid #63957c;}
+.shell .ops30-health-warning .ops30-health-item-head span {background:#59462e;color:var(--am-warn);border-color:#987447;}
+.shell .ops30-health-error .ops30-health-item-head span {background:#593440;color:var(--am-danger);border-color:#ad677a;}
+.shell .ops30-health-action {background:#241c30;color:var(--am-body);border:1px solid var(--am-border-subtle);}
+.shell .ops30-health-action * {color:inherit;}
+.shell .ops30-health-footer button {background:#413149;color:var(--am-accent);border:1px solid var(--am-border);}
+.shell .ops30-sync-badge {background:#264a3e;color:var(--am-success);}
+.shell .ops30-system-tabs {background:#261f31;border:1px solid var(--am-border);}
+.shell .ops30-system-tabs button {color:var(--am-body);}
+.shell .ops30-system-tabs button.active {background:var(--am-accent);color:var(--am-accent-ink);box-shadow:0 7px 16px rgba(10,5,20,.25);}
+.shell .ops30-system-tabs button.active * {color:var(--am-accent-ink);}
+.shell .ops30-review-heading :is(b,small),.shell .ops30-review-controls button {color:var(--am-body);}
+.shell .ops30-review-heading>button {background:var(--am-surface-alt);color:var(--am-ink);border-color:var(--am-border);}
+.shell .ops30-review-controls>div {background:#261e31;}
+.shell .ops30-review-controls button.active {background:var(--am-accent);color:var(--am-accent-ink);}
+
+/* Form surfaces and Tailwind legacy utility bridge: within the admin only. */
+.shell :is(.bg-white,.bg-slate-50,.bg-slate-100,.bg-gray-50,.bg-indigo-50) {background:var(--am-surface-alt);color:var(--am-body);border-color:var(--am-border-subtle);}
+.shell :is(.bg-amber-50,.bg-amber-100) {background:#52402f;color:var(--am-warn);border-color:#976f43;}
+.shell :is(.bg-red-50,.bg-rose-50) {background:#56313f;color:var(--am-danger);border-color:#9c6076;}
+.shell .bg-emerald-50 {background:#264c40;color:var(--am-success);border-color:#5e9275;}
+.shell :is(.text-slate-900,.text-slate-800,.text-slate-700,.text-slate-600,.text-indigo-950,.text-indigo-800,.text-indigo-700) {color:var(--am-body);}
+.shell :is(.text-slate-500,.text-slate-400,.text-indigo-600,.text-blue-500,.text-blue-600) {color:var(--am-muted);}
+.shell :is(.text-amber-900,.text-amber-800,.text-amber-700) {color:var(--am-warn);}
+.shell :is(.text-red-800,.text-red-700,.text-rose-800,.text-rose-700,.text-rose-600) {color:var(--am-danger);}
+.shell :is(.text-emerald-800,.text-emerald-700) {color:var(--am-success);}
+.shell :is(.section-intro,.notice) {background:#344157;color:#f6f3ff;border:1px solid #70809e;}
+.shell :is(.section-intro,.notice) * {color:inherit;}
+.shell .alert.error {background:#582f3d;color:var(--am-danger);border:1px solid #ab6477;}
+.shell .alert.error * {color:inherit;}
+.shell .search-input,.shell :is(input:not([type=checkbox]):not([type=radio]),select,textarea) {background:var(--am-input);color:var(--am-ink);border:1px solid rgba(255,216,183,.44);border-radius:10px;}
+.shell :is(input,textarea)::placeholder {color:#bdabc1;opacity:1;}
+.shell select option {background:var(--am-input);color:var(--am-ink);}
+.shell input[type=checkbox],.shell input[type=radio] {accent-color:var(--am-accent);}
+.shell .search-input {background:var(--am-input);}
+.shell .search-input input {background:transparent;border:0;box-shadow:none;}
+.shell :is(input,select,textarea,button,a):focus-visible {outline:3px solid var(--am-focus);outline-offset:3px;}
+.shell :is(button,a):disabled {opacity:.63;cursor:not-allowed;}
+.shell .primary-button {background:linear-gradient(135deg,#ffe0b4,#e9b479);color:var(--am-accent-ink);border:1px solid #ffebd0;box-shadow:0 12px 26px rgba(223,164,113,.18),inset 0 1px 0 rgba(255,255,255,.47);}
+.shell .primary-button * {color:var(--am-accent-ink);}
+.shell .primary-button:hover:not(:disabled) {background:linear-gradient(135deg,#ffe9c7,#f4c48f);box-shadow:0 15px 32px rgba(223,164,113,.27);}
+.shell .secondary-button {background:linear-gradient(135deg,#4b3953,#332940);color:var(--am-ink);border:1px solid var(--am-border);}
+.shell .secondary-button:hover:not(:disabled) {background:#594360;color:var(--am-ink);border-color:var(--am-accent);}
+.shell :is(.primary-button,.secondary-button):active:not(:disabled) {transform:translateY(0) scale(.99);}
+.shell .detail-backdrop {background:rgba(13,8,21,.78);backdrop-filter:blur(7px);}
+.shell .detail-panel {background:#30253b;color:var(--am-body);border-left:1px solid var(--am-border);box-shadow:-18px 0 50px rgba(5,3,12,.56);}
+.shell .detail-panel :is(h2,dd) {color:var(--am-ink);}
+.shell .detail-panel dt {color:var(--am-muted);}
+.shell .detail-header {color:var(--am-accent);border-color:var(--am-border);background:transparent;}
+.shell .detail-header button {background:var(--am-raised);color:var(--am-ink);}
+.shell .cal-day {background:var(--am-surface-alt);color:var(--am-body);border-color:var(--am-border-subtle);}
+.shell .cal-day:hover {background:var(--am-raised);}
+.shell .cal-out {background:var(--am-surface);color:var(--am-muted);}
+.shell .cal-date {color:var(--am-ink);}
+.shell .cal-today .cal-date {background:var(--am-accent);color:var(--am-accent-ink);}
+.shell .day-headers>div {background:var(--am-raised);color:var(--am-ink);border-color:var(--am-border);}
+.shell .calendar-event {background:#334b66;color:#eff5ff;border-left-color:#b4d2f8;}
+.shell .calendar-event.c-pending {background:#58422d;color:var(--am-warn);border-left-color:#ffe0a5;}
+.shell .calendar-event.c-done {background:#295044;color:var(--am-success);border-left-color:var(--am-success);}
+.shell .calendar-event.c-cancelled {background:#543542;color:var(--am-danger);border-left-color:var(--am-danger);}
+
+/* Creation flow explicitly opts into the same palette instead of Tailwind's white defaults. */
+.shell .amorri-booking-backdrop {background:rgba(12,7,20,.77);backdrop-filter:blur(8px);}
+.shell .amorri-booking-dialog {background:#30263c;color:var(--am-body);border:1px solid var(--am-border);box-shadow:0 34px 86px rgba(6,3,13,.67),inset 0 1px rgba(255,248,235,.08);color-scheme:dark;}
+.shell .amorri-booking-dialog>header,.shell .amorri-booking-dialog>footer {background:#352940;border-color:var(--am-border);}
+.shell .amorri-booking-dialog header :is(h2,p),.shell .amorri-booking-dialog footer>div {color:var(--am-ink);}
+.shell .amorri-booking-dialog header p {color:var(--am-muted);}
+.shell .amorri-booking-dialog header>div>span {background:rgba(244,201,144,.17);color:var(--am-accent);border:1px solid rgba(244,201,144,.29);}
+.shell .amorri-booking-dialog header>button {color:var(--am-muted);background:rgba(255,255,255,.05);}
+.shell .amorri-booking-dialog header>button:hover {color:var(--am-ink);background:var(--am-raised);}
+.shell .amorri-booking-services {background:#2a2135;}
+.shell .amorri-booking-services .amorri-service-choice {background:#3b2f46;color:var(--am-ink);border:1px solid var(--am-border);box-shadow:inset 0 1px rgba(255,248,233,.05);}
+.shell .amorri-booking-services .amorri-service-choice:hover,.shell .amorri-booking-services .amorri-service-choice:focus-visible {background:#54405b;color:var(--am-ink);border-color:var(--am-accent);box-shadow:0 10px 24px rgba(5,3,12,.25);transform:translateY(-2px);}
+.shell .amorri-booking-form {background:#30263c;color:var(--am-body);}
+.shell .amorri-booking-form label,.shell .amorri-booking-form legend {color:var(--am-body);}
+.shell .amorri-booking-form :is(.bg-indigo-50\/50,.bg-indigo-50\/40) {background:#44344e;color:var(--am-body);border-color:var(--am-border);}
+.shell .amorri-booking-form :is(.text-indigo-950,.text-indigo-800,.text-slate-800) {color:var(--am-ink);}
+.shell .amorri-booking-form .text-indigo-700 {color:var(--am-accent);}
+.shell .amorri-booking-form :is(.bg-white,.bg-slate-50) {background:#392d45;color:var(--am-body);border-color:var(--am-border);}
+.shell .amorri-booking-form :is(.bg-amber-50,.bg-amber-50\/60) {background:#57412e;border-color:#a67c4b;}
+.shell .amorri-booking-form :is(input:not([type=checkbox]),select,textarea) {background:#251e2f;color:var(--am-ink);border-color:rgba(255,217,187,.46);min-height:43px;}
+.shell .amorri-booking-form :is(input:not([type=checkbox]),select,textarea):focus {border-color:var(--am-accent);box-shadow:0 0 0 3px rgba(244,201,144,.16);}
+.shell .amorri-booking-dialog>footer button[type=submit] {background:var(--am-accent);color:var(--am-accent-ink);border:1px solid #ffe6bf;box-shadow:0 8px 19px rgba(10,5,18,.25);}
+.shell .amorri-booking-dialog>footer button[type=submit]:hover:not(:disabled) {background:var(--am-accent-hover);transform:translateY(-1px);}
+.shell .amorri-booking-dialog>footer button[type=button] {background:var(--am-raised);color:var(--am-ink);border:1px solid var(--am-border);}
+
+/* Subtle dimensional animation: pointer-only, never on video or forms while typing. */
+@keyframes amorri-enter {from{opacity:0;transform:translateY(9px);}to{opacity:1;transform:translateY(0);}}
+@keyframes amorri-dialog {from{opacity:.45;transform:translateY(12px) scale(.985);}to{opacity:1;transform:translateY(0) scale(1);}}
+.shell .page-heading,.shell .welcome-band {animation:amorri-enter .38s var(--amorri-ease) both;}
+.shell .amorri-booking-dialog {animation:amorri-dialog .28s var(--amorri-ease) both;}
+.shell .metric,.shell .staff-card,.shell .delivery-card,.shell .ops29-action,.shell .ops29-analytics-kpis article {transition:transform var(--amorri-duration-mid) var(--amorri-ease),border-color var(--amorri-duration-mid),box-shadow var(--amorri-duration-mid),background-color var(--amorri-duration-fast);}
+@media (hover:hover) and (pointer:fine) {
+  .shell :is(.metric,.staff-card,.delivery-card,.ops29-analytics-kpis article):hover {transform:perspective(950px) translateY(-4px) rotateX(.65deg);border-color:rgba(255,219,180,.55);box-shadow:var(--am-shadow-hover),inset 0 1px rgba(255,255,255,.11);}
+  .shell .ops29-action:hover {transform:translateY(-2px);}
+}
+.shell :is(img,video,canvas) {filter:none!important;}
+
+/* Staff portal uses the same plum/champagne brand but a paper work surface for clarity. */
+.amorri-staff-portal {--staff-ink:#302539;--staff-muted:#655969;--staff-line:#ded0d7;background:linear-gradient(150deg,#f9f2ed,#efe8ef)!important;color:var(--staff-ink);min-height:100dvh;}
+.amorri-staff-portal>div>header {background:linear-gradient(125deg,#2a2034,#4a354c);color:#fff7f1;border:1px solid #6d5469;box-shadow:0 18px 36px rgba(44,27,49,.2);}
+.amorri-staff-portal>div>section,.amorri-staff-portal>div>div[role=status] {background:#fffcf9;border:1px solid #e5d8dd;border-radius:18px;box-shadow:0 10px 24px rgba(49,30,51,.065);}
+.amorri-staff-portal :is(.text-indigo-700,.text-emerald-800) {color:#655077;}
+.amorri-staff-portal .bg-indigo-700 {background:#48354e;color:#fffaf2;}
+.amorri-staff-portal :is(input,textarea,select) {background:#fff;border:1px solid #bfaebc;color:#302539;}
+.amorri-staff-portal :is(button,a,input):focus-visible {outline:3px solid #a87b57;outline-offset:3px;}
+.amorri-staff-portal>div>section article {transition:box-shadow var(--amorri-duration-mid),transform var(--amorri-duration-mid);}
+@media (hover:hover) and (pointer:fine) {.amorri-staff-portal>div>section article:hover {box-shadow:0 11px 27px rgba(50,32,56,.1);transform:translateY(-2px);}}
+
+/* Public delivery stays light to highlight photos, but uses the same branded ink & accent. */
+.client-delivery {--delivery-ink:#2c2332;--delivery-border:#e6dce2;background:#f9f4ef;color:var(--delivery-ink);}
+.client-delivery .delivery-hero {background:radial-gradient(ellipse at 82% 10%,rgba(213,159,149,.25),transparent 53%),linear-gradient(120deg,#241b2e,#4a3548);color:#fffaf4;}
+.client-delivery .delivery-brand span {color:var(--amorri-champagne);}
+.client-delivery .delivery-product {background:#fffdfa;border-color:var(--delivery-border);box-shadow:0 15px 35px rgba(41,27,47,.07);}
+.client-delivery .delivery-product-heading span {color:#7e5378;}
+.client-delivery .delivery-muted {color:#5a5360;}
+.client-delivery .delivery-review {background:#f6f0f2;border-color:#e4d6df;}
+.client-delivery .delivery-photo.is-selected {border-color:#8b5c7b;box-shadow:0 0 0 2px rgba(139,92,123,.11);}
+.client-delivery .delivery-primary,.client-delivery .delivery-form button {background:#44314b!important;color:#fffaf4!important;}
+.client-delivery :is(button,a,input,textarea):focus-visible {outline:3px solid #b9866e;outline-offset:3px;}
+
+@media (max-width:1000px) {
+  .shell .content-inner {padding:26px 21px 44px;}
+  .shell .ops29-analytics-columns {grid-template-columns:1fr;}
+}
+@media (max-width:650px) {
+  .shell .content-inner {padding:18px 13px 32px;}
+  .shell .welcome-art {opacity:.22;right:-25%;}
+  .shell .metric {min-height:130px;}
+  .shell .topbar {backdrop-filter:none;}
+  .shell .amorri-booking-dialog {max-height:96dvh;}
+  .shell .amorri-booking-dialog>footer {gap:10px;}
+  .shell .amorri-booking-dialog>footer>div:first-child {display:none;}
+}
+@media (prefers-reduced-motion:reduce) {
+  html {scroll-behavior:auto;}
+  .shell *,.amorri-staff-portal *,.client-delivery * {animation:none!important;transition:none!important;scroll-behavior:auto!important;}
+  .shell :is(.metric,.staff-card,.delivery-card,.ops29-analytics-kpis article,.ops29-action):hover,.amorri-staff-portal>div>section article:hover {transform:none;}
+}
+@media (prefers-contrast:more) {
+  .shell {--am-muted:#fff0f6;--am-border:rgba(255,230,207,.76);--am-border-subtle:rgba(255,230,207,.55);}
+  .shell :is(.surface,.metric,.ops29-hub,.ops29-calendar,.ops30-health-item) {border-width:2px;}
+  .shell :is(button,a,input,select,textarea):focus-visible {outline-width:4px;}
+}
+
+/* Migration diagnostics were written with inline white backgrounds + navy text.
+   Use semantic values in that component so CSS specificity cannot split the pair. */
+.amorri-migration {
+  --am-surface:#30263b;
+  --am-body:#f2e8ef;
+  --am-ink:#fff8f4;
+  --am-muted:#d4c3d3;
+  --am-accent:#f4c990;
+  --am-warn:#ffdda2;
+  --am-danger:#ffc0cc;
+  --am-border:rgba(250,219,191,.27);
+  --am-border-subtle:rgba(250,219,191,.15);
+  background:transparent;
+  color:var(--am-body);
+}
+body:has(> .amorri-migration) {background:#18131f;}
+.amorri-migration :is(h1,h2,h3) {color:var(--am-ink);}
+.amorri-migration :is(section,article) {box-shadow:0 14px 32px rgba(8,4,17,.2),inset 0 1px rgba(255,255,255,.05);}
+.amorri-migration :is(a,button):focus-visible {outline:3px solid var(--am-accent);outline-offset:3px;}
+.amorri-migration button:not(.primary-button) {background:#43334c;color:var(--am-ink);}
+.amorri-migration .primary-button {background:#f4c990;color:#2c2134;border:1px solid #ffe5bf;}
+
+/* Auth screen completes the brand system; a pale form is intentional for legibility. */
+.login-layout .login-showcase {background:radial-gradient(circle at 80% 22%,rgba(236,187,150,.19),transparent 48%),linear-gradient(125deg,#22192e,#48334c);}
+.login-layout .login-brand strong,.login-layout .showcase-main .overline {color:#f7d6b2;}
+.login-layout .showcase-main em {color:#ffe0b7;}
+.login-layout .showcase-main p,.login-layout .login-bottom {color:#eee1ed;}
+.login-layout .login-panel {background:#f9f2ec;color:#302539;}
+.login-layout .login-box h2,.login-layout .login-box label {color:#34283b;}
+.login-layout .login-lock {background:#f3dfca;color:#65436a;box-shadow:0 8px 18px rgba(82,45,68,.08);}
+.login-layout .login-box>p,.login-layout .login-foot {color:#655b68;}
+.login-layout .login-box input {background:#fffcfa;border:1px solid #c3afba;color:#302539;}
+.login-layout .login-box input::placeholder {color:#786b79;opacity:1;}
+.login-layout .login-box input:focus-visible {outline:3px solid #be8f66;outline-offset:2px;}
+.login-layout .primary-button {background:linear-gradient(125deg,#48324e,#2f233c);color:#fff8f1;border:1px solid #614a62;box-shadow:0 10px 23px rgba(64,35,65,.17);}
+.login-layout .primary-button:hover {background:linear-gradient(125deg,#5b4162,#40304b);}
+.login-layout .legacy-link {color:#624b67;}

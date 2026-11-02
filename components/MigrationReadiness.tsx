@@ -24,24 +24,24 @@ export default function MigrationReadiness({embedded=false}:{embedded?:boolean})
     URL.revokeObjectURL(address);
   };
   const entries=data?[['Lịch quay/chụp',data.events],['Nhân sự',data.staff],['Ngày nghỉ',data.blackouts]] as const:[];
-  return <main style={{maxWidth:1040,margin:'0 auto',padding:embedded?'12px 0':'32px 20px',color:'#122133'}}>
-    {!embedded&&<Link href="/" style={{fontWeight:700,color:'#334155'}}>← Về Dashboard</Link>}
+  return <main className="amorri-migration" style={{maxWidth:1040,margin:'0 auto',padding:embedded?'12px 0':'32px 20px',color:'var(--am-body)'}}>
+    {!embedded&&<Link href="/" style={{fontWeight:700,color:'var(--am-accent)'}}>← Về Dashboard</Link>}
     <h1 style={{fontSize:32,fontWeight:800,margin:'18px 0 6px'}}>Kiểm tra dữ liệu · Studio OS 3.0</h1>
-    <p style={{color:'#64748b',marginBottom:26}}>Chỉ tài khoản Admin có thể xem báo cáo này. Không hiển thị tên khách hàng, số điện thoại hoặc UID cá nhân.</p>
+    <p style={{color:'var(--am-muted)',marginBottom:26}}>Chỉ tài khoản Admin có thể xem báo cáo này. Không hiển thị tên khách hàng, số điện thoại hoặc UID cá nhân.</p>
     {!ready?<p>Đang kiểm tra đăng nhập…</p>:!user?<p>Bạn chưa đăng nhập. Hãy đăng nhập tại <Link href="/">Dashboard</Link> rồi quay lại.</p>:<>
       <button className="primary-button" disabled={loading} onClick={()=>void refresh()}>{loading?'Đang kiểm tra…':'Làm mới báo cáo'}</button>
-      {error&&<p role="alert" style={{color:'#b91c1c',marginTop:14}}>{error}</p>}
-      <button type="button" onClick={exportDrafts} style={{marginLeft:12,padding:'12px 14px',border:'1px solid #cbd5e1',borderRadius:10}}>Xuất bản nháp offline trên máy này</button>
+      {error&&<p role="alert" style={{color:'var(--am-danger)',marginTop:14}}>{error}</p>}
+      <button type="button" onClick={exportDrafts} style={{marginLeft:12,padding:'12px 14px',border:'1px solid var(--am-border)',borderRadius:10}}>Xuất bản nháp offline trên máy này</button>
       {data&&<>
         <section style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(210px,1fr))',gap:16,marginTop:24}}>
-        {entries.map(([name,item])=><article key={name} style={{background:'#fff',border:'1px solid #e2e8f0',borderRadius:18,padding:20}}>
+        {entries.map(([name,item])=><article key={name} style={{background:'var(--am-surface)',border:'1px solid var(--am-border)',borderRadius:18,padding:20}}>
           <h2 style={{fontSize:17,fontWeight:700}}>{name}</h2>
           <p style={{fontSize:27,fontWeight:800}}>{item.total}{item.truncated?'+':''}</p>
-          <p style={{fontSize:13,color:'#64748b'}}>Khóa số cũ: {item.numericKeys} · Trùng ID: {item.duplicateIds} · Thiếu ID: {item.missingIds}</p>
-          {item.truncated&&<p style={{fontSize:12,color:'#b45309'}}>Đã chạm giới hạn quét; kết quả chưa đầy đủ.</p>}
+          <p style={{fontSize:13,color:'var(--am-muted)'}}>Khóa số cũ: {item.numericKeys} · Trùng ID: {item.duplicateIds} · Thiếu ID: {item.missingIds}</p>
+          {item.truncated&&<p style={{fontSize:12,color:'var(--am-warn)'}}>Đã chạm giới hạn quét; kết quả chưa đầy đủ.</p>}
         </article>)}
         </section>
-        <section style={{background:'#fff',border:'1px solid #e2e8f0',padding:24,borderRadius:18,marginTop:20}}>
+        <section style={{background:'var(--am-surface)',border:'1px solid var(--am-border)',padding:24,borderRadius:18,marginTop:20}}>
           <h2 style={{fontSize:19,fontWeight:800,marginBottom:14}}>Điều kiện trước khi siết Security Rules</h2>
           <ul style={{display:'grid',gap:10,paddingLeft:22}}>
             <li>Trạng thái workspace cũ: <strong>Đã gỡ khỏi website</strong></li>
@@ -50,12 +50,12 @@ export default function MigrationReadiness({embedded=false}:{embedded?:boolean})
             <li>Lựa chọn ảnh: <strong>API mới xác thực quyền và kiểm tra nguồn Drive</strong></li>
             <li>Bình luận video: <strong>API mới hỗ trợ timeline; cần kiểm tra các link cũ trước khi đóng chuyển đổi</strong></li>
           </ul>
-          <p style={{fontSize:13,color:'#92400e',marginTop:16}}>Đã gỡ giao diện /studio. Không thay Security Rules trên Production trước khi thử link cũ, Firebase staging và các luồng ghi hiện tại.</p>
+          <p style={{fontSize:13,color:'var(--am-warn)',marginTop:16}}>Đã gỡ giao diện /studio. Không thay Security Rules trên Production trước khi thử link cũ, Firebase staging và các luồng ghi hiện tại.</p>
         </section>
       </>}
-      <section style={{background:'#fff',border:'1px solid #e2e8f0',padding:24,borderRadius:18,marginTop:20}}>
+      <section style={{background:'var(--am-surface)',border:'1px solid var(--am-border)',padding:24,borderRadius:18,marginTop:20}}>
         <h2 style={{fontSize:19,fontWeight:800,marginBottom:12}}>Đối chiếu chức năng workspace</h2>
-        <p style={{fontSize:13,color:'#64748b',marginBottom:12}}>Trạng thái dựa trên mã nguồn VNext 3.0, chưa phải chứng nhận hoạt động trên dữ liệu Production.</p>
+        <p style={{fontSize:13,color:'var(--am-muted)',marginBottom:12}}>Trạng thái dựa trên mã nguồn VNext 3.0, chưa phải chứng nhận hoạt động trên dữ liệu Production.</p>
         <div style={{display:'grid',gap:8,fontSize:13}}>
           {[
             ['Tạo/sửa/xóa lịch & phân công','Có API React / TypeScript; phải kiểm tra ghi thật với staging'],
@@ -64,7 +64,7 @@ export default function MigrationReadiness({embedded=false}:{embedded?:boolean})
             ['Lương lũy kế','Có trong web chính; cần so khớp với tháng cũ'],
             ['Bàn giao ảnh, video, góp ý','Có link token mới; link khách cũ phải được thử lại hoặc cấp mới'],
             ['Nộp Source và thao tác legacy đặc thù','Đã gỡ giao diện cũ; cần thử nghiệm đầy đủ nghiệp vụ trên VNext'],
-          ].map(([feature,level])=><div key={feature} style={{display:'grid',gridTemplateColumns:'minmax(120px,1fr) minmax(160px,2fr)',gap:12,padding:'12px 10px',border:'1px solid #e9edf5',borderRadius:10}}><strong>{feature}</strong><span style={{color:'#65768c'}}>{level}</span></div>)}
+          ].map(([feature,level])=><div key={feature} style={{display:'grid',gridTemplateColumns:'minmax(120px,1fr) minmax(160px,2fr)',gap:12,padding:'12px 10px',border:'1px solid var(--am-border-subtle)',borderRadius:10}}><strong>{feature}</strong><span style={{color:'var(--am-muted)'}}>{level}</span></div>)}
         </div>
       </section>
     </>}

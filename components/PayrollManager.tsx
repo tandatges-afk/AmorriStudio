@@ -51,7 +51,7 @@ export function PayrollManager({month,user}:{month:string;user:User|null}){
    setEditId(null);setReload(v=>v+1);
   }catch(err){setError((err instanceof Error?err.message:'Không lưu được lương')+' · Tải lại nếu dữ liệu đã bị người khác chỉnh sửa.');setBusy(false);}
  }
- return <div className="space-y-4">
+ return <div className="amorri-payroll space-y-4">
   <div className="section-intro"><WalletCards size={20}/> Lương lũy kế theo lịch làm việc, ứng trước và thanh toán. Mọi cập nhật được xác minh quyền Admin trên server.</div>
   <section className="surface p-5">
    <div className="flex flex-wrap items-center justify-between gap-3"><div><h3 className="text-lg font-bold">Bảng lương {month.slice(5)}/{month.slice(0,4)}</h3><p className="text-xs text-slate-500">Số dư cuối kỳ = Nợ đầu kỳ + Tiền công tháng − Ứng trước − Đã trả</p></div>

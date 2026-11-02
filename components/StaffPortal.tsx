@@ -58,7 +58,7 @@ export function StaffPortal(){
  },[staffId,token]);
  useEffect(()=>{void refresh();},[refresh,reload]);
  useEffect(()=>{if(!token)return;const timer=setInterval(()=>setReload(x=>x+1),60_000);return()=>clearInterval(timer);},[token]);
- return <main className="min-h-screen bg-slate-100 p-4 text-slate-900 md:p-8"><div className="mx-auto max-w-4xl space-y-5">
+ return <main className="amorri-staff-portal min-h-screen bg-slate-100 p-4 text-slate-900 md:p-8"><div className="mx-auto max-w-4xl space-y-5">
   <header className="flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-slate-900 p-5 text-white"><div><p className="text-xs tracking-[0.18em] text-slate-400">AMORRI STUDIO · ĐỘI NGŨ</p><h1 className="text-xl font-bold">Lịch sắp tới của bạn</h1><p className="text-sm text-slate-300">{info?`${info.staff.name} · ${info.staff.role}`:'Link xem lịch nhân sự'}</p></div>
    <button type="button" onClick={()=>setReload(x=>x+1)} className="inline-flex items-center gap-2 rounded-xl bg-white/10 px-3 py-2 text-sm"><RefreshCcw size={17}/> Làm mới</button></header>
   {busy&&!info&&<div role="status" className="rounded-xl bg-white p-5 text-sm">Đang tải lịch mới nhất…</div>}

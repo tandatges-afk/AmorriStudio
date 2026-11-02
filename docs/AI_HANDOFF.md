@@ -36,3 +36,12 @@ Read `../CLAUDE.md` and `../AGENTS.md` before editing this repository.
 4. User works on Windows with PowerShell/VS Code: ZIP goes to `Downloads`, local repo is `Desktop\AmorriStudio`, target `origin/main`. Provide one ZIP + one copy/paste checked PowerShell command for applying it.
 5. If any verification fails, do not commit/push; capture the actual terminal error and fix that error.
 6. For deployment, check GitHub Actions, live UI across phone/desktop, authenticated APIs, Drive photo downloads, and R2 1080p video seeks/reviews.
+
+## UI theme refresh — Design System 4.0 (2026-11-02)
+
+- User supplied six screenshots showing light hover/calendar cells, pale-on-light payroll rows, unreadable migration diagnostics, mixed dark/light booking forms.
+- `app/layout.tsx` now loads `app/amorri-design-system.css` instead of retired `app/amorri-depth-contrast.css`. Canonical palette is in `docs/DESIGN_SYSTEM.md`.
+- Added explicit classes for the new booking form and service picker; replaced inline white backgrounds / navy text in `MigrationReadiness.tsx` with semantic tokens; aligned payroll, calendar, admin system, staff portal and customer delivery colors.
+- Adds CSS-only 2.5D depth, responsive hover elevation and modal animation with `prefers-reduced-motion` support. No runtime JS, WebGL or video playback changes.
+- New regression file `tests/amorri-design-system-4.test.mjs` checks semantic structure, contrast, hover safeguards and reduced motion. Chromium static mock screenshots were inspected; production UI is NOT yet verified.
+- Run full tests and Next.js build on the user's Windows machine before push. Original source ZIP used was `AmorriStudio_FULL_SOURCE_R4_REDOWNLOAD.zip`; installer must check hashes/current `main` and never overwrite unrelated work.
