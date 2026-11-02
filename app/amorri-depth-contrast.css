@@ -1,0 +1,317 @@
+/*
+  Amorri Studio — Depth & Contrast 1.6.2 (admin only).
+  Layer loaded AFTER premium-v2 to repair mixed light/dark components.
+  Design: 2.5D depth with CSS; no WebGL, JS or new font downloads.
+  Accessibility: strong text contrast, visible focus, reduced motion.
+  Public customer delivery/video views deliberately excluded via .shell scope.
+*/
+.shell {
+  --am3-bg: #191322;
+  --am3-bg2: #251c31;
+  --am3-card: #33283e;
+  --am3-card2: #3c2d48;
+  --am3-ink: #fff7f2;
+  --am3-body: #eee3ef;
+  --am3-muted: #d3c2d4;
+  --am3-line: rgba(246, 217, 194, .27);
+  --am3-gold: #f5c995;
+  --am3-gold-ink: #261b2b;
+  --am3-mint: #9af0c5;
+  --am3-focus: #ffd28c;
+  --am3-shadow: 0 18px 36px rgba(8, 5, 16, .34), 0 5px 12px rgba(8, 5, 16, .17);
+  --navy: #1b1526;
+  --base: #1d1728;
+  --panel: #33283e;
+  --ink: var(--am3-ink);
+  --muted: var(--am3-muted);
+  --line: var(--am3-line);
+  --ops-ink: var(--am3-ink);
+  --ops-mute: var(--am3-muted);
+  --ops-line: var(--am3-line);
+  --ops-brand: var(--am3-gold);
+  --ops-bg: var(--am3-bg2);
+  --shadow: var(--am3-shadow);
+  color: var(--am3-body);
+  color-scheme: dark;
+  isolation: isolate;
+  background:
+    radial-gradient(ellipse 58% 35% at 96% 0%, rgba(164, 111, 138, .18), transparent 75%),
+    radial-gradient(ellipse 65% 50% at 8% 100%, rgba(113, 81, 133, .15), transparent 72%),
+    linear-gradient(130deg, #1e172a, #171320 88%);
+}
+body:has(.shell) { background: #191322; color: #fff7f2; }
+.shell :is(h1,h2,h3,h4,h5,h6,strong,b) { color: var(--am3-ink); }
+.shell :is(p,small,dd,dt,figcaption) { color: inherit; }
+.shell .content { min-width: 0; }
+.shell .content-inner { max-width: 1760px; }
+.shell .page-heading { border-bottom: 1px solid var(--am3-line); }
+.shell .page-heading h1 { color: var(--am3-ink); text-shadow: 0 2px 17px rgba(247,187,143,.11); }
+.shell .page-heading :is(p,.eyebrow) { color: var(--am3-muted); }
+.shell .eyebrow { color: var(--am3-gold); }
+.shell .breadcrumb { color: #e7d3e6; }
+.shell .breadcrumb span { color: var(--am3-gold); }
+.shell .sidebar { background:linear-gradient(170deg,#1c1426,#2a1e35 65%,#17121f); border-right:1px solid var(--am3-line); }
+.shell .sidebar-label { color: #e1c2db; }
+.shell .brand-word,.shell .user-meta strong { color: #fff6ed; }
+.shell .brand small,.shell .user-meta span { color: #d7c1d6; }
+.shell .nav-item { color: #eadbe9; }
+.shell .nav-item.nav-active { color: #fff5df; border:1px solid rgba(255,212,160,.48); background:linear-gradient(95deg,rgba(240,191,139,.28),rgba(164,117,160,.17)); box-shadow:inset 3px 0 var(--am3-gold),0 7px 25px rgba(12,6,19,.24); }
+.shell .nav-item:hover { background:rgba(245,204,167,.14); color:#fff9ed; }
+.shell .user-identity { border-color: var(--am3-line); }
+.shell .topbar { background:rgba(31,23,43,.94); border-color:var(--am3-line); color:var(--am3-ink); backdrop-filter:blur(12px); }
+.shell .topbar-right { color:#eadce9; }
+.shell .top-icon { color:#ffe3ba; border:1px solid var(--am3-line); background:rgba(255,255,255,.06); }
+.shell .top-icon:hover { color:#fff5df; border-color:var(--am3-gold); background:rgba(245,201,149,.15); }
+.shell .topbar-right .live-dot { background:#7ee0b0; box-shadow:0 0 0 4px rgba(109,232,171,.17); }
+
+/* Base depth surfaces: intentionally ONE dark surface system across every tab. */
+.shell :is(.surface,.metric,.staff-card,.delivery-card,.calendar-surface,.ops29-hub,.ops29-calendar,.ops29-analytics-intro,.ops29-analytics-kpis article,.ops29-analytics-columns>section,.ops30-health-hero,.ops30-health-item,.ops30-health-metrics>div,.panel,.card,.ops30-system-panel>.surface) {
+  background:linear-gradient(145deg,rgba(72,55,82,.97) 0%,rgba(49,38,62,.985) 60%,rgba(41,32,55,.99) 100%);
+  border:1px solid var(--am3-line);
+  color:var(--am3-body);
+  border-radius:18px;
+  box-shadow:var(--am3-shadow),inset 0 1px 0 rgba(255,248,227,.09);
+}
+.shell :is(.surface,.metric,.staff-card,.delivery-card,.ops29-hub,.ops29-analytics-kpis article,.ops29-analytics-columns>section,.ops30-health-item) { position:relative; }
+.shell :is(.metric,.staff-card,.delivery-card,.ops29-action,.ops29-analytics-kpis article) {
+  transition:transform .22s cubic-bezier(.22,.8,.25,1), border-color .22s ease, box-shadow .22s ease,background-color .22s ease;
+}
+@media (hover:hover) and (pointer:fine) {
+  .shell :is(.metric,.staff-card,.delivery-card,.ops29-analytics-kpis article):hover {
+    transform:translateY(-3px);
+    border-color:rgba(255,219,179,.56);
+    box-shadow:0 23px 42px rgba(6,4,15,.4),inset 0 1px 0 rgba(255,255,255,.14);
+  }
+}
+/* Rich dimensional hero, no synthetic KPI data and no added scripts. */
+.shell .welcome-band {
+  background:radial-gradient(circle at 78% 34%,rgba(217,158,121,.2),transparent 37%),
+    linear-gradient(115deg,#30223e 5%,#45304e 52%,#261d35 100%);
+  border:1px solid rgba(255,210,159,.32);
+  box-shadow:0 26px 54px rgba(9,4,18,.36), inset 0 1px 0 rgba(255,246,226,.15);
+  border-radius:24px;
+  isolation:isolate;
+}
+.shell .welcome-band:after {content:"";position:absolute;right:-6%;top:-58%;width:58%;height:130%;border:1px solid rgba(251,214,169,.2);border-radius:50%;transform:rotate(-22deg);pointer-events:none;}
+.shell .welcome-band :is(h2,h2 em) {color:#fff6ed;}
+.shell .welcome-band :is(p,.welcome-kicker) {color:#f1dce9;}
+.shell .welcome-art {filter:drop-shadow(0 17px 22px rgba(10,3,18,.42));}
+.shell .art-ring {border-color:rgba(255,210,162,.26);transform:rotateX(55deg) rotateZ(-18deg);box-shadow:0 8px 20px rgba(251,191,129,.05);}
+.shell .ring-two {border-color:rgba(255,228,186,.36);}
+.shell .art-center {background:linear-gradient(145deg,#7a617f,#32253f 48%,#221729);color:#fff6e8;border:1px solid rgba(255,215,172,.47);box-shadow:inset 4px 4px 12px rgba(255,234,211,.16),inset -8px -12px 21px rgba(8,2,17,.36),0 24px 38px rgba(9,3,16,.46);transform:perspective(700px) rotateY(-11deg) rotateX(8deg) rotateZ(-6deg);}
+.shell .art-center span {color:#ffcb94;}
+
+/* Metrics, schedule, statuses */
+.shell .metric {min-height:150px;}
+.shell .metric>span,.shell .metric small {color:#e1cfe3;}
+.shell .metric strong {font-size:clamp(23px,2.3vw,33px);color:#fff8ef;text-shadow:0 2px 10px rgba(255,213,163,.12);}
+.shell .metric-icon {color:#ffe0af;background:linear-gradient(130deg,rgba(248,205,157,.26),rgba(161,121,177,.14));border:1px solid rgba(255,212,164,.22);box-shadow:inset 0 1px 0 rgba(255,248,234,.13),0 8px 15px rgba(12,5,22,.2);}
+.shell .surface-title {border-bottom:1px solid var(--am3-line);color:var(--am3-body);background:rgba(28,20,37,.14);}
+.shell .surface-title :is(h2,h3,h4) {color:#fff7f0;}
+.shell .surface-title .eyebrow {color:#eac9b6;}
+.shell .surface :is(.month-title,.breakdown-row b,.upcoming-info strong,.section-intro b,.empty-state b) {color:#fff6f0;}
+.shell .upcoming-items {background:transparent;}
+.shell .upcoming-row {background:transparent;border-color:rgba(244,217,191,.13);color:var(--am3-body);}
+.shell .upcoming-row:hover {background:rgba(246,203,160,.09);}
+.shell .upcoming-row>svg {color:#f5c995;}
+.shell .upcoming-info>span,.shell .upcoming-date span {color:#d8c5d9;}
+.shell .upcoming-date {background:rgba(255,244,232,.1);border:1px solid rgba(255,230,197,.12);color:#ffedd2;}
+.shell .upcoming-date b {color:#fff8ef;}
+.shell .status {font-weight:800;border:1px solid transparent;}
+.shell .status-confirmed {background:#27493f;color:#baf6da;border-color:#497d64;}
+.shell .status-pending {background:#604327;color:#ffe2ad;border-color:#88623e;}
+.shell .status-done {background:#274b41;color:#c3f6dd;border-color:#407962;}
+.shell .status-cancelled {background:#4b3944;color:#f1ced4;border-color:#735665;}
+.shell .month-navigator :is(button,span),.shell .text-action {color:#f0dded;}
+.shell .text-action:hover {color:#ffe0b4;}
+.shell .status-breakdown,.shell .breakdown-foot {color:var(--am3-body);}
+.shell .breakdown-row span,.shell .breakdown-copy span {color:#e9d9e7;}
+.shell .progress-track {background:rgba(246,235,252,.22);}
+.shell .progress-track>div {background:linear-gradient(90deg,#ebad79,#ffe0af);}
+
+/* Staff, payroll and report tables: no pale-on-pale or muted numbers. */
+.shell .staff-card h3,.shell .delivery-details h3,.shell .activity-item strong {color:#fff6ef;}
+.shell .staff-card :is(p,.staff-card-bottom>a,.staff-card-bottom>button),.shell .activity-item p,.shell .delivery-details p {color:#dfcddd;}
+.shell .staff-role {background:rgba(230,195,234,.16);border:1px solid rgba(225,186,213,.27);color:#f2dfef;}
+.shell .staff-avatar {background:linear-gradient(135deg,#f2cf9e,#cd9fa4);color:#2e2036;box-shadow:0 8px 16px rgba(14,5,26,.24);}
+.shell .staff-card-bottom,.shell .activity-item {border-color:var(--am3-line);}
+.shell .activity-symbol {background:rgba(244,199,156,.21);color:#ffdda9;}
+.shell .table-scroll {border:1px solid var(--am3-line);background:rgba(27,20,36,.3);border-radius:14px;}
+.shell .data-table {background:transparent;color:#f6eaf4;}
+.shell .data-table thead,.shell .data-table th {background:#443448;color:#ffe4bd;border-color:var(--am3-line);}
+.shell .data-table th {font-size:11px;letter-spacing:.035em;}
+.shell .data-table td {color:#f2e6ed;border-color:rgba(255,225,198,.15);font-variant-numeric:tabular-nums;}
+.shell .data-table tbody tr:hover td {background:rgba(248,209,167,.1);}
+.shell .data-table td :is(strong,b),.shell .data-table .positive-amount {color:#b9f4d0;}
+.shell .data-table .negative-amount {color:#ffd29d;}
+.shell .ops29-analytics {--ops-ink:var(--am3-ink);--ops-mute:var(--am3-muted);--ops-line:var(--am3-line);--ops-bg:var(--am3-bg2);}
+.shell .ops29-analytics-intro {color:var(--am3-body);}
+.shell .ops29-analytics-intro h2,.shell .ops29-analytics-columns h3 {color:var(--am3-ink);}
+.shell .ops29-analytics-intro p,.shell .ops29-analytics-kpis article small {color:var(--am3-muted);}
+.shell .ops29-analytics-kpis article {color:#eecb9f;}
+.shell .ops29-analytics-kpis article strong {color:#fff7ee;}
+.shell .ops29-chart-row :is(span,b) {color:#f1e1ed;}
+.shell .ops29-chart-rail {background:rgba(248,228,252,.18);}
+.shell .ops29-chart-rail>div {box-shadow:0 0 10px rgba(246,185,139,.13);}
+.shell .ops29-muted {color:#d3c1d1;}
+
+/* VNext calendar & status blocks need explicit text colors, not inherited navy. */
+.shell .ops29-hub,.shell .ops29-calendar {--ops-ink:var(--am3-ink);--ops-mute:var(--am3-muted);--ops-line:var(--am3-line);--ops-bg:var(--am3-bg2);--ops-brand:var(--am3-gold);}
+.shell .ops29-header :is(h2,p),.shell .ops29-copy strong,.shell .ops29-queue-title,.shell .ops29-value {color:#fff4ed;}
+.shell .ops29-header p,.shell .ops29-copy small,.shell .ops29-queue-title small {color:#d7c4d7;}
+.shell .ops29-status {background:#25493f;color:#b5f2d0;border:1px solid #487a65;}
+.shell .ops29-action,.shell .ops29-queue-items button {background:rgba(26,19,36,.52);border:1px solid var(--am3-line);color:#f5e9f0;border-radius:13px;}
+.shell .ops29-action:hover,.shell .ops29-queue-items button:hover {background:rgba(245,201,149,.12);border-color:rgba(255,223,187,.45);}
+.shell .ops29-queue-items button :is(b,span) {color:#f3e8ee;}
+.shell .ops29-icon {background:rgba(247,204,160,.18);color:#ffe2b5;}
+.shell .ops29-day-headers b {background:#443449;color:#f7e8ed;border-color:var(--am3-line);}
+.shell .ops29-month-day {background:#362a42;border-color:rgba(241,216,194,.15);color:#f3e7ee;}
+.shell .ops29-month-day.outside {background:#2a2335;opacity:.7;}
+.shell .ops29-month-day>span,.shell .ops29-week-day h3,.shell .ops29-week-day h3 b,.shell .ops325-date-head .ops325-solar-day {color:#f7e7ee;}
+.shell .ops29-month-day.today>span,.shell .ops29-month-day.today .ops325-solar-day {background:linear-gradient(140deg,#edbe88,#f5d9b0);color:#2b2134;}
+.shell .ops325-lunar-date,.shell .ops29-month-day .ops325-lunar-date.is-first {color:#e6c8dd;}
+.shell .ops29-week-day {border-color:var(--am3-line);}
+.shell .ops29-day-empty,.shell .ops29-extra {color:#c6b6cb;}
+.shell .ops29-view-switch {background:#2a2337;}
+.shell .ops29-view-switch button {color:#e6d6e4;}
+.shell .ops29-view-switch button.selected {background:#f4d4ac;color:#2b1c32;}
+.shell .ops29-staff-filter {border-color:var(--am3-line);color:#f0d8e9;}
+.shell .ops29-staff-filter select {background:#342940;color:#f9edf5;}
+.shell .ops29-week-navigation {color:#e8dce9;}
+.shell .ops29-week-navigation :is(button,small) {color:#e4d2e0;border-color:var(--am3-line);}
+.shell .ops29-list>button {background:transparent;color:#f3e8ef;border-color:var(--am3-line);}
+.shell .ops29-list>button:hover {background:rgba(246,203,162,.1);}
+.shell .ops29-date,.shell .ops29-main b {color:#f9e7d7;}
+.shell .ops29-main small {color:#d6c1d5;}
+.shell .ops29-status-text.s-confirmed {color:#b5f4d5;}
+.shell .ops29-status-text.s-pending {color:#ffddaa;}
+.shell .ops29-status-text.s-done {color:#acf0c6;}
+.shell .ops29-status-text.s-cancelled {color:#dfb9c7;}
+.shell .ops29-empty,.shell .ops29-calendar-foot {background:rgba(29,22,39,.28);color:#e0d0e1;}
+.shell .ops29-warning {background:rgba(121,84,41,.4);color:#ffe5b6;border:1px solid rgba(250,200,145,.35);}
+
+/* System & health: legacy dark ink was practically invisible on purple cards. */
+.shell .ops30-health {--health-ink:#fff7ee;--health-muted:#ded0df;--ops-ink:#fff7ee;--ops-mute:#d9c5d9;}
+.shell .ops30-system-tabs {background:#332740;border:1px solid var(--am3-line);}
+.shell .ops30-system-tabs button {color:#eeddec;}
+.shell .ops30-system-tabs button.active {background:#eec99a;color:#2c2134;box-shadow:0 5px 14px rgba(10,4,20,.24);}
+.shell .ops30-health-hero :is(h2,p),.shell .ops30-health-item :is(h3,p) {color:var(--am3-ink);}
+.shell .ops30-health-hero :is(p),.shell .ops30-health-item>p {color:#e3d3e0;}
+.shell .ops30-health-icon {background:rgba(242,200,164,.19);color:#ffe2bb;}
+.shell .ops30-health-metrics>div {color:#f6eaf0;}
+.shell .ops30-health-metrics strong {color:#fff4e5;}
+.shell .ops30-health-metrics span {color:#ded0de;}
+.shell .ops30-health-item-head span {color:#c8f9df;background:#225244;border:1px solid #4a8068;}
+.shell .ops30-health-warning .ops30-health-item-head span {background:#5a4529;color:#ffe2ae;border-color:#846338;}
+.shell .ops30-health-error .ops30-health-item-head span {background:#633342;color:#ffc5ce;border-color:#915066;}
+.shell .ops30-health-action {background:#241e33;color:#f0e2ed;border:1px solid rgba(255,217,192,.19);}
+.shell .ops30-health-action :is(p,span,small) {color:#e8dbea;}
+.shell .ops30-health-footer,.shell .ops30-health-disclaimer {color:#d6c7d8;}
+.shell .ops30-health-footer button {color:#ffe0b4;border-color:var(--am3-line);background:#403147;}
+.shell .ops30-sync-badge {background:#29483e;color:#baf4d4;}
+.shell .ops30-review-heading :is(b,small) {color:#f5e8ef;}
+.shell .ops30-review-heading>button {background:#3b2b48;color:#f5e8ed;border-color:var(--am3-line);}
+.shell .ops30-review-controls>div {background:#31263e;}
+.shell .ops30-review-controls button {color:#efdfeb;}
+.shell .ops30-review-controls button.active {background:#f4d3a6;color:#30223b;}
+
+/* Common admin forms / notices / side panels: readable in BOTH themes. */
+.shell .section-intro,.shell .notice {background:#324057;color:#f1eaff;border:1px solid #63738c;}
+.shell .notice :is(p,small),.shell .section-intro :is(p,small) {color:#f0e7fb;}
+.shell .alert.error {background:#5e303e;color:#ffe5e8;border:1px solid #b36a78;}
+.shell .alert.error :is(p,small) {color:#ffe2e8;}
+.shell .search-input,.shell :is(input:not([type=checkbox]):not([type=radio]),select,textarea) {
+  background:#2d233a;
+  color:#fff5ef;
+  border:1px solid rgba(255,217,191,.37);
+  border-radius:10px;
+}
+.shell .search-input {box-shadow:inset 0 2px 7px rgba(5,2,13,.12);}
+.shell .search-input input {border:0;background:transparent;box-shadow:none;min-width:0;color:#fff4ed;}
+.shell :is(input,textarea)::placeholder {color:#d3bed0;opacity:1;}
+.shell select option {background:#2b2237;color:#fff6ed;}
+.shell :is(input,select,textarea,button,a):focus-visible {outline:3px solid var(--am3-focus);outline-offset:3px;}
+.shell :is(button,a):disabled {opacity:.65;}
+.shell .primary-button {background:linear-gradient(130deg,#ffdfb2,#eab47f);color:var(--am3-gold-ink);border:1px solid #ffedcb;box-shadow:0 11px 26px rgba(234,173,115,.23),inset 0 1px 0 rgba(255,255,255,.48);}
+.shell .primary-button:hover:not(:disabled) {background:linear-gradient(130deg,#ffe6c4,#f6c48f);box-shadow:0 15px 32px rgba(236,176,116,.31);transform:translateY(-2px);}
+.shell .secondary-button {background:linear-gradient(135deg,#44344d,#32283e);color:#fff1e5;border:1px solid rgba(251,218,186,.35);}
+.shell .secondary-button:hover:not(:disabled) {background:#52405c;color:#fff7ee;border-color:#f7c995;}
+.shell :is(.primary-button,.secondary-button):active:not(:disabled) {transform:translateY(0) scale(.992);}
+.shell .detail-backdrop {background:rgba(12,7,20,.75);backdrop-filter:blur(5px);}
+.shell .detail-panel {background:#2b2139;color:#f7eaf2;border-left:1px solid var(--am3-line);box-shadow:-14px 0 45px rgba(5,2,12,.52);}
+.shell .detail-panel :is(h2,dt,dd) {color:#f8eef3;}
+.shell .detail-panel dt {color:#d4c0d4;}
+.shell .detail-header {background:transparent;border-bottom:1px solid var(--am3-line);color:#ffe5c2;}
+.shell .detail-header button {background:#483751;color:#fff0df;}
+.shell .empty-state,.shell .loading-state {color:#e3d0e0;}
+.shell .empty-state :is(b,p) {color:#eddaeb;}
+.shell .footer {color:#cdbdd1;border-color:var(--am3-line);}
+.shell .footer span {color:#e2d0e0;}
+.shell .calendar-grid,.shell .day-headers {background:transparent;}
+.shell .day-headers>div {background:#45334a;color:#f8e5ee;border-color:var(--am3-line);}
+.shell .cal-day {background:#362b41;border-color:var(--am3-line);color:#f8eaf1;}
+.shell .cal-out {background:#30273c;color:#d2c1d5;}
+.shell .cal-date {color:#f4e6f0;}
+.shell .cal-today .cal-date {background:#f2c58f;color:#2b2135;}
+.shell .month-chip {background:#483649;color:#ffe1bc;}
+.shell .calendar-more {color:#d4c4d3;}
+/* Tailwind utility cards still use literal white/slate backgrounds in Staff/Payroll pages.
+   Re-skin those utilities only inside authenticated .shell, not the public gallery. */
+.shell :is(.bg-white,.bg-slate-50,.bg-slate-100,.bg-gray-50,.bg-indigo-50) {
+  background:#382b45;
+  color:#f8ecf4;
+  border-color:var(--am3-line);
+}
+.shell :is(.bg-white,.bg-slate-50,.bg-slate-100,.bg-gray-50,.bg-indigo-50):is(.rounded-xl,.rounded-2xl) {
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.08),0 10px 27px rgba(8,4,19,.16);
+}
+.shell .bg-indigo-50 {background:#30354e;color:#eaf1ff;border:1px solid #646e94;}
+.shell :is(.text-indigo-950,.text-indigo-800,.text-slate-800,.text-slate-700,.text-slate-600) {color:#f0e4f2;}
+.shell :is(.text-slate-500,.text-slate-400) {color:#d8c5d9;}
+.shell :is(.text-blue-500,.text-blue-600) {color:#b9d2ff;}
+.shell :is(.bg-rose-50,.bg-red-50) {background:#633442;color:#ffe8eb;border:1px solid #aa6f80;}
+.shell :is(.text-rose-800,.text-red-800,.text-rose-700,.text-rose-600) {color:#ffcad4;}
+.shell .bg-emerald-50 {background:#285344;color:#d2ffe5;border:1px solid #468469;}
+.shell .text-emerald-800 {color:#c8ffdf;}
+.shell :is(.border,.border-indigo-200,.border-slate-200) {border-color:var(--am3-line);}
+/* Don't re-color the selected area on ivory/gold CTA buttons. */
+.shell .primary-button :is(span,strong,b),
+.shell .ops29-view-switch button.selected :is(span,strong,b),
+.shell .ops30-system-tabs button.active :is(span,strong,b) {color:#2b2032;}
+.shell .data-table td .negative-amount {color:#ffd29d;}
+
+/* Semantic calendar events remain more saturated to be distinguishable without relying on hue alone. */
+.shell .calendar-event {background:#354967;color:#eef2ff;border-left-color:#a6bff8;}
+.shell .calendar-event.c-pending {background:#5a4329;color:#ffe0ab;border-left-color:#ffc47b;}
+.shell .calendar-event.c-done {background:#285245;color:#c9f6dd;border-left-color:#79dcaa;}
+.shell .calendar-event.c-cancelled {background:#51404b;color:#f0ced4;border-left-color:#bd91a5;}
+.shell .ops29-event {background:#364f6c;color:#eff4ff;border-color:#739fc9;}
+.shell .ops29-event.s-pending {background:#5b452b;color:#ffe3b3;border-color:#dca765;}
+.shell .ops29-event.s-done {background:#285344;color:#c5f8df;border-color:#7adcac;}
+.shell .ops29-event.s-cancelled {background:#493942;color:#f5d4dd;border-color:#a9778f;}
+
+@media (max-width:1000px) {
+  .shell .content-inner {padding:27px 21px 45px;}
+  .shell .ops29-analytics-columns {grid-template-columns:1fr;}
+  .shell .ops29-analytics-kpis {grid-template-columns:repeat(2,minmax(0,1fr));}
+  .shell .ops30-health-metrics {grid-template-columns:repeat(3,minmax(0,1fr));}
+}
+@media (max-width:650px) {
+  .shell .content-inner {padding:18px 13px 32px;}
+  .shell .ops29-analytics-kpis {grid-template-columns:repeat(2,minmax(0,1fr));}
+  .shell .ops30-health-metrics {grid-template-columns:1fr;}
+  .shell .ops29-analytics-columns>section {padding:15px;}
+  .shell .welcome-art {opacity:.17;right:-25%;}
+  .shell .metric {min-height:130px;}
+  .shell .page-heading h1 {font-size:26px;}
+  .shell .topbar {backdrop-filter:none;}
+}
+@media (prefers-reduced-motion:reduce) {
+  .shell,.shell * {animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important;}
+  .shell :is(.metric,.staff-card,.delivery-card,.ops29-analytics-kpis article):hover {transform:none;}
+}
+@media (prefers-contrast:more) {
+  .shell {--am3-muted:#f1e7f0;--am3-line:rgba(255,231,212,.7);}
+  .shell .surface,.shell .metric,.shell .ops29-hub,.shell .ops30-health-item {border-width:2px;}
+  .shell :is(.secondary-button,.primary-button,.top-icon) {border-width:2px;}
+}

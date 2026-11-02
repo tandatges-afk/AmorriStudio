@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import './amorri-premium.css';
 import './amorri-premium-v2.css';
+import './amorri-depth-contrast.css';
 
 export const metadata: Metadata = {
   title: 'Amorri Studio — VNext 2.5',
