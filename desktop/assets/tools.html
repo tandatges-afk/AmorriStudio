@@ -1,12 +1,12 @@
 <!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'">
-<title>Amorri Studio · Upload JPG</title><link rel="stylesheet" href="tools.css"><link rel="stylesheet" href="premium-tools.css"></head>
+<title>Amorri Studio · Upload JPG</title><link rel="stylesheet" href="tools.css"><link rel="stylesheet" href="premium-tools.css"><link rel="stylesheet" href="premium-queue.css"></head>
 <body>
 <div class="shell">
 <header class="top"><div class="brand"><span class="brand-icon">a.</span><div><strong>AMORRI STUDIO</strong><small>DRIVE WORKSPACE</small></div></div><div class="account"><button id="closeTools" class="ghost close-btn" type="button" aria-label="Đóng cửa sổ">× Đóng</button><span id="accountStatus">Đang kiểm tra kết nối</span><button id="login" class="ghost" type="button">Kết nối Drive</button></div></header>
 <main>
- <div class="heading"><div><div class="eyebrow">PHOTO DELIVERY</div><h1>Upload JPG</h1><p>Chọn khách, chọn thư mục cha trên Drive. App sẽ tự tạo album và tải ảnh lên.</p></div></div>
+ <div class="heading"><div><div class="eyebrow">PHOTO DELIVERY</div><h1>Up Drive</h1><p>Chọn khách, chọn Drive và để Amorri quản lý upload cho nhiều album.</p></div></div>
  <div class="device-line"><span>THIẾT BỊ UPLOAD</span><strong id="deviceName">Đang nhận diện...</strong><button type="button" id="renameDevice" class="ghost">Đổi tên máy</button><small id="deviceHint">Mỗi máy có thư mục Drive riêng</small></div>
  <div class="steps">
   <section class="pane">
@@ -16,13 +16,13 @@
   </section>
   <section class="pane">
    <div class="section-num">02 · GOOGLE DRIVE</div><h2>Đích upload</h2>
-   <button id="chooseParent" class="wide-choice" type="button"><span class="symbol">☁</span><span>Chọn thư mục cha <small>Chọn xong sẽ tự upload</small></span><span class="chevron">›</span></button>
+   <button id="chooseParent" class="wide-choice" type="button"><span class="symbol">☁</span><span>Chọn thư mục cha <small>Chọn xong đưa vào hàng đợi</small></span><span class="chevron">›</span></button>
    <div class="folder-detail"><span>ALBUM CỦA KHÁCH</span><strong id="destination">Chưa upload</strong></div>
   </section>
  </div>
  <section class="results sync-panel" id="syncPanel">
   <div class="result-heading"><div><div class="section-num">IMPORT EXISTING ALBUM</div><h2>Đồng bộ album đã có trên Drive</h2></div></div>
-  <p class="sync-description">Nếu JPG đã được upload thủ công hoặc bằng máy khác: chọn thư mục khách trên máy này, dán link thư mục khách hoặc jpg trên Drive, kiểm tra khớp toàn bộ ảnh và RAW trước khi liên kết. Không tải lại hay sửa ảnh trên Drive.</p>
+  <p class="sync-description">Nếu JPG đã được upload thủ công hoặc bằng máy khác: chọn thư mục khách trên máy này, chọn folder trực tiếp trên Drive, kiểm tra khớp toàn bộ ảnh và RAW trước khi liên kết. Không tải lại hay sửa ảnh trên Drive.</p>
   <label for="syncLink" class="sync-label">Link thư mục Google Drive</label>
   <input id="syncLink" type="url" placeholder="https://drive.google.com/drive/folders/..." autocomplete="off" spellcheck="false">
   <div class="sync-actions"><button id="syncCheck" type="button" class="ghost">Kiểm tra liên kết</button><button id="syncCommit" type="button" class="sync-primary" disabled>Liên kết nguồn trên máy này</button></div>
@@ -36,5 +36,5 @@
  </section>
 </main>
 <footer><span id="status" role="status" aria-live="polite">Sẵn sàng</span><button id="logout" class="foot-action" type="button">Ngắt kết nối Google</button></footer>
-</div><script src="tools.js"></script><script src="premium-drive-sync.js"></script>
+</div><script src="tools.js"></script><script src="premium-drive-sync.js"></script><script src="premium-queue.js"></script>
 </body></html>

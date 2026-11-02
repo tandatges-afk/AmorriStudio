@@ -19,6 +19,18 @@ extraResources:
     to: picker.js
   - from: assets/picker.css
     to: picker.css
+  - from: assets/premium-tools.css
+    to: premium-tools.css
+  - from: assets/premium-picker.css
+    to: premium-picker.css
+  - from: assets/premium-drive-sync.js
+    to: premium-drive-sync.js
+  - from: assets/premium-picker-ux.js
+    to: premium-picker-ux.js
+  - from: assets/premium-queue.css
+    to: premium-queue.css
+  - from: assets/premium-queue.js
+    to: premium-queue.js
   - from: desktop.config.json
     to: desktop.config.json
   - from: assets/icon.ico

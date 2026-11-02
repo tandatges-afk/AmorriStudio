@@ -1,0 +1,44 @@
+/* Amorri Studio 1.6.1 — premium dark admin, readable client delivery retained.
+   Scoped to .shell so delivery/gallery/video customer pages are not recolored. */
+.shell{--am-night:#1c1728;--am-night-2:#292238;--am-cocoa:#49394c;--am-gold:#e9bb8c;--am-gold-light:#f8e1c1;--am-paper:#1b1626;--am-card:#32293d;--am-text:#f8edf2;--am-subtle:#c6b7c8;--am-line:rgba(242,213,182,.17);--am-shadow:0 22px 56px rgba(5,4,16,.2)}
+body:has(.shell){background:#1b1626;color:#f5edf3}
+.shell{--navy:#1c1628;--base:#201a2c;--panel:#332a40;--ink:#f7eef3;--muted:#c8bbcc;--line:rgba(242,213,185,.18);--blue:#dfb88d;--amber:#efb981;--green:#79bca0;--violet:#c19dbf;--shadow:0 15px 42px rgba(8,4,20,.2);background:radial-gradient(ellipse 65% 44% at 95% 0,rgba(135,77,104,.2),transparent 75%),linear-gradient(130deg,#241c30,#1b1628);color:var(--ink)}
+.shell .sidebar{background:linear-gradient(180deg,#1d1729 0%,#251b31 65%,#171422);border-right:1px solid rgba(242,203,170,.13);box-shadow:14px 0 40px rgba(0,0,0,.09)}
+.shell .sidebar .nav-item{color:#d4bfd0;border-radius:11px;transition:background .18s ease,color .18s ease,transform .18s ease}
+.shell .sidebar .nav-item:hover{background:rgba(246,206,177,.1);color:#fff4e9;transform:translateX(2px)}
+.shell .sidebar .nav-item.nav-active{background:linear-gradient(110deg,rgba(235,185,142,.17),rgba(198,142,152,.13));color:#ffeddb;box-shadow:inset 3px 0 #f1c38d,0 0 25px rgba(235,178,126,.05);border:1px solid rgba(250,218,182,.22)}
+.shell .content{background:transparent;min-width:0}
+.shell .topbar{background:rgba(36,27,49,.86);border-bottom:1px solid rgba(244,211,180,.14);color:#e8d8e4;backdrop-filter:blur(12px)}
+.shell .breadcrumb,.shell .topbar-right{color:#cbb7c5}.shell .breadcrumb span{color:#ae8596}.shell .top-icon{border-color:rgba(242,212,182,.23);background:rgba(255,255,255,.045);color:#edceaa}
+.shell .top-avatar{background:linear-gradient(135deg,#f3d5b2,#dca880);color:#271e2c}
+.shell .content-inner{padding:clamp(22px,3vw,45px);max-width:1780px}
+.shell .page-heading{margin:10px 0 27px;border-color:rgba(246,208,176,.16)}
+.shell .page-heading h1{font-size:clamp(26px,3vw,37px);letter-spacing:-.05em;color:#fff5ed;font-weight:850}
+.shell .page-heading p,.shell .eyebrow{color:#d4b9bd}.shell .eyebrow{letter-spacing:.17em}
+.shell .primary-button{background:linear-gradient(112deg,#f4d4a8,#e7ad80);color:#302237;border:1px solid rgba(255,225,186,.5);box-shadow:0 10px 27px rgba(233,176,113,.19)}
+.shell .primary-button:hover{background:linear-gradient(112deg,#ffe0b7,#efbc8d);box-shadow:0 14px 33px rgba(233,176,113,.27);transform:translateY(-2px)}
+.shell .secondary-button{background:rgba(255,255,255,.05);border:1px solid rgba(255,222,195,.2);color:#f5e8e9}
+.shell .secondary-button:hover{background:rgba(255,255,255,.1);border-color:rgba(244,201,165,.5)}
+.shell .ops29-hub,.shell .ops29-calendar,.shell .stat-card,.shell .panel,.shell .card,.shell .ops30-health-hero,.shell .ops30-health-item{background:linear-gradient(140deg,rgba(66,50,75,.94),rgba(42,34,57,.97));color:#f9edf3;border:1px solid rgba(245,207,180,.17);box-shadow:0 18px 50px rgba(8,6,18,.14);border-radius:18px}
+.shell .ops29-hub{--ops-ink:#fff2eb;--ops-mute:#c9b9cc;--ops-line:rgba(242,213,182,.17);--ops-brand:#efc28d;--ops-bg:#292337}
+.shell .ops29-header h2,.shell .ops29-header p,.shell .ops29-copy strong,.shell .ops29-queue-title,.shell .ops29-value{color:#f7eaf1}
+.shell .ops29-action,.shell .ops29-queue-items button{background:rgba(24,18,35,.32);color:#f5e9ef;border:1px solid rgba(245,208,177,.14);border-radius:13px;transition:transform .18s ease,background .18s ease,border-color .18s ease}
+.shell .ops29-action:hover,.shell .ops29-queue-items button:hover{background:rgba(240,200,162,.1);border-color:rgba(246,214,181,.43);transform:translateY(-2px)}
+.shell .ops29-copy small,.shell .ops29-queue-title small{color:#c5b1c6}.shell .ops29-icon{background:rgba(241,192,149,.14);color:#f1c898}
+.shell .ops29-week-navigation,.shell .ops29-calendar-toolbar,.shell .ops29-queue{border-color:rgba(242,213,182,.17)}
+.shell .ops29-event{background:rgba(92,80,121,.3);border-color:rgba(177,163,211,.4);color:#e8ddfa}
+.shell .ops29-event.s-pending{background:rgba(217,154,91,.14);border-color:#b58854;color:#ffe1b5}.shell .ops29-event.s-done{background:rgba(105,176,144,.14);border-color:#6ead97;color:#c7f3da}
+.shell .ops29-day-empty{color:#b9a9c0}.shell .ops29-week-day{border-color:rgba(242,213,182,.12)}
+.shell .ops29-day-headers b{background:#362b42;color:#e8d1da;border-color:rgba(246,212,177,.1)}
+.shell .data-table{background:transparent;color:#f6ebf1}.shell .data-table th{background:rgba(255,255,255,.05);color:#e2c4d3;border-color:rgba(244,217,183,.14)}
+.shell .data-table td{border-color:rgba(244,217,183,.09)}.shell .data-table tr:hover td{background:rgba(246,213,177,.045)}
+.shell input:not([type=checkbox]):not([type=radio]),.shell select,.shell textarea{background:rgba(19,16,30,.24);color:#faeff3;border:1px solid rgba(243,208,180,.25);border-radius:10px}
+.shell input::placeholder,.shell textarea::placeholder{color:#a99cb2}
+.shell .alert.error{background:rgba(214,75,92,.16);border-color:rgba(247,139,149,.38);color:#ffccd1}
+.shell .status{color:#f1dcdb}
+/* Keep highly visual client previews, photos and raw video players in their own color systems. */
+.shell img,.shell video{filter:none!important}
+/* Remove redundant promotional helper decorations only, never safety warnings. */
+.shell .migration-tile,.shell .legacy-link{display:none!important}
+@media(max-width:800px){.shell .content-inner{padding:17px}.shell .page-heading h1{font-size:26px}}
+@media(prefers-reduced-motion:reduce){.shell *{scroll-behavior:auto!important;transition-duration:.01ms!important;animation-duration:.01ms!important}}

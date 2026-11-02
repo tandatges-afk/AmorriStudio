@@ -105,7 +105,7 @@
   };
   // Keep UI consistent while existing async operations are active.
   const observer=new MutationObserver(()=>{
-    chooseButton.disabled=!!check.disabled;
+    chooseButton.disabled=false;
   });
   observer.observe(check,{attributes:true,attributeFilter:['disabled']});
 })();

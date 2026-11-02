@@ -1,7 +1,7 @@
 import {contextBridge,ipcRenderer} from 'electron';
 const call=(name:string,...args:unknown[])=>ipcRenderer.invoke(name,...args);
 contextBridge.exposeInMainWorld('amorriDesktopTools',{
- closeWindow:()=>call('tools:close-window'),cancelUpload:()=>call('tools:cancel-upload'),
+ closeWindow:()=>call('tools:close-window'),cancelUpload:()=>call('tools:cancel-upload'),queueStatus:()=>call('tools:queue-status'),
  previewAlbumSync:(link:string)=>call('tools:sync-album-preview',link),commitAlbumSync:(token:string)=>call('tools:sync-album-confirm',token),
  status:()=>call('tools:status'),renameDevice:(name:string)=>call('tools:device-rename',name),pickJpg:()=>call('tools:pick-jpg'),setNames:(s:string[])=>call('tools:set-names',s),
  rawPreflight:()=>call('tools:raw-preflight'),scanRaw:()=>call('tools:scan-raw'),copyRaw:()=>call('tools:copy-raw'),openOutput:()=>call('tools:open-output'),
@@ -17,6 +17,7 @@ contextBridge.exposeInMainWorld('amorriDesktopTools',{
  pickerConfirm:(id:string,name:string)=>call('tools:picker-confirm',id,name),
  knownFolders:()=>call('tools:known-folders'),stageKnownFolder:(folderId:string,name:string)=>call('tools:stage-known-folder',folderId,name),
  onUploadResult:(cb:(result:unknown)=>void)=>ipcRenderer.on('amorri-upload-result',(_e,result)=>cb(result)),
+  onUploadQueue:(cb:(result:unknown)=>void)=>ipcRenderer.on('amorri-upload-queue',(_e,result)=>cb(result)),
  onProgress:(cb:(msg:string)=>void)=>ipcRenderer.on('amorri-tools-progress',(_e,text)=>cb(String(text))),
  onSelection:(cb:(names:string[])=>void)=>ipcRenderer.on('amorri-tools-selection',(_e,names)=>cb(names)),
  onDriveRequest:(cb:()=>void)=>ipcRenderer.on('amorri-tools-drive-request',()=>cb()),

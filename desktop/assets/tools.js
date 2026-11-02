@@ -48,7 +48,7 @@ el('pick').onclick=()=>run(async()=>{syncPlanToken=null;el('syncCommit').disable
  await status();announce(r.warning?'Cảnh báo: '+r.warning:`Đã kiểm tra: ${r.jpgCount} JPG và ${r.locCount} file trong loc/lọc. Sẵn sàng upload.`);
 });
 el('chooseParent').onclick=()=>run(async()=>{
- const s=await api.status();if(!s.jpgFolder)throw new Error('Chọn thư mục khách trên Windows trước.');
+ const s=await api.status();if(!s.jpgFolder)throw new Error('Chọn thư mục khách trên máy này trước.');
  text('progressLabel','Chọn Drive');announce('Chọn thư mục cha trên Google Drive để tự upload.');
  await api.openUploadPicker();
 });

@@ -33,8 +33,9 @@ export function resolveCustomerJpgFolder(selectedPath:string):{clientRoot:string
   if(path.parse(root).root===root)throw new Error('Không chọn toàn bộ ổ đĩa. Hãy chọn thư mục tên khách.');
   const folders=fs.readdirSync(root,{withFileTypes:true}).filter(x=>x.isDirectory()&&!x.isSymbolicLink());
   const jpgEntry=folders.find(x=>x.name.toLowerCase()==='jpg');
-  if(!jpgEntry)throw new Error('Thư mục khách phải có thư mục con jpg chứa ảnh bàn giao.');
-  const jpgFolder=fs.realpathSync(path.join(root,jpgEntry.name));
+  const hasFlatJpg=!jpgEntry&&fs.readdirSync(root,{withFileTypes:true}).some(x=>x.isFile()&&!x.isSymbolicLink()&&/\.jpe?g$/i.test(x.name));
+  if(!jpgEntry&&!hasFlatJpg)throw new Error('Chọn folder khách chứa JPG trực tiếp hoặc có thư mục con jpg.');
+  const jpgFolder=jpgEntry?fs.realpathSync(path.join(root,jpgEntry.name)):root;
   if(!realSubpath(root,jpgFolder))throw new Error('JPG không thuộc thư mục khách.');
   const rawEntry=folders.find(x=>x.name.toLowerCase()==='raw')||folders.find(x=>x.name.toLowerCase()==='goc');
   const rawFolder=rawEntry?fs.realpathSync(path.join(root,rawEntry.name)):null;

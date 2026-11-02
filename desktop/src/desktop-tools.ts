@@ -11,7 +11,7 @@ import {configureDriveOAuth,connectGoogleDrive,connectedGoogleDrive,disconnectGo
 type Config={googleOAuthClientId?:string;googleOAuthClientSecret?:string;driveReaderEmail?:string};
 type DriveMapping={id:string;url:string;shared:boolean;sharingWarning:string;complete?:boolean;parentId?:string;customerFolderId?:string;accountEmail?:string};
 type DriveUploadLink={sourceJpgFolder:string;url:string;accountEmail:string;updatedAt:string;complete:boolean};
-type FolderState={jpgFolder?:string;storageFolderId?:string;driveFolders?:Record<string,DriveMapping>;driveUploads?:Record<string,DriveUploadLink>;rawLinks?:Record<string,{sourceJpgFolder:string;deviceId:string;verifiedAt:string}>};
+type FolderState={jpgFolder?:string;storageFolderId?:string;driveFolders?:Record<string,DriveMapping>;driveUploads?:Record<string,DriveUploadLink>;recentCustomers?:string[];rawLinks?:Record<string,{sourceJpgFolder:string;deviceId:string;verifiedAt:string}>};
 let main:BrowserWindow;
 let toolsWindow:BrowserWindow|null=null;
 let pickerWindow:BrowserWindow|null=null;
@@ -20,6 +20,64 @@ let selectedNames:string[]=[];
 let pendingDriveEventId:string|null=null;
 let pendingDriveProductName:string|null=null;
 let latestReport:RawReport|null=null;
+type QueuedAlbum={id:string;jpgFolder:string;parentId:string;customer:string;totalFiles:number;totalBytes:number};
+const queuedAlbums:QueuedAlbum[]=[];
+let activeAlbum:QueuedAlbum|null=null;
+let queueWorkerRunning=false;
+let queueCancelled=false;
+let queueStart=0;
+let queueTransferred=0;
+let queueDone=0;
+let queueTotalFiles=0;
+let queueTotalBytes=0;
+function queueSnapshot(){
+ const pending=queuedAlbums.map(j=>({id:j.id,customer:j.customer,totalFiles:j.totalFiles}));
+ const elapsed=Math.max(1,(Date.now()-queueStart)/1000);
+ const speedBps=queueTransferred>0?queueTransferred/elapsed:0;
+ const remainingFiles=Math.max(0,queueTotalFiles-queueDone);
+ return {active:activeAlbum?{id:activeAlbum.id,customer:activeAlbum.customer}:null,pending,
+  totalFiles:queueTotalFiles,completedFiles:queueDone,remainingFiles,speedBps,
+  etaSeconds:speedBps>0?(Math.max(0,queueTotalBytes-queueTransferred)/speedBps):null};
+}
+function queuePublish(){
+ const snapshot=queueSnapshot();
+ if(toolsWindow&&!toolsWindow.isDestroyed())toolsWindow.webContents.send('amorri-upload-queue',snapshot);
+}
+function isUploadQueueActive(){return !!(uploadRunning||activeAlbum||queuedAlbums.length);}
+function enqueueAlbum(parentId:string,jpgFolder:string){
+ if(!jpgFolder||!isExistingJpgFolder(jpgFolder))throw new Error('Trước tiên hãy chọn thư mục khách còn tồn tại.');
+ const checked=validateCustomerUpload(jpgFolder);
+ if(queuedAlbums.some(x=>x.jpgFolder===jpgFolder)||activeAlbum?.jpgFolder===jpgFolder)
+  throw new Error('Khách này đang nằm trong hàng đợi. Không tạo bản upload trùng.');
+ const files=fs.readdirSync(jpgFolder,{withFileTypes:true}).filter(x=>x.isFile()&&/\.jpe?g$/i.test(x.name));
+ if(!files.length||files.length>2500)throw new Error('Album phải có từ 1 đến 2.500 JPG.');
+ const totalBytes=files.reduce((total,item)=>total+fs.statSync(path.join(jpgFolder,item.name)).size,0);
+ if(!queueWorkerRunning){queueStart=Date.now();queueDone=0;queueTransferred=0;queueTotalFiles=0;queueTotalBytes=0;queueCancelled=false;}
+ const job={id:randomUUID(),jpgFolder,parentId,customer:path.basename(checked.clientRoot),totalFiles:files.length,totalBytes};
+ queuedAlbums.push(job);queueTotalFiles+=job.totalFiles;queueTotalBytes+=job.totalBytes;
+ queuePublish();void pumpQueue();
+ return {queued:true,customer:job.customer,jobId:job.id,waiting:queuedAlbums.length};
+}
+async function pumpQueue(){
+ if(queueWorkerRunning)return;
+ queueWorkerRunning=true;
+ try{
+  while(queuedAlbums.length&&!queueCancelled){
+   const job=queuedAlbums.shift()!;activeAlbum=job;queuePublish();
+   try{
+    const report=await uploadCustomerToParent(job.parentId,job.jpgFolder);
+    if(toolsWindow&&!toolsWindow.isDestroyed())toolsWindow.webContents.send('amorri-upload-result',report);
+   }catch(error){
+    notifyProgress('Album '+job.customer+' lỗi: '+msg(error));
+    if(toolsWindow&&!toolsWindow.isDestroyed())toolsWindow.webContents.send('amorri-upload-result',{
+     customer:job.customer,uploaded:0,skipped:0,errors:[msg(error)],unattempted:job.totalFiles,cancelled:false,url:''});
+   }finally{activeAlbum=null;queuePublish();}
+  }
+ }finally{
+  queueWorkerRunning=false;queueCancelled=false;activeAlbum=null;queuedAlbums.length=0;
+  queuePublish();
+ }
+}
 let busy=false;
 let uploadRunning=false;
 let cancelRequested=false;
@@ -49,8 +107,8 @@ function registered<T>(name:string,fn:(...args:any[])=>Promise<T>|T){
 function preventCloseDuringUpload(win:BrowserWindow){
  if(guardedWindows.has(win))return;guardedWindows.add(win);
  win.on('close',event=>{
-  if(!uploadRunning)return;
-  event.preventDefault();
+  if(!isUploadQueueActive()||win===pickerWindow)return;
+   event.preventDefault();
   if(!win.isDestroyed()){win.show();win.focus();}
   notifyProgress('Đang upload. Bấm Dừng upload và đợi file hiện tại kết thúc trước khi đóng ứng dụng.');
  });
@@ -73,7 +131,7 @@ function validateCustomerUpload(jpgFolder:string){
  const clientRoot=clientFolderForJpgSource(jpgFolder);
  const folders=fs.readdirSync(clientRoot,{withFileTypes:true}).filter(x=>x.isDirectory()&&!x.isSymbolicLink());
  const jpg=folders.find(x=>x.name.toLocaleLowerCase('vi-VN')==='jpg');
- if(!jpg)throw new Error('Thiếu folder jpg trong thư mục khách. Hãy thêm folder jpg trước khi upload.');
+ if(!jpg && jpgFolder!==clientRoot)throw new Error('Thiếu folder jpg trong thư mục khách. Hãy thêm folder jpg hoặc chọn album chứa JPG trực tiếp.');
  const loc=folders.find(x=>['loc','lọc'].includes(x.name.normalize('NFC').toLocaleLowerCase('vi-VN')));
  const check=(folder:string, jpgOnly:boolean)=>{
    let count=0,zeroBytes=0;
@@ -229,11 +287,11 @@ async function runOneClickFilter(folderId:string,names:string[]){
  }finally{busy=false;}
 }
 
-async function uploadCustomerToParent(parentId:string){
+async function uploadCustomerToParent(parentId:string,sourceFolder?:string){
  if(busy)throw new Error('Ứng dụng đang upload hoặc lọc RAW.');
  if(parentId!=='root'&&!/^[A-Za-z0-9_-]{10,160}$/.test(parentId))throw new Error('ID thư mục cha không hợp lệ.');
- const jpgFolder=state().jpgFolder;
- if(!jpgFolder||!isExistingJpgFolder(jpgFolder))throw new Error('Chọn folder khách chứa jpg trước.');
+ const jpgFolder=sourceFolder||state().jpgFolder;
+  if(!jpgFolder||!isExistingJpgFolder(jpgFolder))throw new Error('Chọn folder khách chứa JPG trước.');
  const checked=validateCustomerUpload(jpgFolder);
  const root=checked.clientRoot;
  const customer=path.basename(root);
@@ -253,7 +311,7 @@ async function uploadCustomerToParent(parentId:string){
    if(previous?.parentId && previous.parentId!==parentId)notifyProgress('Album này đã liên kết Drive trước đó. Đang dùng lại album cũ để tránh tạo trùng.');
    notifyProgress('Đang chuẩn bị album khách '+customer+'…');
    // Existing albums keep their original folder IDs/links, including pre-1.5.9.
-   // New albums: selected parent / customer / jpg. Never create device folders.
+   // New albums: selected parent / customer / JPG files directly. Legacy nested jpg stays unchanged.
    // Provenance lives in Drive appProperties, invisible in the customer-facing tree.
    const customerFolder=previous?.id
      ?{id:previous.customerFolderId||await driveParentOf(previous.id)}
@@ -265,7 +323,7 @@ async function uploadCustomerToParent(parentId:string){
      if(!legacyParent)throw new Error('Không tìm thấy thư mục cha của album cũ trên Drive. Không tạo album mới để tránh mất liên kết.');
      uploadParentId=legacyParent;
    }
-   const jpgDrive=previous?.id?{id:previous.id}:await getOrCreateChildFolder(customerFolder.id,'jpg');
+   const jpgDrive=previous?.id?{id:previous.id}:{id:customerFolder.id};
    if(previous?.id&&previous.id!==jpgDrive.id)throw new Error('Folder khách đã liên kết album JPG khác. Dừng để tránh ghi đè.');
    const earlyUrl=`https://drive.google.com/drive/folders/${jpgDrive.id}`;
    persist({...state(),driveFolders:{...state().driveFolders,[jpgFolder]:{
@@ -294,13 +352,13 @@ async function uploadCustomerToParent(parentId:string){
        const matching=remoteExisting.filter(x=>x.name.toLowerCase()===path.basename(file).toLowerCase());
        if(matching.length!==1)throw new Error('JPG '+path.basename(file)+' trùng tên hoặc không có metadata hợp lệ trên Drive. Không bỏ qua file này.');
        verifyLocalJpgSample(jpgFolder,matching,1);
-       skipped++;continue;
+       skipped++;queueDone++;queuePublish();continue;
      }
      notifyProgress(`${i+1}/${files.length} · ${path.basename(file)}`);
-     try{await uploadLocalJpg(file,jpgDrive.id,{deviceId:device.deviceId,deviceName:device.deviceName,batchId},uploadController!.signal);uploaded++;}
+     try{await uploadLocalJpg(file,jpgDrive.id,{deviceId:device.deviceId,deviceName:device.deviceName,batchId},uploadController!.signal);uploaded++;queueTransferred+=fs.statSync(file).size;queueDone++;queuePublish();}
      catch(error){
        if(cancelRequested)break;
-       errors.push(path.basename(file)+': '+msg(error));
+       errors.push(path.basename(file)+': '+msg(error));queueDone++;queuePublish();
        notifyProgress('Ảnh lỗi: '+path.basename(file)+' — '+msg(error));
        // Prevent repeated network/API failures from hammering Google.
        if(errors.length>=10)break;
@@ -371,14 +429,14 @@ export function setupDesktopTools(win:BrowserWindow){
  toolsIpcRegistered=true;
 
  if(!guardedApp){guardedApp=true;app.on('before-quit',event=>{
-   if(uploadRunning){event.preventDefault();notifyProgress('Upload chưa kết thúc. Bấm Dừng upload trước khi thoát.');}
+   if(isUploadQueueActive()){event.preventDefault();notifyProgress('Upload chưa kết thúc. Bấm Dừng upload trước khi thoát.');}
  });}
  try{config=JSON.parse(fs.readFileSync(getResource('desktop.config.json'),'utf8')) as Config;}catch{}
  configureDriveOAuth(config.googleOAuthClientId||'',localOAuthClientSecret());
  registered('tools:known-folders',()=>({folders:readyDriveFolders(),pendingEventId:pendingDriveEventId,pendingProductName:pendingDriveProductName||''}));
  registered('tools:device-rename',(value:unknown)=>renameDevice(rootFolder(),value));
  registered('tools:status',async()=>({device:loadDeviceIdentity(rootFolder()),jpgFolder:state().jpgFolder||'',clientRoot:state().jpgFolder&&isExistingJpgFolder(state().jpgFolder!)?clientFolderForJpgSource(state().jpgFolder!):'',
-   selectedNames,storageFolderId:state().storageFolderId||'',clients:clientMappings(),
+   selectedNames,storageFolderId:state().storageFolderId||'',clients:clientMappings(),recentCustomers:(state().recentCustomers||[]).filter(isExistingJpgFolder),queue:queueSnapshot(),
    googleConnected:await connectedGoogleDrive().catch(()=>false),oauthConfigured:!!config.googleOAuthClientId,
    readerConfigured:!!config.driveReaderEmail,knownFolder:state().driveFolders?.[state().jpgFolder||'']||null}));
  registered('tools:pick-jpg',()=>{
@@ -387,7 +445,8 @@ export function setupDesktopTools(win:BrowserWindow){
    if(!chosen?.[0])return {cancelled:true};
    const {jpgFolder,clientRoot}=resolveCustomerJpgFolder(chosen[0]);
    const checked=validateCustomerUpload(jpgFolder);
-   persist({...state(),jpgFolder});latestReport=null;
+    const before=state();
+    persist({...before,jpgFolder,recentCustomers:[jpgFolder,...(before.recentCustomers||[]).filter(x=>x!==jpgFolder)].slice(0,30)});latestReport=null;
    return {jpgFolder,clientRoot,jpgCount:checked.jpgCount,locCount:checked.locCount,warning:checked.warning};
  });
  // Import a pre-existing JPG album uploaded outside Amorri (read-only comparison first).
@@ -407,7 +466,10 @@ export function setupDesktopTools(win:BrowserWindow){
    const jpgChildren=children.filter(f=>f.name.toLocaleLowerCase('en-US')==='jpg');
    if(jpgChildren.length>1)throw new Error('Thư mục Drive chứa nhiều folder jpg. Hãy chọn trực tiếp folder jpg chính xác.');
    const folderId=jpgChildren[0]?.id||selectedFolderId;
-   const customerFolderId=jpgChildren.length?selectedFolderId:await driveParentOf(folderId);
+   const directParent=jpgChildren.length?selectedFolderId:await driveParentOf(selectedFolderId);
+   const parentSiblings=jpgChildren.length?[]:await listDriveFolderChildren(directParent);
+   const selectedIsJpg=parentSiblings.some(f=>f.id===selectedFolderId&&f.name.toLowerCase()==='jpg');
+   const customerFolderId=jpgChildren.length?selectedFolderId:(selectedIsJpg?directParent:selectedFolderId);
    const current=state();
    const prior=current.driveFolders?.[jpgFolder];
    if(prior?.id&&prior.id!==folderId)throw new Error('Thư mục JPG trên máy đã liên kết album Drive khác. Không ghi đè liên kết cũ.');
@@ -421,7 +483,7 @@ export function setupDesktopTools(win:BrowserWindow){
    const token=report.ok?randomUUID():'';
    if(token)pendingAlbumSync={token,jpgFolder,folderId,customerFolderId,accountEmail,expiresAt:Date.now()+10*60_000};
    return {...report,token,folderId,driveUrl:`https://drive.google.com/drive/folders/${folderId}`,
-    rawFolderName:path.basename(report.rawFolder),customer:path.basename(path.dirname(jpgFolder))};
+    rawFolderName:path.basename(report.rawFolder),customer:path.basename(clientFolderForJpgSource(jpgFolder))};
   }finally{busy=false;}
  });
  registered('tools:sync-album-confirm',async(token:unknown)=>{
@@ -469,9 +531,9 @@ export function setupDesktopTools(win:BrowserWindow){
  });
  registered('tools:known-clients',()=>({clients:clientMappings(),jpgFolder:state().jpgFolder||''}));
  registered('tools:select-client',(clientPath:unknown)=>{
-  if(typeof clientPath!=='string'||clientPath.length>1024||!isExistingJpgFolder(clientPath)||!(clientPath in (state().driveFolders||{})))
+  if(typeof clientPath!=='string'||clientPath.length>1024||!isExistingJpgFolder(clientPath)||!((clientPath in (state().driveFolders||{}))||(state().recentCustomers||[]).includes(clientPath)))
     throw new Error('Khách này không có trong lịch sử upload trên máy này. Hãy chọn thư mục JPG lần đầu.');
-  persist({...state(),jpgFolder:clientPath});latestReport=null;
+  validateCustomerUpload(clientPath);persist({...state(),jpgFolder:clientPath});latestReport=null;
   return {jpgFolder:clientPath,clientRoot:clientFolderForJpgSource(clientPath)};
  });
  registered('tools:drive-account',async()=>({email:await driveAccountEmail(),scopeMode:await googleDriveScopeMode()}));
@@ -524,8 +586,10 @@ export function setupDesktopTools(win:BrowserWindow){
    if(!fs.existsSync(target))throw new Error('Chưa có thư mục loc.');
    return shell.openPath(target);
  });
- registered('tools:cancel-upload',()=>{
-  if(!uploadRunning)return {cancelling:false};
+ registered('tools:queue-status',()=>queueSnapshot());
+  registered('tools:cancel-upload',()=>{
+   if(!isUploadQueueActive())return {cancelling:false};
+   queueCancelled=true;queuedAlbums.length=0;queuePublish();
   cancelRequested=true;uploadController?.abort();
   notifyProgress('Đã yêu cầu dừng. Giữ nguyên các ảnh đã upload thành công.');
   return {cancelling:true};
@@ -542,7 +606,7 @@ export function setupDesktopTools(win:BrowserWindow){
  ipcMain.handle('tools:close-window',e=>{
    const matched=[toolsWindow,pickerWindow].find(w=>w&&!w.isDestroyed()&&w.webContents===e.sender&&e.senderFrame===w.webContents.mainFrame);
    if(!matched)throw new Error('Không thể đóng cửa sổ không thuộc Desktop Tools.');
-   if(uploadRunning)throw new Error('Đang upload. Hãy bấm Dừng upload trước khi đóng.');
+   if(isUploadQueueActive()&&matched!==pickerWindow)throw new Error('Đang upload. Hãy bấm Dừng upload trước khi đóng.');
    matched.close();return {closed:true};
  });
  registered('tools:picker-context',()=>({mode:pickerMode,productName:pendingDriveProductName||''}));
@@ -567,18 +631,17 @@ export function setupDesktopTools(win:BrowserWindow){
      pendingDriveEventId=null;pendingDriveProductName=null;
      pickerWindow.close();return result;
    }
-   const result=await uploadCustomerToParent(id);
-   if(pickerWindow&&!pickerWindow.isDestroyed())pickerWindow.close();
-   if(toolsWindow&&!toolsWindow.isDestroyed()){
-     toolsWindow.webContents.send('amorri-upload-result',result);
-     toolsWindow.show();toolsWindow.focus();
-   }
-   return result;
+   const selectedJpg=state().jpgFolder;
+    if(!selectedJpg)throw new Error('Chưa chọn thư mục khách.');
+    const result=enqueueAlbum(id,selectedJpg);
+    if(pickerWindow&&!pickerWindow.isDestroyed())pickerWindow.close();
+    if(toolsWindow&&!toolsWindow.isDestroyed()){toolsWindow.show();toolsWindow.focus();}
+    return result;
  });
  registered('tools:create-upload',async()=>{
    const parent=state().storageFolderId;
    if(!parent)throw new Error('Chưa chọn thư mục cha trên Google Drive.');
-   return uploadCustomerToParent(parent);
+   const folder=state().jpgFolder;if(!folder)throw new Error('Chưa chọn thư mục khách.');return enqueueAlbum(parent,folder);
  });
  registered('tools:stage-selected-drive',async(folderId:unknown,productName:unknown)=>{
    if(typeof folderId!=='string'||!/^[a-zA-Z0-9_-]{10,160}$/.test(folderId))throw new Error('Hãy chọn folder Drive hợp lệ trước.');
@@ -632,7 +695,7 @@ function openDrivePicker(mode:'product'|'upload'){
    backgroundColor:'#f7f8f7',webPreferences:{preload:path.join(__dirname,'tools-preload.js'),nodeIntegration:false,
      contextIsolation:true,sandbox:true,webSecurity:true,devTools:!app.isPackaged}});
  pickerWindow.once('ready-to-show',()=>pickerWindow?.show());
- preventCloseDuringUpload(pickerWindow);
+ // Picker may close freely while queued transfers continue in the main process.
  pickerWindow.on('closed',()=>{pickerWindow=null;});
  pickerWindow.webContents.on('will-navigate',e=>e.preventDefault());
  pickerWindow.webContents.setWindowOpenHandler(()=>({action:'deny'}));

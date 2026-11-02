@@ -34,9 +34,9 @@ async function load(){const token=++epoch;const target=stack.at(-1);el('back').d
 el('back').onclick=async()=>{if(stack.length<=1)return;stack.pop();chosen=stack.at(-1).id==='root'?(mode==='upload'?{id:'root',name:'My Drive'}:null):stack.at(-1);el('chosen').textContent=chosen?.name||'Chưa chọn thư mục';el('confirm').disabled=!chosen;results=null;el('search').value='';await load();};
 el('root').onclick=async()=>{stack.splice(1);chosen=mode==='upload'?{id:'root',name:'My Drive'}:null;el('chosen').textContent=chosen?.name||'Chưa chọn thư mục';el('confirm').disabled=!chosen;results=null;el('search').value='';await load();};
 el('search').oninput=()=>{clearTimeout(timer);const term=el('search').value.trim();if(!term){++epoch;results=null;show(list);return;}if(term.length<2){show([]);return;}timer=setTimeout(async()=>{const token=++epoch;try{const found=await api.driveSearch(term);if(token!==epoch)return;results=found;show(found);}catch(e){hint(e.message||String(e));}},250);};
-el('confirm').onclick=async()=>{if(!chosen||busy)return;busy=true;el('confirm').disabled=true;hint(mode==='upload'?'Đang tạo folder và upload JPG…':'Đang đưa folder vào sản phẩm…');
+el('confirm').onclick=async()=>{if(!chosen||busy)return;busy=true;el('confirm').disabled=true;hint(mode==='upload'?'Đang thêm album vào hàng đợi…':'Đang đưa folder vào sản phẩm…');
  try{await api.pickerConfirm(chosen.id,chosen.name);}catch(e){hint('Lỗi: '+(e.message||String(e)));busy=false;el('confirm').disabled=false;el('cancelUpload').hidden=true;}
 };
 (async()=>{try{const context=await api.pickerContext();mode=context.mode==='upload'?'upload':'product';
- if(mode==='upload'){el('heading').textContent='Chọn thư mục cha';el('description').textContent='Chọn xong app sẽ tạo tenkhach/jpg và tự upload.';el('confirm').textContent='Chọn & Upload JPG';}
+ if(mode==='upload'){el('heading').textContent='Chọn thư mục cha';el('description').textContent='Chọn thư mục cha. Amorri sẽ tạo Tên khách/ảnh.jpg và thêm vào hàng đợi.';el('confirm').textContent='Thêm vào hàng đợi';}
  await load();}catch(e){hint('Lỗi: '+(e.message||String(e)));}})();
