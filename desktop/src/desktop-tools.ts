@@ -1,6 +1,7 @@
 import {app,BrowserWindow,dialog,ipcMain,shell} from 'electron';
 import fs from 'node:fs';
 import {randomUUID} from 'node:crypto';
+import {compareExistingAlbum,parseDriveAlbumLink} from './album-sync';
 import {loadDeviceIdentity,renameDevice,originFromRecords,verifyLocalJpgSample,type OriginSummary} from './device-origin';
 import path from 'node:path';
 import {clientFolderForJpgSource,resolveCustomerJpgFolder,copySelectedRaws,inspectRawMatches,inspectRawPresence,type RawReport} from './raw-match';
@@ -22,6 +23,7 @@ let latestReport:RawReport|null=null;
 let busy=false;
 let uploadRunning=false;
 let cancelRequested=false;
+let pendingAlbumSync:{token:string;jpgFolder:string;folderId:string;customerFolderId:string;accountEmail:string;expiresAt:number}|null=null;
 let uploadController:AbortController|null=null;
 const guardedWindows=new WeakSet<BrowserWindow>();
 let guardedApp=false;
@@ -387,6 +389,83 @@ export function setupDesktopTools(win:BrowserWindow){
    const checked=validateCustomerUpload(jpgFolder);
    persist({...state(),jpgFolder});latestReport=null;
    return {jpgFolder,clientRoot,jpgCount:checked.jpgCount,locCount:checked.locCount,warning:checked.warning};
+ });
+ // Import a pre-existing JPG album uploaded outside Amorri (read-only comparison first).
+ registered('tools:sync-album-preview',async(rawUrl:unknown)=>{
+  if(busy)throw new Error('Ứng dụng đang xử lý. Hãy thử lại sau.');
+  const jpgFolder=state().jpgFolder;
+  if(!jpgFolder||!isExistingJpgFolder(jpgFolder))throw new Error('Trước tiên hãy chọn thư mục khách trên máy này.');
+  const selectedFolderId=parseDriveAlbumLink(rawUrl);
+  pendingAlbumSync=null;
+  busy=true;
+  try{
+   if(await googleDriveScopeMode()!=='full')throw new Error('Hãy nhấn Kết nối Drive và cấp quyền toàn bộ Drive trước khi kiểm tra album đã upload thủ công.');
+   const accountEmail=await driveAccountEmail();
+   if(!accountEmail)throw new Error('Hãy kết nối Google Drive trước.');
+   await verifyDriveFolder(selectedFolderId);
+   const children=await listDriveFolderChildren(selectedFolderId);
+   const jpgChildren=children.filter(f=>f.name.toLocaleLowerCase('en-US')==='jpg');
+   if(jpgChildren.length>1)throw new Error('Thư mục Drive chứa nhiều folder jpg. Hãy chọn trực tiếp folder jpg chính xác.');
+   const folderId=jpgChildren[0]?.id||selectedFolderId;
+   const customerFolderId=jpgChildren.length?selectedFolderId:await driveParentOf(folderId);
+   const current=state();
+   const prior=current.driveFolders?.[jpgFolder];
+   if(prior?.id&&prior.id!==folderId)throw new Error('Thư mục JPG trên máy đã liên kết album Drive khác. Không ghi đè liên kết cũ.');
+   if(prior?.accountEmail&&prior.accountEmail!==accountEmail)throw new Error('Nguồn JPG đã liên kết với tài khoản Google khác.');
+   for(const [otherFolder,mapping] of Object.entries(current.driveFolders||{})){
+    if(mapping.id===folderId&&otherFolder!==jpgFolder)throw new Error('Album Drive đã liên kết với một thư mục khác trên máy này. Hãy kiểm tra trước.');
+   }
+   notifyProgress('Đang đọc danh sách JPG đã upload thủ công trên Drive…');
+   const records=await listDriveJpgRecords(folderId);
+   const report=await compareExistingAlbum(jpgFolder,records,notifyProgress);
+   const token=report.ok?randomUUID():'';
+   if(token)pendingAlbumSync={token,jpgFolder,folderId,customerFolderId,accountEmail,expiresAt:Date.now()+10*60_000};
+   return {...report,token,folderId,driveUrl:`https://drive.google.com/drive/folders/${folderId}`,
+    rawFolderName:path.basename(report.rawFolder),customer:path.basename(path.dirname(jpgFolder))};
+  }finally{busy=false;}
+ });
+ registered('tools:sync-album-confirm',async(token:unknown)=>{
+  if(busy)throw new Error('Ứng dụng đang xử lý. Hãy thử lại sau.');
+  const plan=pendingAlbumSync;
+  pendingAlbumSync=null;
+  if(typeof token!=='string'||!plan||plan.token!==token||Date.now()>plan.expiresAt)
+   throw new Error('Phiên kiểm tra đã hết hạn. Bấm Kiểm tra liên kết lại.');
+  if(state().jpgFolder!==plan.jpgFolder||!isExistingJpgFolder(plan.jpgFolder))
+   throw new Error('Thư mục khách đã thay đổi. Hãy kiểm tra lại.');
+  busy=true;
+  try{
+   const email=await driveAccountEmail();
+   if(email!==plan.accountEmail)throw new Error('Tài khoản Google đã thay đổi. Hãy kiểm tra lại.');
+   await verifyDriveFolder(plan.folderId);
+   // Re-read and verify all original JPEG checksums to prevent TOCTOU changes.
+   const records=await listDriveJpgRecords(plan.folderId);
+   const report=await compareExistingAlbum(plan.jpgFolder,records,notifyProgress);
+   if(!report.ok)throw new Error('JPG trên máy và Drive đã thay đổi từ lần kiểm tra trước. Không liên kết.');
+   const before=state();
+   const prior=before.driveFolders?.[plan.jpgFolder];
+   if(prior?.id&&prior.id!==plan.folderId)throw new Error('Nguồn này đã liên kết Drive khác. Không thay thế tự động.');
+   for(const [otherFolder,mapping] of Object.entries(before.driveFolders||{})){
+    if(mapping.id===plan.folderId&&otherFolder!==plan.jpgFolder)throw new Error('Album này đã liên kết với nguồn JPG khác trên máy.');
+   }
+   // Link only local metadata. Never create/move/upload/delete Drive files.
+   const publicReadable=await isFolderPubliclyReadable(plan.folderId).catch(()=>false);
+   const parentId=await driveParentOf(plan.customerFolderId).catch(()=>'');
+   const driveUrl=`https://drive.google.com/drive/folders/${plan.folderId}`;
+   const device=loadDeviceIdentity(rootFolder());
+   const timestamp=new Date().toISOString();
+   const next=state();
+   persist({...next,jpgFolder:plan.jpgFolder,driveFolders:{...next.driveFolders,[plan.jpgFolder]:{
+     ...(next.driveFolders?.[plan.jpgFolder]||{}),id:plan.folderId,url:driveUrl,
+     shared:publicReadable,sharingWarning:publicReadable?'':'Folder chưa xác minh quyền xem công khai. Kiểm tra quyền cho website trước khi bàn giao.',
+     complete:true,parentId:parentId||undefined,customerFolderId:plan.customerFolderId,accountEmail:email
+   }},driveUploads:{...next.driveUploads,[plan.folderId]:{
+     sourceJpgFolder:plan.jpgFolder,url:driveUrl,accountEmail:email,updatedAt:timestamp,complete:true
+   }},rawLinks:{...next.rawLinks,[plan.folderId]:{
+     sourceJpgFolder:plan.jpgFolder,deviceId:device.deviceId,verifiedAt:timestamp
+   }}});
+   return {linked:true,driveUrl,localJpg:report.localJpg,driveJpg:report.driveJpg,rawCount:report.rawCount,rawMatched:report.rawMatched,rawMissing:report.rawMissing,
+     sharingWarning:publicReadable?'':'Hãy cấp quyền xem folder cho backend hoặc người nhận trước khi đưa vào sản phẩm bàn giao.'};
+  }finally{busy=false;}
  });
  registered('tools:known-clients',()=>({clients:clientMappings(),jpgFolder:state().jpgFolder||''}));
  registered('tools:select-client',(clientPath:unknown)=>{

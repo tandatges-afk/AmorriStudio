@@ -6,7 +6,7 @@ let busy=false;
 const announce=message=>{el('status').textContent=String(message)};
 const text=(id,value)=>{el(id).textContent=String(value)};
 function error(e){announce('Lỗi: '+(e?.message||e));text('progressLabel','Lỗi');text('driveResult','Lỗi: '+(e?.message||e));}
-function setBusy(active){busy=active;el('pick').disabled=active;el('chooseParent').disabled=active;el('login').disabled=active;}
+function setBusy(active){busy=active;el('syncCheck').disabled=active;el('syncCommit').disabled=active||!syncPlanToken;el('pick').disabled=active;el('chooseParent').disabled=active;el('login').disabled=active;}
 async function run(action){if(busy)return;setBusy(true);try{await action()}catch(e){error(e)}finally{setBusy(false)}}
 async function status(){
  const s=await api.status();const base=s.clientRoot||'';
@@ -43,7 +43,7 @@ el('renameDevice').onclick=()=>run(async()=>{
  const saved=await api.renameDevice(name);
  await status();announce('Đã lưu tên máy: '+saved.deviceName+' (thư mục Drive cũ giữ nguyên tên).');
 });
-el('pick').onclick=()=>run(async()=>{
+el('pick').onclick=()=>run(async()=>{syncPlanToken=null;el('syncCommit').disabled=true;
  const r=await api.pickJpg();if(r?.cancelled)return;
  await status();announce(r.warning?'Cảnh báo: '+r.warning:`Đã kiểm tra: ${r.jpgCount} JPG và ${r.locCount} file trong loc/lọc. Sẵn sàng upload.`);
 });
@@ -65,4 +65,34 @@ el('logout').onclick=()=>run(async()=>{
 });
 api.onProgress?.(message=>{announce(message);text('progressLabel',/dừng/i.test(message)?'Đang dừng':'Đang xử lý');if(/đang chuẩn bị album|\d+\/\d+|đang tạo/i.test(message.toLowerCase()))el('cancelUpload').hidden=false;});
 api.onUploadResult?.(report=>{result(report);void status().catch(error);});
+
+// Import a Drive album already uploaded outside the Desktop application.
+let syncPlanToken=null;
+el('syncLink').addEventListener('input',()=>{syncPlanToken=null;el('syncCommit').disabled=true;});
+el('syncCheck').onclick=()=>run(async()=>{
+ syncPlanToken=null;el('syncCommit').disabled=true;
+ const link=el('syncLink').value.trim();
+ let report;
+ try{report=await api.previewAlbumSync(link)}catch(e){text('syncReport','Không thể đồng bộ: '+(e?.message||e));throw e;}
+ const issues=[
+  report.missingOnDrive?.length?'Chỉ trên máy: '+report.missingOnDrive.slice(0,20).join(', '):'',
+  report.missingOnComputer?.length?'Chỉ trên Drive: '+report.missingOnComputer.slice(0,20).join(', '):'',
+  report.differentContent?.length?'Khác nội dung: '+report.differentContent.slice(0,20).join(', '):'',
+  report.missingChecksum?.length?'Drive thiếu checksum: '+report.missingChecksum.slice(0,20).join(', '):'',
+  report.rawMissing?.length?'Chưa có RAW tương ứng: '+report.rawMissing.slice(0,20).join(', '):''
+ ].filter(Boolean);
+ text('syncReport',`JPG trên máy: ${report.localJpg} | JPG trên Drive: ${report.driveJpg}\nRAW nguồn: ${report.rawCount}; trùng tên JPG: ${report.rawMatched} (${report.rawFolderName})\nAlbum: ${report.driveUrl}\n${report.warning}`+(issues.length?'\n'+issues.join('\n'):(report.ok?'\nSẵn sàng liên kết trên máy này.':'')));
+ syncPlanToken=report.ok?report.token:null;
+ el('syncCommit').disabled=!syncPlanToken;
+ announce(report.ok?'Đối chiếu thành công. Xác nhận liên kết khi đã chọn đúng khách.':'Không khớp JPG; xem chi tiết trong phần đồng bộ.');
+});
+el('syncCommit').onclick=()=>run(async()=>{
+ if(!syncPlanToken)throw new Error('Hãy kiểm tra album và RAW trước khi liên kết.');
+ if(!confirm('Đã xác minh đúng khách và nguồn RAW trên máy này? Liên kết chỉ lưu thông tin trong ứng dụng, không thay đổi file trên Drive.'))return;
+ const token=syncPlanToken;syncPlanToken=null;el('syncCommit').disabled=true;
+ const report=await api.commitAlbumSync(token);
+ text('syncReport',`Đã liên kết thành công!\n${report.localJpg} JPG trên máy = ${report.driveJpg} JPG trên Drive\nRAW: ${report.rawCount}; JPG có RAW cùng tên: ${report.rawMatched}\nAlbum: ${report.driveUrl}`+(report.sharingWarning?'\n'+report.sharingWarning:''));
+ await status();announce('Đã đồng bộ album có sẵn. Từ nay máy này có thể xác minh RAW theo Drive Folder ID.');
+});
+
 void status().catch(error);

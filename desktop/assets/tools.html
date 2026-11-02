@@ -20,6 +20,14 @@
    <div class="folder-detail"><span>ALBUM CỦA KHÁCH</span><strong id="destination">Chưa upload</strong></div>
   </section>
  </div>
+ <section class="results sync-panel" id="syncPanel">
+  <div class="result-heading"><div><div class="section-num">IMPORT EXISTING ALBUM</div><h2>Đồng bộ album đã có trên Drive</h2></div></div>
+  <p class="sync-description">Nếu JPG đã được upload thủ công hoặc bằng máy khác: chọn thư mục khách trên máy này, dán link thư mục khách hoặc jpg trên Drive, kiểm tra khớp toàn bộ ảnh và RAW trước khi liên kết. Không tải lại hay sửa ảnh trên Drive.</p>
+  <label for="syncLink" class="sync-label">Link thư mục Google Drive</label>
+  <input id="syncLink" type="url" placeholder="https://drive.google.com/drive/folders/..." autocomplete="off" spellcheck="false">
+  <div class="sync-actions"><button id="syncCheck" type="button" class="ghost">Kiểm tra liên kết</button><button id="syncCommit" type="button" class="sync-primary" disabled>Liên kết nguồn trên máy này</button></div>
+  <pre id="syncReport" aria-live="polite">Chưa kiểm tra album có sẵn.</pre>
+ </section>
  <section class="results"><div class="result-heading"><div><div class="section-num">UPLOAD ACTIVITY</div><h2>Kết quả upload</h2></div><span id="progressLabel" class="state">Sẵn sàng</span></div>
   <div id="resultSummary" class="metrics" hidden><div><strong id="numberUploaded">0</strong><span>Ảnh mới</span></div><div><strong id="numberSkipped">0</strong><span>Đã có</span></div><div><strong id="numberFailed">0</strong><span>Lỗi</span></div></div>
   <pre id="driveResult" aria-live="polite">Chưa có lượt upload.</pre>
