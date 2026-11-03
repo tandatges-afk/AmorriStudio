@@ -675,10 +675,16 @@ export function setupDesktopTools(win:BrowserWindow){
    return stageDriveDraft(productName,folder.url,pendingDriveEventId);
  });
 }
+/** Resolve the local brand icon in development and from extraResources in release. */
+function desktopWindowIcon():string|undefined{
+ const file=app.isPackaged?path.join(process.resourcesPath,'icon.ico'):path.resolve(__dirname,'..','assets','icon.ico');
+ return fs.existsSync(file)?file:undefined;
+}
 export function openDesktopTools(names?:string[]){
  if(names){selectedNames=cleanSelection(names);latestReport=null;}
  if(toolsWindow&&!toolsWindow.isDestroyed()){toolsWindow.show();toolsWindow.focus();return;}
  toolsWindow=new BrowserWindow({title:'Amorri — Upload JPG',width:910,height:720,minWidth:700,minHeight:520,
+   icon:desktopWindowIcon(),
    parent:main,modal:false,show:false,webPreferences:{preload:path.join(__dirname,'tools-preload.js'),
      nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true,devTools:!app.isPackaged}});
  toolsWindow.once('ready-to-show',()=>toolsWindow?.show());
@@ -695,6 +701,7 @@ function openDrivePicker(mode:'product'|'upload'){
  pickerMode=mode;
  const parent=mode==='upload'&&toolsWindow&&!toolsWindow.isDestroyed()?toolsWindow:main;
  pickerWindow=new BrowserWindow({title:mode==='product'?'Chọn folder bàn giao':'Chọn thư mục cha trên Drive',
+   icon:desktopWindowIcon(),
    width:560,height:680,minWidth:480,minHeight:510,parent,modal:true,show:false,
    backgroundColor:'#f7f8f7',webPreferences:{preload:path.join(__dirname,'tools-preload.js'),nodeIntegration:false,
      contextIsolation:true,sandbox:true,webSecurity:true,devTools:!app.isPackaged}});

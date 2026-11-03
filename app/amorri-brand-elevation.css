@@ -1,0 +1,82 @@
+/* Amorri Studio R8.2 — Brand Elevation.
+   One brand image across web and Electron; visual styles must not modify app logic. */
+:root{--am-brand-metal:#f4c990;--am-brand-light:#ffe8be;--am-brand-dark:#18131f}
+.shell .amorri-avatar,
+.shell .brand-square.amorri-logo-badge,
+.login-layout .amorri-logo-badge,
+.boot-screen .amorri-logo-badge{
+  position:relative;isolation:isolate;display:grid;place-items:center;
+  overflow:hidden;background:
+    radial-gradient(ellipse at 35% 18%,rgba(255,226,174,.25),transparent 58%),
+    linear-gradient(145deg,#46314a 0%,#201829 53%,#120f1d 100%)!important;
+  color:#ffe6b6;border:1px solid rgba(255,218,163,.79)!important;
+  box-shadow:0 3px 0 rgba(255,237,199,.13) inset,
+             0 8px 18px rgba(4,2,11,.44),0 0 0 2px rgba(239,183,117,.09),
+             0 0 18px rgba(245,196,126,.24)!important;
+  transform:translateZ(0);transform-style:preserve-3d;
+  transition:transform .34s cubic-bezier(.2,.8,.2,1),box-shadow .34s ease,border-color .34s ease;
+}
+.shell .amorri-avatar{width:38px;height:38px;min-width:38px;flex:0 0 38px;border-radius:12px;font-size:0;padding:0;margin:0}
+.shell .top-avatar.amorri-avatar{width:38px;height:38px;flex-basis:38px;border-radius:50%;margin-left:8px}
+.shell .amorri-avatar img,
+.shell .amorri-logo-badge img,
+.login-layout .amorri-logo-badge img,
+.boot-screen .amorri-logo-badge img{
+  display:block;width:94%;height:94%;object-fit:contain;object-position:center;
+  filter:brightness(1.16) contrast(1.12) drop-shadow(0 2px 6px rgba(255,203,139,.42));
+  transition:transform .38s cubic-bezier(.2,.8,.2,1),filter .38s;
+}
+.shell .amorri-avatar::after,
+.shell .amorri-logo-badge::after,
+.login-layout .amorri-logo-badge::after,
+.boot-screen .amorri-logo-badge::after{
+  content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+  background:linear-gradient(118deg,transparent 25%,rgba(255,238,205,.22) 46%,transparent 65%);
+  opacity:0;transform:translateX(-110%);
+}
+.shell .art-center.amorri-logo-hero{
+  isolation:isolate;position:relative;overflow:visible;
+  background:radial-gradient(circle,rgba(255,212,157,.2) 0,rgba(237,181,119,.1) 52%,transparent 75%);
+  filter:drop-shadow(0 15px 25px rgba(4,2,13,.27));
+}
+.shell .art-center.amorri-logo-hero::before{
+  content:"";position:absolute;inset:5%;border-radius:50%;pointer-events:none;
+  box-shadow:0 0 30px rgba(255,211,159,.22),inset 0 0 30px rgba(255,217,158,.12);
+  animation:amorri-brand-ambient 8s ease-in-out infinite;
+}
+.shell .art-center.amorri-logo-hero img{
+  filter:brightness(1.1) contrast(1.1) drop-shadow(0 6px 15px rgba(242,175,95,.34));
+}
+.client-delivery .amorri-delivery-logo{
+  width:40px;height:40px;object-fit:contain;border-radius:11px;padding:2px;
+  background:linear-gradient(135deg,rgba(74,50,75,.96),rgba(19,14,31,.95));
+  border:1px solid rgba(244,201,144,.6);
+  box-shadow:0 5px 16px rgba(0,0,0,.28),0 0 17px rgba(244,201,144,.21);
+  filter:brightness(1.13);
+  transition:transform .33s ease,box-shadow .33s ease;
+}
+@media(hover:hover) and (pointer:fine){
+  .shell .amorri-avatar:hover,.shell .brand-square.amorri-logo-badge:hover,
+  .login-layout .amorri-logo-badge:hover,.boot-screen .amorri-logo-badge:hover{
+    transform:perspective(500px) rotateY(-11deg) rotateX(7deg) translateY(-3px) scale(1.045);
+    border-color:rgba(255,231,190,.98)!important;
+    box-shadow:0 15px 30px rgba(3,1,12,.48),0 0 27px rgba(255,206,140,.36)!important;
+  }
+  .shell .amorri-avatar:hover img,.shell .brand-square.amorri-logo-badge:hover img,
+  .login-layout .amorri-logo-badge:hover img{transform:scale(1.07) translateZ(8px);filter:brightness(1.24) drop-shadow(0 4px 10px rgba(255,209,145,.45))}
+  .shell .amorri-avatar:hover::after,.shell .brand-square.amorri-logo-badge:hover::after,
+  .login-layout .amorri-logo-badge:hover::after{opacity:1;animation:amorri-brand-sheen .8s ease-out 1 both}
+  .client-delivery .amorri-delivery-logo:hover{transform:perspective(500px) rotateY(8deg) translateY(-2px);box-shadow:0 10px 20px rgba(0,0,0,.36),0 0 22px rgba(255,209,145,.32)}
+}
+@keyframes amorri-brand-sheen{from{transform:translateX(-110%)}to{transform:translateX(110%)}}
+@keyframes amorri-brand-ambient{0%,100%{opacity:.42;transform:scale(.98)}50%{opacity:.86;transform:scale(1.04)}}
+@media(prefers-reduced-motion:reduce){
+  .shell .amorri-avatar,.shell .amorri-avatar img,.shell .amorri-logo-badge,
+  .shell .amorri-logo-badge img,.login-layout .amorri-logo-badge,.login-layout .amorri-logo-badge img,
+  .boot-screen .amorri-logo-badge,.boot-screen .amorri-logo-badge img,
+  .shell .art-center.amorri-logo-hero::before,.client-delivery .amorri-delivery-logo{
+    animation:none!important;transition:none!important;transform:none!important;
+  }
+  .shell .amorri-avatar:hover::after,.shell .amorri-logo-badge:hover::after,
+  .login-layout .amorri-logo-badge:hover::after{animation:none!important;opacity:0!important}
+}

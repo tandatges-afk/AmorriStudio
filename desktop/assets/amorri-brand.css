@@ -1,18 +1,36 @@
-/* Amorri Studio R8 — original gold mark, subtle premium motion. */
+/* Amorri Studio R8.2 — local gold brand mark, enhanced depth without costly WebGL. */
 .brand-icon.amorri-brand-mark,.title .logo.amorri-brand-mark{
-  display:grid;place-items:center;overflow:hidden;flex-shrink:0;
-  background:linear-gradient(150deg,rgba(73,52,67,.95),rgba(25,17,32,.95))!important;
-  border:1px solid rgba(248,207,163,.4);box-shadow:0 9px 25px rgba(8,3,15,.24);
-  border-radius:13px;isolation:isolate;perspective:480px;
-  transition:transform .35s cubic-bezier(.2,.8,.2,1),box-shadow .35s;
+  position:relative;isolation:isolate;flex-shrink:0;display:grid;place-items:center;overflow:hidden;
+  background:radial-gradient(circle at 38% 19%,rgba(255,226,185,.27),transparent 58%),
+    linear-gradient(150deg,#4d344e 0%,#24192d 59%,#140e20 100%)!important;
+  color:#f6d39c!important;border:1px solid rgba(255,218,166,.8)!important;
+  border-radius:14px;box-shadow:inset 0 2px 0 rgba(255,238,207,.13),0 9px 20px rgba(3,1,12,.4),
+    0 0 0 2px rgba(244,201,144,.09),0 0 21px rgba(246,196,128,.26)!important;
+  perspective:480px;transform-style:preserve-3d;
+  animation:amorri-mark-arrive .6s ease-out both;
+  transition:transform .38s cubic-bezier(.2,.8,.2,1),box-shadow .38s ease;
 }
-.amorri-brand-mark img{display:block;width:95%;height:95%;object-fit:contain;object-position:center;
-  filter:drop-shadow(0 2px 4px rgba(220,156,85,.15));animation:amorri-mark-arrive .68s ease-out both;
-  transition:transform .4s cubic-bezier(.2,.8,.2,1),filter .4s;
+.brand-icon.amorri-brand-mark{width:54px!important;height:54px!important}
+.title .logo.amorri-brand-mark{width:49px!important;height:49px!important}
+.amorri-brand-mark img{
+  display:block;width:100%;height:100%;object-fit:contain;object-position:center;
+  filter:brightness(1.22) contrast(1.09) drop-shadow(0 4px 6px rgba(245,183,107,.35));
+  transition:transform .38s cubic-bezier(.2,.8,.2,1),filter .38s;
+}
+.amorri-brand-mark::after{
+  content:"";position:absolute;inset:0;pointer-events:none;border-radius:inherit;
+  background:linear-gradient(116deg,transparent 20%,rgba(255,238,203,.25) 48%,transparent 72%);
+  opacity:0;transform:translateX(-110%);
 }
 @media(hover:hover) and (pointer:fine){
- .amorri-brand-mark:hover{transform:perspective(480px) rotateY(-10deg) rotateX(5deg) translateY(-2px);box-shadow:0 14px 30px rgba(3,1,10,.34),0 0 22px rgba(244,201,144,.15)}
- .amorri-brand-mark:hover img{transform:translateZ(8px) scale(1.08);filter:drop-shadow(0 5px 9px rgba(235,187,122,.32))}
+  .amorri-brand-mark:hover{transform:perspective(480px) rotateY(-10deg) rotateX(6deg) translateY(-3px) scale(1.035);
+    box-shadow:0 16px 33px rgba(3,1,10,.48),0 0 29px rgba(255,209,147,.37)!important}
+  .amorri-brand-mark:hover img{transform:translateZ(8px) scale(1.06);filter:brightness(1.26) drop-shadow(0 6px 11px rgba(246,184,107,.45))}
+  .amorri-brand-mark:hover::after{opacity:1;animation:amorri-mark-sheen .8s ease-out 1 both}
 }
-@keyframes amorri-mark-arrive{from{opacity:0;transform:translateY(5px) scale(.88)}to{opacity:1;transform:translateY(0) scale(1)}}
-@media(prefers-reduced-motion:reduce){.amorri-brand-mark,.amorri-brand-mark img{animation:none!important;transition:none!important;transform:none!important}}
+@keyframes amorri-mark-arrive{from{opacity:.55;transform:translateY(4px) scale(.94)}to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes amorri-mark-sheen{from{transform:translateX(-110%)}to{transform:translateX(110%)}}
+@media(prefers-reduced-motion:reduce){
+  .amorri-brand-mark,.amorri-brand-mark img{animation:none!important;transition:none!important;transform:none!important}
+  .amorri-brand-mark:hover::after{animation:none!important;opacity:0!important}
+}

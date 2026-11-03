@@ -74,3 +74,9 @@ See `docs/AMORRI_R8_UPLOAD_AND_BRAND.md` for queue behavior, visibility and app/
 - R8.1 restores from full source via `Restore-Amorri-Full-R8_1.ps1` after SHA-256 validation and tests; retains old project as dated backup. Never force-push and never commit OAuth/Firebase secrets.
 - Targeted Electron `raw-match` + `desktop-commands` test gate passed 17/17 using locally transpiled source, but full Electron typecheck and production builds must still be rerun with dependencies on user's Windows machine.
 - npm audit: 15 moderate advisories shown in desktop install log; assess and remediate separately without `npm audit fix --force`.
+
+## R8.2 — Logo nổi bật và sửa icon ảnh lỗi (03/11/2026)
+- Web: `app/amorri-brand-elevation.css` được import cuối trong `app/layout.tsx`; hai avatar tài khoản trong `components/Dashboard.tsx` dùng logo thật, không còn chữ A.
+- Electron: CSP `img-src 'self' data:` trên `desktop/assets/tools.html` và `picker.html` cho phép ảnh logo nội bộ; `desktop/src/desktop-tools.ts` đặt icon `.ico` cho cửa sổ phụ trong dev và bản release.
+- CSS logo Electron `desktop/assets/amorri-brand.css` có khung vàng/độ nổi/hover 3D và hỗ trợ reduced motion.
+- Test: `tests/amorri-brand-elevation-r82.test.mjs`, `desktop/tests/r82-brand-elevation.test.mjs`. Không ảnh hưởng logic upload queue hoặc RAW match đã sửa ở R8.1.
