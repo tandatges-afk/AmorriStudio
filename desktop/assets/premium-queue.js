@@ -52,7 +52,7 @@
   <div class="ap-queue-stats"><div><b id="apQueueCompleted">0</b><span>File đã xử lý</span></div><div><b id="apQueueRemaining">0</b><span>File còn lại</span></div><div><b id="apQueueSpeed">—</b><span>Tốc độ thực tế</span></div><div><b id="apQueueEta">—</b><span>Ước tính còn lại</span></div></div>
   <div class="ap-track" role="progressbar" aria-label="Tiến độ upload" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div id="apQueueBar"></div></div>
   <div id="apQueueItems" class="ap-queue-items" aria-live="polite"><span>Chưa có album trong hàng đợi.</span></div>
-  <div class="ap-queue-footer"><button id="apQueueAdd" type="button">+ Thêm album tiếp theo</button><button id="apQueueStop" type="button" class="ap-queue-stop" disabled>Dừng toàn bộ upload</button></div>`;
+  <div id="apQueueHistory" class="ap-queue-history" aria-live="polite"></div><div class="ap-queue-footer"><button id="apQueueStop" type="button" class="ap-queue-stop" disabled>Dừng toàn bộ upload</button></div>`;
   resultPanel.closest('section')?.insertAdjacentElement('beforebegin', card);
   const fmt=(n)=>Number(n||0).toLocaleString('vi-VN');
   const size=(n)=>{
@@ -94,7 +94,26 @@
       const badge=document.createElement('span');badge.textContent='Đang chờ';line.append(b,badge);items.append(line);}
     if(!active&&!pending.length){const span=document.createElement('span');span.textContent=total?'Hàng đợi đã hoàn tất.':'Chưa có album trong hàng đợi.';items.append(span);}
   }
-  byId('apQueueAdd').onclick=()=>targetButton.click();
+  // Reuse the normal local-folder + Drive-parent flow for each new album.
+  // Upload jobs run independently in Electron main; the picker can close/reopen.
+  api.onUploadResult?.(report=>{
+    if(!report||typeof report!=='object')return;
+    const host=byId('apQueueHistory');
+    const line=document.createElement('div');line.className='ap-queue-history-line';
+    const customer=document.createElement('strong');customer.textContent=clean(report.customer||'Album');
+    const result=document.createElement('span');
+    const failed=Array.isArray(report.errors)?report.errors.length:0;
+    const count=Math.max(0,Number(report.uploaded)||0);
+    result.textContent=failed?'Có '+failed+' file lỗi':'Đã upload '+fmt(count)+' ảnh';
+    line.append(customer,result);
+    if(failed){
+      const details=document.createElement('details');
+      const title=document.createElement('summary');title.textContent='Xem lỗi upload';details.append(title);
+      const errors=document.createElement('pre');errors.textContent=report.errors.map(x=>clean(x,280)).join('\n');details.append(errors);
+      line.append(details);
+    }
+    host.prepend(line);while(host.children.length>5)host.lastElementChild?.remove();
+  });
   byId('apQueueStop').onclick=async()=>{
     byId('apQueueStop').disabled=true;
     try{await api.cancelUpload();}

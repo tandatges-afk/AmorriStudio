@@ -108,9 +108,12 @@ function preventCloseDuringUpload(win:BrowserWindow){
  if(guardedWindows.has(win))return;guardedWindows.add(win);
  win.on('close',event=>{
   if(!isUploadQueueActive()||win===pickerWindow)return;
-   event.preventDefault();
+  event.preventDefault();
+  // Hide the upload workspace while the main-process queue continues.
+  // Only quitting the main application is blocked during an active transfer.
+  if(win===toolsWindow){win.hide();return;}
   if(!win.isDestroyed()){win.show();win.focus();}
-  notifyProgress('Đang upload. Bấm Dừng upload và đợi file hiện tại kết thúc trước khi đóng ứng dụng.');
+  notifyProgress('Đang upload. Bấm Dừng upload và đợi file hiện tại kết thúc trước khi thoát ứng dụng.');
  });
 }
 function getResource(name:string){
@@ -606,7 +609,8 @@ export function setupDesktopTools(win:BrowserWindow){
  ipcMain.handle('tools:close-window',e=>{
    const matched=[toolsWindow,pickerWindow].find(w=>w&&!w.isDestroyed()&&w.webContents===e.sender&&e.senderFrame===w.webContents.mainFrame);
    if(!matched)throw new Error('Không thể đóng cửa sổ không thuộc Desktop Tools.');
-   if(isUploadQueueActive()&&matched!==pickerWindow)throw new Error('Đang upload. Hãy bấm Dừng upload trước khi đóng.');
+   if(isUploadQueueActive()&&matched===toolsWindow){matched.hide();return {closed:true,hidden:true};}
+   if(isUploadQueueActive()&&matched!==pickerWindow)throw new Error('Đang upload. Hãy dừng trước khi thoát ứng dụng.');
    matched.close();return {closed:true};
  });
  registered('tools:picker-context',()=>({mode:pickerMode,productName:pendingDriveProductName||''}));

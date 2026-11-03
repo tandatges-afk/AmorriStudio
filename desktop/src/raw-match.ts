@@ -63,10 +63,10 @@ export function inspectRawMatches(sourceJpgFolder:string, selectedNames:unknown,
   const raws=new Map<string,Array<{file:string;size:number}>>();
   let scanned=0;
   const folders=fs.readdirSync(root,{withFileTypes:true}).filter(x=>x.isDirectory()&&!x.isSymbolicLink());
-  const preferred=folders.find(x=>x.name.toLowerCase()==='raw')||folders.find(x=>x.name.toLowerCase()==='goc');
-  // Never search unrelated folders when the customer has no RAW/goc directory.
-  if(!preferred)throw new Error('Không tìm thấy thư mục raw hoặc goc trong folder khách. Hãy bổ sung folder RAW đúng khách trước khi lọc.');
-  const stack=[{folder:path.join(root,preferred.name),depth:0}];
+  const rawRoots=folders.filter(x=>['raw','goc'].includes(x.name.toLowerCase()));
+  // Scan both authorized source directories. A duplicate stem across raw/goc is ambiguous.
+  if(!rawRoots.length)throw new Error('Không tìm thấy thư mục raw hoặc goc trong folder khách. Hãy bổ sung folder RAW đúng khách trước khi lọc.');
+  const stack=rawRoots.map(x=>({folder:path.join(root,x.name),depth:0}));
   while(stack.length){
     const {folder,depth}=stack.pop()!;
     if(depth>12)throw new Error('Cấu trúc thư mục khách quá sâu (giới hạn 12 cấp).');
@@ -131,11 +131,11 @@ export function inspectRawPresence(sourceJpgFolder:string, limit=20_000):RawPres
   const root=clientFolderForJpgSource(sourceJpgFolder);
   let checked=0;
   let tooDeep=false;
-  const folders=fs.readdirSync(root,{withFileTypes:true}).filter(x=>x.isDirectory()&&!x.isSymbolicLink());
-  const preferred=folders.find(x=>x.name.toLowerCase()==='raw')||folders.find(x=>x.name.toLowerCase()==='goc');
-  if(!preferred)return {status:'missing',clientRoot:root,checked,reason:'Thư mục khách chưa có raw hoặc goc.'};
-  const stack=[{folder:path.join(root,preferred.name),depth:0}];
   try {
+    const folders=fs.readdirSync(root,{withFileTypes:true}).filter(x=>x.isDirectory()&&!x.isSymbolicLink());
+    const rawRoots=folders.filter(x=>['raw','goc'].includes(x.name.toLowerCase()));
+    if(!rawRoots.length)return {status:'missing',clientRoot:root,checked,reason:'Thư mục khách chưa có raw hoặc goc.'};
+    const stack=rawRoots.map(x=>({folder:path.join(root,x.name),depth:0}));
     while(stack.length){
       const {folder,depth}=stack.pop()!;
       for(const item of fs.readdirSync(folder,{withFileTypes:true})){

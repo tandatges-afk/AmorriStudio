@@ -1,5 +1,6 @@
 'use client';
 import {AnimatedCount} from './AnimatedCount';
+import Image from 'next/image';
 import {formatVnd} from '@/lib/domain/vietnam-money';
 
 import {PayrollManager} from '@/components/PayrollManager';
@@ -58,7 +59,7 @@ function Login({onLogin,error,loading}:{onLogin:(email:string,password:string)=>
   const [email,setEmail]=useState(''); const [password,setPassword]=useState('');
   return <div className="login-layout">
     <div className="login-showcase">
-      <div className="login-brand"><div className="brand-square">A<span>.</span></div><span>AMORRI <strong>STUDIO</strong></span></div>
+      <div className="login-brand"><div className="brand-square amorri-logo-badge"><Image src="/brand/amorri-mark.png" alt="" width={64} height={64} priority/></div><span>AMORRI <strong>STUDIO</strong></span></div>
       <div className="showcase-main"><div className="overline">AMORRI STUDIO / STUDIO OS 3.0.1</div>
         <h1>Mọi khoảnh khắc.<br/><em>Một hệ thống.</em></h1>
         <p>Không gian điều hành từ lịch quay chụp, đội ngũ đến bàn giao sản phẩm — đồng nhất và hiệu quả hơn.</p>
@@ -294,13 +295,13 @@ export function Dashboard(){
   const goTab=(next:Tab)=>{setTab(next);setSelected(null);setMenuOpen(false);};
   const currentEvent=selected?data?.events.find(e=>e.id===selected):null;
 
-  if(!ready)return <div className="boot-screen"><div className="brand-square">A<span>.</span></div><p>Đang kết nối Amorri Studio…</p></div>;
+  if(!ready)return <div className="boot-screen"><div className="brand-square amorri-logo-badge"><Image src="/brand/amorri-mark.png" alt="" width={64} height={64} priority/></div><p>Đang kết nối Amorri Studio…</p></div>;
   if(!user)return <Login onLogin={login} error={authError} loading={logging}/>;
 
   return <div className="shell">
     {menuOpen&&<button className="mobile-dimmer" aria-label="Đóng menu" onClick={()=>setMenuOpen(false)}/>}
     <aside className={`sidebar ${menuOpen?'sidebar-visible':''}`}>
-      <div className="brand"><div className="brand-square">A<span>.</span></div><div><div className="brand-word">AMORRI<span> STUDIO</span></div><small>CREATIVE MANAGEMENT</small></div><button onClick={()=>setMenuOpen(false)} className="sidebar-close" aria-label="Đóng menu"><X size={19}/></button></div>
+      <div className="brand"><div className="brand-square amorri-logo-badge"><Image src="/brand/amorri-mark.png" alt="" width={64} height={64} priority/></div><div><div className="brand-word">AMORRI<span> STUDIO</span></div><small>CREATIVE MANAGEMENT</small></div><button onClick={()=>setMenuOpen(false)} className="sidebar-close" aria-label="Đóng menu"><X size={19}/></button></div>
       <div className="sidebar-label">WORKSPACE</div><nav aria-label="Điều hướng chính" className="nav-items">{pages.map(p=>{
         const Icon=p.icon; return <button key={p.key} onClick={()=>goTab(p.key)} className={`nav-item ${tab===p.key?'nav-active':''}`}><Icon size={19}/><span>{p.name}</span>{tab===p.key&&<i/>}</button>;
       })}</nav>
@@ -331,7 +332,7 @@ export function Dashboard(){
         {data && tab!=='system' && <>
           {tab==='overview'&&<>
             <OperationsHub data={data} today={localToday()} onOpenEvent={setSelected} onNavigate={goTab}/>
-            <div className="welcome-band"><div><div className="welcome-kicker"><Sparkles size={14}/> STUDIO CONTROL CENTER</div><h2>Một nơi để quản lý<br/><em>mọi dự án sáng tạo.</em></h2><p>Lịch, nhân sự, tài chính và bàn giao sản phẩm trong một giao diện thống nhất.</p><button className="welcome-cta" onClick={()=>goTab('calendar')}>Xem lịch làm việc <ArrowRight size={16}/></button></div><div className="welcome-art"><div className="art-ring ring-one"/><div className="art-ring ring-two"/><div className="art-center">A<span>.</span></div></div></div>
+            <div className="welcome-band"><div><div className="welcome-kicker"><Sparkles size={14}/> STUDIO CONTROL CENTER</div><h2>Một nơi để quản lý<br/><em>mọi dự án sáng tạo.</em></h2><p>Lịch, nhân sự, tài chính và bàn giao sản phẩm trong một giao diện thống nhất.</p><button className="welcome-cta" onClick={()=>goTab('calendar')}>Xem lịch làm việc <ArrowRight size={16}/></button></div><div className="welcome-art"><div className="art-ring ring-one"/><div className="art-ring ring-two"/><div className="art-center amorri-logo-hero"><Image src="/brand/amorri-logo.png" alt="Biểu tượng Amorri Studio" width={180} height={180} priority/></div></div></div>
             <div className="metrics-grid">
               {[
                 {label:'Tổng số lịch',value:stats?.total||0,hint:'Trong tháng được chọn',icon:CalendarDays,kind:'purple'},

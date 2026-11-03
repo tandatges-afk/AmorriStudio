@@ -9,7 +9,7 @@ const here=path.dirname(fileURLToPath(import.meta.url));
 const assets=path.resolve(here,'../assets');
 const src=path.resolve(here,'../src');
 const load=x=>fs.readFileSync(path.join(assets,x),'utf8');
-function el(id){return {id,disabled:false,hidden:false,textContent:'',value:'',title:'',children:[],className:'',dataset:{},classList:{toggle(){},add(){},remove(){}},append(...x){this.children.push(...x)},replaceChildren(...x){this.children=[...x]}}}
+function el(id){return {id,disabled:false,hidden:false,textContent:'',value:'',title:'',children:[],className:'',dataset:{},classList:{toggle(){},add(){},remove(){}},addEventListener(){},append(...x){this.children.push(...x)},replaceChildren(...x){this.children=[...x]}}}
 function ui(script,html,api){
  const ids=[...html.matchAll(/\bid="([^"]+)"/g)].map(x=>x[1]);
  assert.equal(new Set(ids).size,ids.length);
@@ -46,8 +46,8 @@ test('popup searches Drive folders, navigates one level at a time and confirms s
 test('raw and Drive share remain local IPC-only; no browser receives local file paths',()=>{
  const ts=fs.readFileSync(path.join(src,'desktop-tools.ts'),'utf8');
  assert.match(ts,/driveUploads:/);assert.match(ts,/stageDriveDraft/);assert.match(ts,/amorri:raw-filter-done/);
- assert.match(ts,/getOrCreateChildFolder\(machine.id,customer\)/);
- assert.match(ts,/getOrCreateChildFolder\(customerFolder\.id,'jpg'\)/);
+ assert.match(ts,/getOrCreateChildFolder\(uploadParentId,customer\)/);
+ assert.match(ts,/const jpgDrive=previous\?\.id\?\{id:previous\.id\}:\{id:customerFolder\.id\}/);
  const gd=fs.readFileSync(path.join(src,'google-drive.ts'),'utf8');
  assert.match(gd,/allowFileDiscovery:false/);
  assert.match(gd,/role:'reader'/);

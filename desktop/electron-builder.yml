@@ -7,6 +7,10 @@ files:
   - dist/**/*
   - package.json
 extraResources:
+  - from: assets/amorri-logo.png
+    to: amorri-logo.png
+  - from: assets/amorri-brand.css
+    to: amorri-brand.css
   - from: assets/tools.html
     to: tools.html
   - from: assets/tools.js

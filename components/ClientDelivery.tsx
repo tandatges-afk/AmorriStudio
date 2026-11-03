@@ -204,7 +204,7 @@ export function ClientDelivery({eventId}:{eventId:string}){
     }catch(err){if(active)setError(err instanceof Error?err.message:'Không thể tải sản phẩm');}
     finally{if(active)setBusy(false);}})();return()=>{active=false;};
   },[eventId,token]);
-  return <div className="client-delivery"><header className="delivery-hero"><div className="delivery-brand">A<span>.</span> AMORRI <b>STUDIO</b></div><p>PRIVATE CLIENT DELIVERY</p>
+  return <div className="client-delivery"><header className="delivery-hero"><div className="delivery-brand"><img className="amorri-delivery-logo" src="/brand/amorri-mark.png" alt="" width="38" height="38"/> AMORRI <b>STUDIO</b></div><p>PRIVATE CLIENT DELIVERY</p>
     <h1>{data?.name||'Bàn giao hình ảnh & video'}</h1><div className="delivery-hero-sub">{data?.date||'Trải nghiệm riêng tư dành cho khách hàng'}</div></header>
     <main className="delivery-content">
       {busy&&<div className="delivery-message">Đang xác minh link và tải sản phẩm…</div>}

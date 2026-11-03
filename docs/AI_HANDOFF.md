@@ -61,3 +61,16 @@ Read `../CLAUDE.md` and `../AGENTS.md` before editing this repository.
 - Four distinct calendar status palettes in `app/amorri-design-system.css`: pending amber, confirmed blue, done mint green, cancelled rose. Week/month accessible labels include the status.
 - New regression tests: `tests/drive-list-large-folders-r7.test.mjs`. Live Google Drive listing speed, Vercel function budget, and production behavior must still be tested.
 - R7 source is based on the latest user-provided full source ZIP R6; installer must compare its manifest with local GitHub main. A newer remote change must stop the installer rather than overwrite it.
+
+
+## R8 upload UX and branding (2026-11-03)
+See `docs/AMORRI_R8_UPLOAD_AND_BRAND.md` for queue behavior, visibility and app/web logo assets.
+
+## R8.1 RAW matching Windows restore fix (2026-11-03)
+
+- User's R8 full restore failed in Electron test gate: 13/16 passed; three failures in `desktop/tests/raw-match.test.mjs`. The restore stopped BEFORE swapping the original folder or pushing main.
+- Root cause: `desktop/src/raw-match.ts` chose only `raw/` OR `goc/` within a customer, not both. Now scans both for exact JPG stem matches, detects duplicate RAW files as ambiguous, and applies one shared scan-size limit. Never search other customers or `loc` outputs.
+- `inspectRawPresence` returns `found` when any RAW has been positively identified; `unknown` only when scanning is truncated or fails without a confirmed match. Updated regression fixtures for uncertainty.
+- R8.1 restores from full source via `Restore-Amorri-Full-R8_1.ps1` after SHA-256 validation and tests; retains old project as dated backup. Never force-push and never commit OAuth/Firebase secrets.
+- Targeted Electron `raw-match` + `desktop-commands` test gate passed 17/17 using locally transpiled source, but full Electron typecheck and production builds must still be rerun with dependencies on user's Windows machine.
+- npm audit: 15 moderate advisories shown in desktop install log; assess and remediate separately without `npm audit fix --force`.

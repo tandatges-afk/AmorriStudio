@@ -29,3 +29,11 @@
 #uploadErrors{background:rgba(232,86,97,.08)!important;border:1px solid rgba(238,111,129,.3)!important;border-radius:13px!important;padding:16px!important}#failedFiles{white-space:pre-wrap;overflow-wrap:anywhere}
 @media(max-width:800px){.ap-queue-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.ap-quick{grid-template-columns:1fr}.ap-queue-head{flex-wrap:wrap}}
 @media(prefers-reduced-motion:reduce){.ap-track>div,.pane .wide-choice{transition:none!important}}
+
+/* Desktop R8: summary appears in queue rather than a duplicate Activity card. */
+.legacy-upload-metrics[hidden]{display:none!important}
+.ap-queue-history{display:grid;gap:7px;margin-top:14px}
+.ap-queue-history:empty{display:none}
+.ap-queue-history-line{display:flex;flex-wrap:wrap;gap:5px 12px;justify-content:space-between;padding:10px 12px;background:rgba(250,228,211,.055);border:1px solid rgba(245,209,175,.16);border-radius:10px;font-size:12px}
+.ap-queue-history-line strong{color:#f3e2d4}.ap-queue-history-line>span{color:#bfe5c4}
+.ap-queue-history-line details{flex-basis:100%;color:#ffb0b6}.ap-queue-history-line summary{cursor:pointer}.ap-queue-history-line pre{white-space:pre-wrap;overflow-wrap:anywhere;max-height:160px;overflow:auto;color:#ffbfc5}

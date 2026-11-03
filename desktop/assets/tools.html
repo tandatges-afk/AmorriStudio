@@ -1,10 +1,10 @@
 <!doctype html>
 <html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'self'; style-src 'self'; base-uri 'none'; form-action 'none'">
-<title>Amorri Studio · Upload JPG</title><link rel="stylesheet" href="tools.css"><link rel="stylesheet" href="premium-tools.css"><link rel="stylesheet" href="premium-queue.css"></head>
+<title>Amorri Studio · Upload JPG</title><link rel="stylesheet" href="tools.css"><link rel="stylesheet" href="premium-tools.css"><link rel="stylesheet" href="premium-queue.css"><link rel="stylesheet" href="amorri-brand.css"></head>
 <body>
 <div class="shell">
-<header class="top"><div class="brand"><span class="brand-icon">a.</span><div><strong>AMORRI STUDIO</strong><small>DRIVE WORKSPACE</small></div></div><div class="account"><button id="closeTools" class="ghost close-btn" type="button" aria-label="Đóng cửa sổ">× Đóng</button><span id="accountStatus">Đang kiểm tra kết nối</span><button id="login" class="ghost" type="button">Kết nối Drive</button></div></header>
+<header class="top"><div class="brand"><span class="brand-icon amorri-brand-mark"><img src="amorri-logo.png" alt="" draggable="false"></span><div><strong>AMORRI STUDIO</strong><small>DRIVE WORKSPACE</small></div></div><div class="account"><button id="closeTools" class="ghost close-btn" type="button" aria-label="Đóng cửa sổ">× Đóng</button><span id="accountStatus">Đang kiểm tra kết nối</span><button id="login" class="ghost" type="button">Kết nối Drive</button></div></header>
 <main>
  <div class="heading"><div><div class="eyebrow">PHOTO DELIVERY</div><h1>Up Drive</h1><p>Chọn khách, chọn Drive và để Amorri quản lý upload cho nhiều album.</p></div></div>
  <div class="device-line"><span>THIẾT BỊ UPLOAD</span><strong id="deviceName">Đang nhận diện...</strong><button type="button" id="renameDevice" class="ghost">Đổi tên máy</button><small id="deviceHint">Mỗi máy có thư mục Drive riêng</small></div>
@@ -28,7 +28,8 @@
   <div class="sync-actions"><button id="syncCheck" type="button" class="ghost">Kiểm tra liên kết</button><button id="syncCommit" type="button" class="sync-primary" disabled>Liên kết nguồn trên máy này</button></div>
   <pre id="syncReport" aria-live="polite">Chưa kiểm tra album có sẵn.</pre>
  </section>
- <section class="results"><div class="result-heading"><div><div class="section-num">UPLOAD ACTIVITY</div><h2>Kết quả upload</h2></div><span id="progressLabel" class="state">Sẵn sàng</span></div>
+ <!-- Hidden compatibility telemetry. Visible history and errors live inside the queue card. -->
+ <section class="legacy-upload-metrics" id="uploadActivityLegacy" hidden aria-hidden="true"><span id="progressLabel"></span>
   <div id="resultSummary" class="metrics" hidden><div><strong id="numberUploaded">0</strong><span>Ảnh mới</span></div><div><strong id="numberSkipped">0</strong><span>Đã có</span></div><div><strong id="numberFailed">0</strong><span>Lỗi</span></div></div>
   <pre id="driveResult" aria-live="polite">Chưa có lượt upload.</pre>
   <div id="uploadErrors" role="alert" aria-live="polite" hidden><strong>Danh sách file upload lỗi</strong><pre id="failedFiles"></pre></div>

@@ -18,6 +18,15 @@ test('match exactly under same customer, detect missing and ambiguity',()=>{
  const result=copySelectedRaws(report);assert.equal(result.copied.length,2);assert.equal(fs.readFileSync(path.join(customer,'loc','C9155.CR3'),'utf8'),'raw1');
  assert.equal(copySelectedRaws(report).alreadyPresent.length,2);
 });
+test('RAW and goc are both checked and duplicate names are ambiguous',()=>{
+ const extra=path.join(goc,'C9155.DNG');fs.writeFileSync(extra,'duplicate');
+ try{
+  const report=inspectRawMatches(jpg,['C9155.jpg','DSC_100.jpg']);
+  assert.equal(report.matches.length,1);
+  assert.equal(report.ambiguous.length,1);
+  assert.equal(report.ambiguous[0].selected,'C9155.jpg');
+ }finally{fs.unlinkSync(extra);}
+});
 test('never scan other customer or allow traversal',()=>{
  const report=inspectRawMatches(jpg,['OTH.jpg','../../evil.jpg']);assert.equal(report.matches.length,0);assert.equal(report.skippedInvalid.length,1);
 });
@@ -38,8 +47,13 @@ test('preflight: selected RAW output is ignored, no false positive',()=>{
  fs.writeFileSync(path.join(filtered,'C100.CR3'),'already selected');
  assert.equal(inspectRawPresence(source).status,'missing');
 });
-test('preflight: permission or file-count uncertainty is not falsely called missing',()=>{
- assert.equal(inspectRawPresence(jpg,1).status,'unknown');
+test('preflight: file-count uncertainty is unknown until a RAW file is actually found',()=>{
+ const uncertain=path.join(base,'khachLimit','raw');fs.mkdirSync(uncertain,{recursive:true});
+ fs.writeFileSync(path.join(uncertain,'A.txt'),'not raw');
+ fs.writeFileSync(path.join(uncertain,'B.txt'),'not raw');
+ assert.equal(inspectRawPresence(path.dirname(uncertain),1).status,'unknown');
+ // Presence is conclusive even if the remaining directory has not been scanned.
+ assert.equal(inspectRawPresence(jpg,1).status,'found');
 });
 test('filtered loc output is not counted as RAW in preflight',()=>{
  const other=path.join(base,'khachE');const source=path.join(other,'jpg');const filtered=path.join(other,'loc');

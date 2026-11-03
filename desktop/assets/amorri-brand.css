@@ -1,0 +1,18 @@
+/* Amorri Studio R8 — original gold mark, subtle premium motion. */
+.brand-icon.amorri-brand-mark,.title .logo.amorri-brand-mark{
+  display:grid;place-items:center;overflow:hidden;flex-shrink:0;
+  background:linear-gradient(150deg,rgba(73,52,67,.95),rgba(25,17,32,.95))!important;
+  border:1px solid rgba(248,207,163,.4);box-shadow:0 9px 25px rgba(8,3,15,.24);
+  border-radius:13px;isolation:isolate;perspective:480px;
+  transition:transform .35s cubic-bezier(.2,.8,.2,1),box-shadow .35s;
+}
+.amorri-brand-mark img{display:block;width:95%;height:95%;object-fit:contain;object-position:center;
+  filter:drop-shadow(0 2px 4px rgba(220,156,85,.15));animation:amorri-mark-arrive .68s ease-out both;
+  transition:transform .4s cubic-bezier(.2,.8,.2,1),filter .4s;
+}
+@media(hover:hover) and (pointer:fine){
+ .amorri-brand-mark:hover{transform:perspective(480px) rotateY(-10deg) rotateX(5deg) translateY(-2px);box-shadow:0 14px 30px rgba(3,1,10,.34),0 0 22px rgba(244,201,144,.15)}
+ .amorri-brand-mark:hover img{transform:translateZ(8px) scale(1.08);filter:drop-shadow(0 5px 9px rgba(235,187,122,.32))}
+}
+@keyframes amorri-mark-arrive{from{opacity:0;transform:translateY(5px) scale(.88)}to{opacity:1;transform:translateY(0) scale(1)}}
+@media(prefers-reduced-motion:reduce){.amorri-brand-mark,.amorri-brand-mark img{animation:none!important;transition:none!important;transform:none!important}}

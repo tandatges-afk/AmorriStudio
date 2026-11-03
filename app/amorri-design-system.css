@@ -414,3 +414,20 @@ body:has(> .amorri-migration) {background:#18131f;}
 .login-layout .primary-button {background:linear-gradient(125deg,#48324e,#2f233c);color:#fff8f1;border:1px solid #614a62;box-shadow:0 10px 23px rgba(64,35,65,.17);}
 .login-layout .primary-button:hover {background:linear-gradient(125deg,#5b4162,#40304b);}
 .login-layout .legacy-link {color:#624b67;}
+
+/* Amorri Studio R8 — brand mark replaces letter placeholders (no flat glyph). */
+.shell .brand-square.amorri-logo-badge,.login-showcase .brand-square.amorri-logo-badge,.boot-screen .brand-square.amorri-logo-badge{
+ display:grid;place-items:center;overflow:hidden;background:linear-gradient(145deg,#483447,#19131f)!important;
+ border:1px solid rgba(244,201,144,.4);border-radius:13px;transform-style:preserve-3d;
+ box-shadow:0 9px 24px rgba(8,4,18,.25);transition:transform .35s ease,box-shadow .35s ease;
+}
+.amorri-logo-badge img{width:98%;height:98%;object-fit:contain;transition:transform .35s ease;filter:drop-shadow(0 2px 5px rgba(233,171,111,.21))}
+.shell .art-center.amorri-logo-hero{display:grid;place-items:center;overflow:hidden}
+.shell .art-center.amorri-logo-hero img{object-fit:contain;width:96%;height:96%;filter:drop-shadow(0 8px 12px rgba(6,3,15,.45));transition:transform 400ms ease,filter 400ms ease}
+.client-delivery .delivery-brand{display:flex;align-items:center;gap:8px}
+.client-delivery .amorri-delivery-logo{display:block;object-fit:contain;width:38px;height:38px;filter:drop-shadow(0 2px 6px rgba(244,201,144,.15))}
+@media(hover:hover) and (pointer:fine){
+ .amorri-logo-badge:hover{transform:perspective(480px) rotateY(-12deg) rotateX(6deg) translateY(-2px);box-shadow:0 15px 32px rgba(8,4,18,.35),0 0 22px rgba(244,201,144,.13)}
+ .amorri-logo-badge:hover img,.amorri-logo-hero:hover img{transform:scale(1.08) translateZ(10px);filter:drop-shadow(0 6px 14px rgba(244,201,144,.29))}
+}
+@media(prefers-reduced-motion:reduce){.amorri-logo-badge,.amorri-logo-badge img,.amorri-logo-hero img{transition:none!important;transform:none!important}}
