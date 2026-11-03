@@ -1,0 +1,56 @@
+/* Amorri Studio R8.3 — Electron: stronger legibility and restrained 3D feedback.
+   Pure CSS: does not alter Drive picker or upload queue execution. */
+:root{--am83-ink:#fffaf6;--am83-body:#f6eaf1;--am83-muted:#e5cfe0;--am83-line:#987f99;--am83-gold:#f4c990;--am83-base:#181220;color-scheme:dark}
+body{color:var(--am83-body);background:linear-gradient(135deg,#251a31,#17111f 75%)}
+:is(.top,body>.picker>header){background:linear-gradient(110deg,#2c2038,#1f172a);border-color:#856c88}
+:is(.brand strong,.title h1,.heading h1,.pane h2,.results h2,.ap-queue-head h2){color:var(--am83-ink)!important}
+:is(.brand small,.title p,.heading p,.ap-queue-head p,.ap-queue-stats span,.ap-queue-items,.empty){color:var(--am83-muted)!important}
+:is(.pane,.results,.ap-queue-card){background:linear-gradient(140deg,#382943,#271e34);border:1px solid #866e8d;box-shadow:0 20px 46px rgba(3,1,11,.4),inset 0 1px rgba(255,237,215,.13);color:var(--am83-body)}
+:is(.device-line,.folder-detail,.ap-queue-stats>div,.ap-queue-line,.ap-queue-history-line){background:#281e34;border:1px solid #79647f;color:var(--am83-body)}
+:is(.folder-detail span,.device-line>span,.selected span){color:#e0c4d3!important}
+:is(.folder-detail strong,.device-line strong,.selected strong,.ap-queue-stats b,.ap-queue-line strong){color:#fffaf6!important}
+:is(.wide-choice,.item,.ap-folder-row){background:#30243d;color:#fffaf6;border-color:#8f7593;box-shadow:0 5px 0 #1b1426,0 10px 19px rgba(4,2,13,.22)}
+:is(.wide-choice,.item,.ap-folder-row):is(:hover,:focus-within){background:#49334d;border-color:#f4c990;color:#fffaf6}
+.item.active,.ap-folder-row.ap-selected{background:#533c4d;border-color:#ffdda4;box-shadow:inset 4px 0 #f4c990,0 6px 15px rgba(3,1,11,.22)}
+:is(.item .name,.ap-folder-label){color:#fffaf6!important}
+:is(.item .mark,.item .arrow,.ap-folder-ico){color:#ffdda4!important}
+:is(.ap-crumbs,.ap-search,.pathbar,.search,.folders){background:#21192d;border:1px solid #806a86;color:#f6eaf1}
+:is(.ap-crumbs span,.pathbar #crumb){color:#e5cfe0}
+:is(.search input,.ap-search input,#syncLink){background:#181321;color:#fffaf6;border-color:#a28aa4}
+:is(.search input,.ap-search input)::placeholder{color:#d6bfd5;opacity:1}
+:is(.ap-queue-pill,.ap-overline,.section-num,.eyebrow){color:#ffe4b3}
+.ap-queue-stats>div{transition:transform 240ms cubic-bezier(.2,.8,.2,1),box-shadow 260ms,border-color 190ms}
+.ap-track{background:#4b3c52}
+.ap-track>div{background:linear-gradient(90deg,#dda778,#ffe1a5);box-shadow:0 0 12px rgba(255,210,146,.35)}
+:is(.ghost,.ap-dialog-close,.amorri-picker-close,.ap-queue-footer button,.ap-cancel){background:#403149;color:#fffaf6;border:1px solid #af93ad;box-shadow:0 4px 0 #21172d,0 8px 15px rgba(3,1,11,.22)}
+:is(.sync-primary,.premium-folder-btn,.ap-confirm,footer #confirm){color:#241827;background:linear-gradient(125deg,#ffe6c0,#e9b478);border:1px solid #ffebcc;box-shadow:0 5px 0 #805d4f,0 12px 19px rgba(4,2,11,.27)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid #ffdda4!important;outline-offset:3px!important}
+button:disabled{opacity:.75;cursor:not-allowed;box-shadow:none!important}
+/* Gold logo: visual hierarchy without changing the actual logo asset. */
+.brand-icon.amorri-brand-mark,.title .logo.amorri-brand-mark{
+  border:1px solid #ffe1a9!important;
+  box-shadow:inset 0 2px rgba(255,240,214,.22),0 13px 29px rgba(2,1,9,.63),0 0 0 3px rgba(250,210,153,.2),0 0 30px rgba(248,198,126,.4)!important;
+}
+.amorri-brand-mark img{filter:brightness(1.48) contrast(1.15) saturate(1.12) drop-shadow(0 4px 9px rgba(255,204,141,.5))}
+.amorri-brand-mark::before{content:"";position:absolute;inset:1px;border-radius:inherit;pointer-events:none;border:1px solid rgba(255,226,174,.57);animation:am83-desktop-halo 5s ease-in-out infinite}
+@keyframes am83-desktop-halo{0%,100%{opacity:.3}50%{opacity:.82}}
+@keyframes am83-panel-enter{from{opacity:.4;transform:translate3d(0,8px,0) scale(.99)}to{opacity:1;transform:none}}
+:is(.pane,.ap-queue-card,.picker .finder){animation:am83-panel-enter 430ms cubic-bezier(.2,.75,.3,1) both}
+@media(hover:hover) and (pointer:fine){
+ :is(.pane,.ap-queue-stats>div):hover{border-color:#c7a48f;box-shadow:0 23px 48px rgba(3,1,11,.49),inset 0 1px rgba(255,238,210,.15)}
+ .ap-queue-stats>div:hover{transform:perspective(800px) translateY(-4px) rotateX(2deg)}
+ :is(.wide-choice,.item,.ap-folder-row):hover{transform:perspective(700px) translateY(-3px) rotateX(1deg);box-shadow:0 8px 0 #1b1426,0 15px 26px rgba(4,2,13,.38)}
+ :is(.ghost,.ap-dialog-close,.amorri-picker-close,.ap-queue-footer button):hover:not(:disabled){background:#533d58;transform:translateY(-2px)}
+ :is(.sync-primary,.premium-folder-btn,.ap-confirm,footer #confirm):hover:not(:disabled){filter:brightness(1.06);transform:translateY(-3px);box-shadow:0 8px 0 #805d4f,0 17px 25px rgba(4,2,11,.35)}
+ .amorri-brand-mark:hover{transform:perspective(480px) rotateY(-13deg) rotateX(8deg) translateY(-5px) scale(1.07)!important;box-shadow:0 19px 38px rgba(2,1,9,.68),0 0 37px rgba(255,218,153,.52)!important}
+}
+:is(.wide-choice,.item,.ap-folder-row,.ghost,.sync-primary,.premium-folder-btn,.ap-confirm,footer #confirm){transition:transform 210ms cubic-bezier(.2,.8,.2,1),box-shadow 240ms,border-color 180ms,background-color 180ms}
+:is(.wide-choice,.item,.ap-folder-row,.ghost,.sync-primary,.premium-folder-btn,.ap-confirm,footer #confirm):active:not(:disabled){transform:translateY(2px) scale(.99);box-shadow:none}
+/* Keep pressed feedback after hover rules. */
+:is(.wide-choice,.item,.ap-folder-row,.ghost,.sync-primary,.premium-folder-btn,.ap-confirm,footer #confirm):active:not(:disabled){transform:translateY(2px) scale(.99);box-shadow:none}
+@media(prefers-reduced-motion:reduce){
+ .amorri-brand-mark,.amorri-brand-mark::before,.pane,.ap-queue-card,.picker .finder,
+ .ap-queue-stats>div,.wide-choice,.item,.ap-folder-row,
+ .ghost,.sync-primary,.premium-folder-btn,.ap-confirm,footer #confirm{animation:none!important;transition:none!important;transform:none!important}
+}
+@media(forced-colors:active){:is(button,input,select):focus-visible{outline:3px solid Highlight!important}}

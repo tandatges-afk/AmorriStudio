@@ -80,3 +80,8 @@ See `docs/AMORRI_R8_UPLOAD_AND_BRAND.md` for queue behavior, visibility and app/
 - Electron: CSP `img-src 'self' data:` trên `desktop/assets/tools.html` và `picker.html` cho phép ảnh logo nội bộ; `desktop/src/desktop-tools.ts` đặt icon `.ico` cho cửa sổ phụ trong dev và bản release.
 - CSS logo Electron `desktop/assets/amorri-brand.css` có khung vàng/độ nổi/hover 3D và hỗ trợ reduced motion.
 - Test: `tests/amorri-brand-elevation-r82.test.mjs`, `desktop/tests/r82-brand-elevation.test.mjs`. Không ảnh hưởng logic upload queue hoặc RAW match đã sửa ở R8.1.
+
+
+## R8.3 Contrast & Motion (2026-11-03)
+
+Added accessible high-contrast admin and Electron CSS surfaces, tactile button depth, increased card tilt on desktop pointer and higher visibility gold logo. See `docs/AMORRI_R83_CONTRAST_MOTION.md` and regression `tests/amorri-r83-contrast-motion.test.mjs`. R8.1 RAW and R8.2 logo CSP fixes remain intact. No upload, OAuth, video or database logic changed. Continue from a clean Git main and verify production build before pushing.

@@ -56,3 +56,8 @@ Calendar month/week event cards and list-view chips use the same semantic mappin
 | `cancelled` | Đã hủy | `#ffc0d0` | `#543340` |
 
 Status color is supplemented with existing labels in list view and accessible status text in calendar view. The color system respects reduced-motion settings.
+
+
+## R8.3 contrast and tactile motion
+
+The R8.3 overrides live in `app/amorri-contrast-motion-r83.css` (loaded last via `app/layout.tsx`) and `desktop/assets/amorri-contrast-motion-r83.css` (last in Electron Tools/Picker HTML). Maintain one semantic light-on-dark system for admin surfaces, strong field placeholders, distinct event status colors, and a 3px keyboard focus outline. Read `docs/AMORRI_R83_CONTRAST_MOTION.md` before changing animations.

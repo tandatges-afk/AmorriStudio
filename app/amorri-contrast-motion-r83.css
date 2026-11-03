@@ -1,0 +1,172 @@
+/* Amorri R8.3 — readable first, motion second.
+   Loaded after the existing theme; all overrides are scoped to app surfaces.
+   No changes to business logic, media rendering or Google Drive uploads. */
+.shell {
+  --am-bg:#130f1c;
+  --am-bg-deep:#0f0b17;
+  --am-sidebar:#1c1528;
+  --am-surface:#282034;
+  --am-surface-alt:#34283f;
+  --am-raised:#43324c;
+  --am-input:#1b1526;
+  --am-ink:#fffaf6;
+  --am-body:#f6eaf1;
+  --am-muted:#e5cfe0;
+  --am-subtle:#d8c2d5;
+  --am-border:#987f99;
+  --am-border-subtle:#6f5977;
+  --am-accent:#f4c990;
+  --am-accent-hover:#ffe2b8;
+  --am-accent-ink:#261a30;
+  --am-focus:#ffdda4;
+  --am-shadow:0 16px 35px rgba(4,2,12,.4),0 4px 10px rgba(4,2,12,.2);
+  --am-shadow-hover:0 25px 53px rgba(4,2,12,.56),0 8px 20px rgba(4,2,12,.26);
+  color:var(--am-body);
+  background:radial-gradient(ellipse 46% 35% at 92% 0%,rgba(119,74,119,.20),transparent 90%),
+    linear-gradient(130deg,#1b1527 0%,#130f1c 78%);
+}
+body:has(.shell){background:#130f1c;color:#f6eaf1}
+.shell :is(.sidebar,.topbar){color:var(--am-body)}
+.shell .sidebar{background:linear-gradient(170deg,#20182c,#171120 80%);border-right:1px solid var(--am-border-subtle)}
+.shell .topbar{background:rgba(24,18,34,.97);border-bottom:1px solid var(--am-border-subtle)}
+.shell :is(.brand-word,.user-meta strong,.page-heading h1,.surface-title h2,.surface-title h3){color:var(--am-ink)}
+.shell :is(.sidebar-label,.brand small,.user-meta span,.page-heading p,.breadcrumb,.hint,.empty-state,.loading-state){color:var(--am-muted)}
+.shell .nav-item{color:#f6eaf1}
+.shell .nav-item:hover,.shell .nav-item:focus-visible{background:#42304d;color:#fffaf6;border-color:#987f99}
+.shell .nav-item.nav-active{background:linear-gradient(100deg,#6a4a59,#36283f);color:#fffaf6;border-color:#e9b878;box-shadow:inset 4px 0 #f4c990,0 12px 21px rgba(3,2,9,.34)}
+
+/* Make each card unmistakably separate from its parent, without washed-out grey surfaces. */
+.shell :is(.surface,.metric,.staff-card,.delivery-card,.ops29-analytics-kpis article){
+  background-color:var(--am-surface);
+  border-color:var(--am-border-subtle);
+  box-shadow:var(--am-shadow),inset 0 1px rgba(255,242,229,.11);
+}
+.shell :is(.metric,.staff-card,.delivery-card,.ops29-analytics-kpis article){
+  --am-rotate-x:0deg;--am-rotate-y:0deg;--am-pointer-x:50%;--am-pointer-y:50%;
+  position:relative;isolation:isolate;transform-style:preserve-3d;
+  transition:transform 360ms cubic-bezier(.17,.75,.25,1),box-shadow 360ms,border-color 220ms;
+}
+.shell :is(.metric,.staff-card,.delivery-card,.ops29-analytics-kpis article)::before{
+  content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;z-index:0;
+  background:radial-gradient(circle 170px at var(--am-pointer-x) var(--am-pointer-y),rgba(255,213,155,.20),transparent 80%);
+  opacity:0;transition:opacity 250ms;
+}
+.shell :is(.metric,.staff-card,.delivery-card,.ops29-analytics-kpis article)>*{position:relative;z-index:1}
+.shell :is(.metric,.staff-card,.delivery-card,.ops29-analytics-kpis article) :is(small,span,.hint){color:var(--am-muted)}
+.shell :is(.metric,.staff-card,.delivery-card,.ops29-analytics-kpis article) :is(strong,b){color:var(--am-ink)}
+.shell .metric-icon{background:#523b4b;border-color:#ae89a1;color:#ffe0ac}
+.shell .welcome-band{background:radial-gradient(circle at 78% 25%,rgba(251,194,134,.20),transparent 46%),linear-gradient(115deg,#32223f,#4c3050 55%,#2a203b);border-color:#b88d9d;box-shadow:0 30px 62px rgba(5,2,14,.5),inset 0 1px rgba(255,235,212,.16)}
+.shell .welcome-band :is(p,.welcome-kicker){color:#f7e4f0}
+
+/* Readable fields, tables and numeric data in every dark state. */
+.shell :is(input:not([type=checkbox]):not([type=radio]),select,textarea){background:#1b1526;color:#fffaf6;border:1px solid #a38ba8}
+.shell :is(input,textarea)::placeholder{color:#d8c4d4;opacity:1}
+.shell :is(input,select,textarea):focus-visible{border-color:#ffe2b8;outline:3px solid #ffdda4;outline-offset:2px;box-shadow:0 0 0 5px rgba(244,201,144,.14)}
+.shell .table-scroll{border-color:var(--am-border-subtle)}
+.shell .data-table th{background:#49364b;color:#ffe6bb;border-color:#9a7d93}
+.shell .data-table tbody tr,.shell .data-table tbody td{background:#282034;color:#f6eaf1}
+.shell .data-table tbody tr:nth-child(even),.shell .data-table tbody tr:nth-child(even) td{background:#34283f;color:#f6eaf1}
+.shell .data-table tbody tr:is(:hover,:focus-within) td{background:#493552;color:#fffaf6}
+.shell .data-table .hint{color:#e5cfe0}
+.shell .amorri-payroll .grid>div.bg-slate-50{background:#34283f;color:#fffaf6;border-color:#866d8b}
+.shell :is(.text-slate-500,.text-slate-400,.text-indigo-600,.text-blue-500,.text-blue-600){color:var(--am-muted)}
+.shell :is(.bg-white,.bg-slate-50,.bg-slate-100,.bg-gray-50,.bg-indigo-50){background:#34283f;color:var(--am-body)}
+.shell :is(.bg-white,.bg-slate-50,.bg-slate-100,.bg-gray-50,.bg-indigo-50) :is(.text-slate-900,.text-slate-800,.text-slate-700){color:var(--am-ink)}
+
+/* Four states differentiated by fill, border and a thick left marker, not hue alone. */
+.shell :is(.ops29-event.s-pending,.ops29-status-text.s-pending,.status-pending){background:#483016;color:#ffe4ae;border-color:#c39254}
+.shell :is(.ops29-event.s-confirmed,.ops29-status-text.s-confirmed,.status-confirmed){background:#193e69;color:#d6eaff;border-color:#7fb4e7}
+.shell :is(.ops29-event.s-done,.ops29-status-text.s-done,.status-done){background:#154838;color:#b6fadd;border-color:#67c6a0}
+.shell :is(.ops29-event.s-cancelled,.ops29-status-text.s-cancelled,.status-cancelled){background:#532037;color:#ffd2df;border-color:#df8da8}
+.shell .ops29-event.s-pending{border-left:5px solid #ffe4ae}
+.shell .ops29-event.s-confirmed{border-left:5px solid #d6eaff}
+.shell .ops29-event.s-done{border-left:5px solid #b6fadd}
+.shell .ops29-event.s-cancelled{border-left:5px solid #ffd2df}
+.shell .ops29-month-day{background:#31263b;color:#fff5f7;border-color:#75607b}
+.shell .ops29-month-day.outside{background:#261e31;color:#e1cee0}
+.shell .ops29-month-day:is(:hover,:focus-within){background:#4b3854;box-shadow:inset 0 0 0 2px #f4c990}
+.shell .ops29-week-day{background:#31263b;color:#fff5f7;border-color:#75607b}
+.shell .ops29-day-headers b,.shell .ops29-week-day h3{background:#453249;color:#fffaf6}
+.shell .ops325-lunar-date,.shell .ops29-month-day .ops325-lunar-date.is-first{color:#e5cfe0}
+.shell .ops29-list>button{background:#2a2035;color:#f6eaf1;border-color:#79647e}
+.shell .ops29-list>button:is(:hover,:focus-visible){background:#48354f;color:#fffaf6}
+
+/* Input workflow and diagnostic panels must not inherit pale-on-pale utility styles. */
+.shell .amorri-booking-dialog{background:#2a2036;color:#f6eaf1;border-color:#af8fa9;box-shadow:0 34px 85px rgba(4,2,11,.69),inset 0 1px rgba(255,243,232,.14)}
+.shell .amorri-booking-dialog>header,.shell .amorri-booking-dialog>footer{background:#382943;border-color:#8f7393}
+.shell .amorri-booking-dialog :is(.amorri-booking-services,.amorri-booking-form){background:#2a2036;color:#f6eaf1}
+.shell .amorri-booking-dialog :is(.amorri-service-choice,.amorri-booking-form fieldset){background:#382b45;color:#fffaf6;border-color:#8f7393}
+.shell .amorri-service-choice:hover{background:#4c3652;color:#fffaf6;border-color:#f4c990}
+.shell .ops30-system-panel,.shell .ops30-health{color:var(--am-body)}
+.shell .ops30-health :is(h2,h3,strong){color:var(--am-ink)}
+.shell .ops30-health :is(p,small,.ops30-health-disclaimer){color:var(--am-muted)}
+
+/* Purposeful motion: magnetic-feel elevation, visible press feedback, rich but bounded depth. */
+.shell :is(.primary-button,.secondary-button,.ops29-action,.top-icon,.ops29-view-switch button,.ops30-system-tabs button){
+  transition:transform 190ms cubic-bezier(.2,.8,.2,1),box-shadow 250ms,border-color 180ms,background-color 180ms;
+}
+.shell .primary-button{background:linear-gradient(130deg,#ffe3b8,#f4c990);color:#261a30;border-color:#ffe8c3;box-shadow:0 7px 0 #805b59,0 15px 28px rgba(2,1,8,.32)}
+.shell .secondary-button,.shell .ops29-action,.shell .top-icon{background:#372a43;color:#fffaf6;border-color:#a18aaa;box-shadow:0 4px 0 #1a1324,0 9px 16px rgba(4,2,12,.22)}
+.shell .primary-button:active:not(:disabled){box-shadow:0 1px 0 #805b59,0 4px 9px rgba(2,1,8,.32);transform:translateY(4px) scale(.985)}
+.shell :is(.secondary-button,.ops29-action,.top-icon):active:not(:disabled){box-shadow:0 1px 0 #1a1324;transform:translateY(3px) scale(.985)}
+.shell :is(.primary-button,.secondary-button,.ops29-action,.top-icon):disabled{opacity:.78;box-shadow:none}
+.shell :is(button,a):focus-visible{outline:3px solid #ffdda4;outline-offset:3px}
+.shell .ops29-view-switch button.selected,.shell .ops30-system-tabs button.active{background:#f4c990;color:#261a30;border:1px solid #ffe8c3;box-shadow:0 5px 14px rgba(4,2,12,.36)}
+
+/* Motion and light around the REAL logo (do not apply filters to customer images/video). */
+.shell :is(.amorri-avatar,.brand-square.amorri-logo-badge),
+.login-layout .amorri-logo-badge,.boot-screen .amorri-logo-badge{
+  box-shadow:0 2px 0 rgba(255,240,208,.21) inset,0 11px 26px rgba(2,1,9,.65),
+    0 0 0 2px rgba(250,208,149,.24),0 0 26px rgba(250,202,138,.38)!important;
+  border-color:#ffdda4!important;
+  transform-origin:center;
+}
+.shell :is(.amorri-avatar,.brand-square.amorri-logo-badge)::before,
+.login-layout .amorri-logo-badge::before{
+  content:"";position:absolute;inset:-2px;pointer-events:none;border-radius:inherit;
+  border:1px solid rgba(255,221,164,.60);opacity:.55;
+  animation:am83-brand-halo 5.5s ease-in-out infinite;
+}
+.shell :is(.amorri-avatar,.brand-square.amorri-logo-badge) img,
+.login-layout .amorri-logo-badge img,.boot-screen .amorri-logo-badge img{
+  filter:brightness(1.48) contrast(1.15) saturate(1.12) drop-shadow(0 3px 8px rgba(255,202,137,.48))!important;
+}
+.shell .amorri-logo-hero{filter:drop-shadow(0 15px 28px rgba(247,193,112,.38))}
+.client-delivery .amorri-delivery-logo{border-color:#b48b5f;box-shadow:0 9px 21px rgba(14,7,14,.32),0 0 15px rgba(244,201,144,.27)}
+@keyframes am83-brand-halo{0%,100%{opacity:.3}50%{opacity:.87}}
+@media (hover:hover) and (pointer:fine){
+  .shell :is(.metric,.staff-card,.delivery-card,.ops29-analytics-kpis article).am-tilt-active{
+    transform:perspective(980px) translate3d(0,-7px,0) rotateX(var(--am-rotate-x)) rotateY(var(--am-rotate-y));
+    border-color:#e4b98d;box-shadow:var(--am-shadow-hover),inset 0 1px rgba(255,243,229,.18);
+  }
+  .shell :is(.metric,.staff-card,.delivery-card,.ops29-analytics-kpis article).am-tilt-active::before{opacity:1}
+  .shell :is(.primary-button,.secondary-button,.ops29-action,.top-icon):hover:not(:disabled){transform:translateY(-3px);filter:brightness(1.06)}
+  .shell .primary-button:hover:not(:disabled){box-shadow:0 10px 0 #805b59,0 19px 32px rgba(2,1,8,.38)}
+  .shell :is(.secondary-button,.ops29-action,.top-icon):hover:not(:disabled){box-shadow:0 7px 0 #1a1324,0 15px 25px rgba(4,2,12,.36)}
+  .shell :is(.amorri-avatar,.brand-square.amorri-logo-badge):hover,
+  .login-layout .amorri-logo-badge:hover{
+    transform:perspective(540px) rotateY(-14deg) rotateX(9deg) translateY(-5px) scale(1.07);
+    box-shadow:0 18px 37px rgba(3,1,9,.64),0 0 34px rgba(255,218,154,.5)!important;
+  }
+}
+/* The depressed state wins even when a mouse is still hovering. */
+.shell .primary-button:active:not(:disabled){transform:translateY(4px) scale(.985);box-shadow:0 1px 0 #805b59,0 4px 9px rgba(2,1,8,.32)}
+.shell :is(.secondary-button,.ops29-action,.top-icon):active:not(:disabled){transform:translateY(3px) scale(.985);box-shadow:0 1px 0 #1a1324}
+@media (hover:none),(pointer:coarse){
+  .shell :is(.metric,.staff-card,.delivery-card,.ops29-analytics-kpis article).am-tilt-active{transform:none}
+}
+@media(prefers-reduced-motion:reduce){
+  .shell :is(.metric,.staff-card,.delivery-card,.ops29-analytics-kpis article),
+  .shell :is(.metric,.staff-card,.delivery-card,.ops29-analytics-kpis article).am-tilt-active,
+  .shell :is(.primary-button,.secondary-button,.ops29-action,.top-icon),
+  .shell :is(.amorri-avatar,.brand-square.amorri-logo-badge),.login-layout .amorri-logo-badge{
+    transform:none!important;transition:none!important;animation:none!important;
+  }
+  .shell :is(.amorri-avatar,.brand-square.amorri-logo-badge)::before,
+  .login-layout .amorri-logo-badge::before{animation:none!important;opacity:.55}
+  .shell :is(.metric,.staff-card,.delivery-card,.ops29-analytics-kpis article)::before{opacity:0!important}
+}
+@media(forced-colors:active){
+  .shell :is(button,a,input,select,textarea):focus-visible{outline:3px solid Highlight!important}
+  .shell :is(.ops29-event,.ops29-status-text){border:2px solid CanvasText}
+}

@@ -4,7 +4,7 @@ import {useEffect} from 'react';
 
 // Keep pointer motion outside React render cycles; no timers, services or canvas.
 // The listeners are delegated so dynamically mounted dashboard tabs also work.
-const tiltSelector = '.shell .metric, .shell .welcome-band, .shell .ops29-analytics-kpis article';
+const tiltSelector = '.shell .metric, .shell .welcome-band, .shell .ops29-analytics-kpis article, .shell .staff-card, .shell .delivery-card';
 const buttonSelector = '.shell .primary-button, .shell .secondary-button, .shell .nav-item, .shell .welcome-cta, .shell .ops29-action, .shell .ops29-view-switch button, .shell .ops30-system-tabs button, .shell .month-navigator, .shell .top-icon, .amorri-booking-dialog button, .client-delivery .delivery-primary, .client-delivery .delivery-photo-select, .client-delivery .delivery-photo-download, .client-delivery .delivery-form button, .amorri-staff-portal button';
 
 export function AmorriMicroInteractions() {
@@ -45,8 +45,8 @@ export function AmorriMicroInteractions() {
         if (!rect.width || !rect.height) return;
         const px = Math.max(0, Math.min(1, (x - rect.left) / rect.width));
         const py = Math.max(0, Math.min(1, (y - rect.top) / rect.height));
-        card.style.setProperty('--am-rotate-x', `${((0.5 - py) * 5).toFixed(2)}deg`);
-        card.style.setProperty('--am-rotate-y', `${((px - 0.5) * 5).toFixed(2)}deg`);
+        card.style.setProperty('--am-rotate-x', `${((0.5 - py) * 8).toFixed(2)}deg`);
+        card.style.setProperty('--am-rotate-y', `${((px - 0.5) * 8).toFixed(2)}deg`);
         card.style.setProperty('--am-pointer-x', `${(px * 100).toFixed(1)}%`);
         card.style.setProperty('--am-pointer-y', `${(py * 100).toFixed(1)}%`);
         card.classList.add('am-tilt-active');
