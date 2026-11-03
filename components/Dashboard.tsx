@@ -1,4 +1,5 @@
 'use client';
+import {AnimatedCount} from './AnimatedCount';
 import {formatVnd} from '@/lib/domain/vietnam-money';
 
 import {PayrollManager} from '@/components/PayrollManager';
@@ -313,6 +314,7 @@ export function Dashboard(){
         <div className="page-heading ops29-page-heading"><div><div className="eyebrow">AMORRI STUDIO / STUDIO OS 3.0</div><h1>{title?.name}</h1><p>{title?.sub}{tab!=='system'?` · Tháng ${month.slice(5)}/${month.slice(0,4)}`:' · Chỉ tài khoản Admin'}</p></div><div className="heading-actions">{tab!=='system'&&<><button className="secondary-button" onClick={()=>setReload(x=>x+1)} disabled={loading}><RefreshCw size={16} className={loading?'spin':''}/> Đồng bộ</button><button className="primary-button" onClick={()=>createBooking()}><Plus size={18}/> Tạo lịch mới</button></>}</div></div>
         {requestError&&tab!=='system'&&<div className="alert error"><ShieldCheck size={18}/><div><strong>Không tải được dữ liệu quản trị</strong><p>{requestError}</p>{data?.month===month&&<p>Đang hiển thị dữ liệu tải thành công gần nhất của tháng này; hãy thử Đồng bộ lại.</p>}<button type="button" className="secondary-button" onClick={()=>{setSystemSection('health');goTab('system');}}><Settings2 size={15}/> Mở Hệ thống</button></div></div>}
         {data?.eventLimitReached&&<div className="alert notice">Dữ liệu tháng vượt giới hạn truy vấn 1001 bản ghi. Cần phân trang và index Firebase trước khi dùng báo cáo.</div>}
+        <div key={`${tab}:${tab === 'system' ? systemSection : month}`} className="amorri-view-motion">
         {tab==='system'&&<section className="ops30-system-panel">
           <div className="ops30-system-tabs" role="group" aria-label="Chức năng hệ thống">
             <button type="button" className={systemSection==='health'?'active':''} onClick={()=>setSystemSection('health')}><ShieldCheck size={16}/> Sức khỏe</button>
@@ -336,7 +338,7 @@ export function Dashboard(){
                 {label:'Lịch đã chốt',value:stats?.confirmed||0,hint:'Sẵn sàng triển khai',icon:BadgeCheck,kind:'blue'},
                 {label:'Chờ xác nhận',value:stats?.pending||0,hint:'Cần theo dõi',icon:Clock3,kind:'orange'},
                 {label:'Chưa thanh toán đủ',value:stats?.unpaid||0,hint:'Theo giá trị booking',icon:CircleDollarSign,kind:'green'}
-              ].map(c=>{const Icon=c.icon;return <div className="metric" key={c.label}><div className={`metric-icon ${c.kind}`}><Icon size={19}/></div><span>{c.label}</span><strong>{c.value.toString().padStart(2,'0')}</strong><small>{c.hint}</small></div>;})}
+              ].map(c=>{const Icon=c.icon;return <div className="metric" key={c.label}><div className={`metric-icon ${c.kind}`}><Icon size={19}/></div><span>{c.label}</span><AnimatedCount value={c.value}/><small>{c.hint}</small></div>;})}
             </div>
             <div className="dashboard-two"><section className="surface"><div className="surface-title"><div><span className="eyebrow">SẮP DIỄN RA</span><h3>Lịch làm việc tiếp theo</h3></div><button onClick={()=>goTab('calendar')} className="text-action">Xem tất cả <ArrowRight size={16}/></button></div>
               {nextEvents.length?<div className="upcoming-items">{nextEvents.map(e=><button className="upcoming-row" onClick={()=>setSelected(e.id)} key={e.id}><div className="upcoming-date"><b>{e.date.slice(-2)}</b><span>TH {Number(e.date.slice(5,7))}</span></div><div className="upcoming-info"><strong>{e.name}</strong><span>{e.start||'--:--'} · {e.eventType||'Khác'}</span></div><Status status={e.status}/><ChevronRight size={17}/></button>)}</div>:<Empty title="Chưa có lịch sắp tới" detail="Các sự kiện sắp diễn ra trong tháng sẽ xuất hiện tại đây."/>}</section>
@@ -357,6 +359,7 @@ export function Dashboard(){
           </>}
           {tab==='analytics'&&<StudioAnalytics data={data} today={localToday()}/>}
         </>}
+        </div>
       </div><footer className="footer">AMORRI STUDIO / STUDIO OS 3.0.1 <span>BUILT WITH NEXT.JS + TYPESCRIPT · {new Date().getFullYear()}</span></footer>
     </main>
     <NewBookingDialog open={newBookingOpen} initialDate={newBookingDate} onClose={()=>setNewBookingOpen(false)} onCreated={()=>{setReload(x=>x+1);setTab('calendar');}} user={user} staff={data?.staff||[]}/>

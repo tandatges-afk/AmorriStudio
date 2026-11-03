@@ -1,0 +1,275 @@
+/* Amorri Studio Motion System 1.0 — tangible interactions, not just a new palette.
+   Loaded AFTER the semantic design system. Only transform/opacity on animated surfaces.
+   Pointer lighting and press feedback are delegated by AmorriMicroInteractions.
+   Keep video, images, large calendar tables and scroll containers free of filters. */
+:root {
+  --am-motion-ease: cubic-bezier(.16, 1, .3, 1);
+  --am-motion-spring: cubic-bezier(.2, 1.3, .35, 1);
+  --am-motion-quick: 180ms;
+  --am-motion-standard: 340ms;
+}
+@keyframes am-view-in {
+  from { opacity: 0; transform: translate3d(0, 15px, 0) scale(.993); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+@keyframes am-card-in {
+  from { opacity: 0; transform: translate3d(0, 22px, 0) scale(.96); }
+  to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+}
+@keyframes am-sheet-in {
+  from { opacity: 0; transform: perspective(1100px) translate3d(0, 28px, 0) rotateX(-4deg) scale(.965); }
+  to { opacity: 1; transform: perspective(1100px) translate3d(0, 0, 0) rotateX(0) scale(1); }
+}
+@keyframes am-dialog-step {
+  from { opacity: .35; transform: translate3d(0, 12px, 0); }
+  to { opacity: 1; transform: translate3d(0, 0, 0); }
+}
+@keyframes am-shine {
+  from { transform: translate3d(-180%, 0, 0) skewX(-20deg); }
+  to { transform: translate3d(250%, 0, 0) skewX(-20deg); }
+}
+@keyframes am-press {
+  from { opacity: .55; transform: translate(-50%, -50%) scale(0); }
+  to { opacity: 0; transform: translate(-50%, -50%) scale(1); }
+}
+@keyframes am-hero-float {
+  0%, 100% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(0, -10px, 0); }
+}
+@keyframes am-live {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(160,241,201,.28); }
+  50% { box-shadow: 0 0 0 7px rgba(160,241,201,0); }
+}
+@keyframes am-bar-grow {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+@keyframes am-slide-indicator {
+  from { opacity: .35; transform: scaleX(.65); }
+  to { opacity: 1; transform: scaleX(1); }
+}
+
+/* 1. Page navigation / panel switching: React's key remounts the stage. */
+.shell .amorri-view-motion { min-width: 0; animation: am-view-in 480ms var(--am-motion-ease) backwards; }
+.shell .page-heading h1 { transition: color var(--am-motion-quick), letter-spacing var(--am-motion-standard); }
+.shell .nav-item {
+  position: relative;
+  transition: background-color var(--am-motion-quick), border-color var(--am-motion-quick),
+    box-shadow var(--am-motion-standard), transform var(--am-motion-standard) var(--am-motion-spring);
+}
+@media (hover:hover) and (pointer:fine) {
+  .shell .nav-item:hover:not(:disabled) { transform: translate3d(5px, 0, 0); }
+}
+.shell .nav-item svg { transition: transform var(--am-motion-standard) var(--am-motion-spring), color var(--am-motion-quick); }
+.shell .nav-item:is(:hover,.nav-active) svg { transform: translate3d(2px, 0, 0) scale(1.12); color: var(--am-accent); }
+.shell .nav-item.nav-active { animation: am-slide-indicator 300ms var(--am-motion-ease) backwards; }
+.shell .nav-item.nav-active i { box-shadow: 0 0 0 4px rgba(244,201,144,.15); }
+
+/* 2. Buttons: visible lift / press / light sweep / pointer-position ripple. */
+.shell :is(.primary-button,.secondary-button,.welcome-cta,.nav-item,.ops29-action,.month-navigator,.top-icon,.ops29-view-switch button,.ops30-system-tabs button),
+.amorri-booking-dialog button {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  -webkit-tap-highlight-color: transparent;
+  transition: transform var(--am-motion-quick) var(--am-motion-spring),
+    box-shadow var(--am-motion-standard) var(--am-motion-ease),
+    background-color var(--am-motion-quick), border-color var(--am-motion-quick),
+    color var(--am-motion-quick);
+}
+.shell :is(.primary-button,.welcome-cta),
+.amorri-booking-dialog button[type='submit'] { box-shadow: 0 8px 0 rgba(76,42,46,.31), 0 17px 34px rgba(5,2,15,.2); }
+.shell :is(.primary-button,.welcome-cta):hover:not(:disabled),
+.amorri-booking-dialog button[type='submit']:hover:not(:disabled) {
+  transform: translate3d(0,-3px,0);
+  box-shadow: 0 11px 0 rgba(76,42,46,.24), 0 21px 43px rgba(5,2,15,.27);
+}
+.shell :is(.primary-button,.secondary-button,.welcome-cta,.ops29-action,.month-navigator,.top-icon):active:not(:disabled),
+.amorri-booking-dialog button:active:not(:disabled) {
+  transform: translate3d(0,2px,0) scale(.97);
+  box-shadow: 0 2px 0 rgba(76,42,46,.17), 0 5px 14px rgba(5,2,15,.16);
+}
+.shell :is(.primary-button,.welcome-cta)::before,
+.amorri-booking-dialog button[type='submit']::before {
+  content: '';
+  position: absolute;
+  z-index: 0;
+  inset: 0 auto 0 0;
+  width: 32%;
+  background: linear-gradient(90deg,transparent,rgba(255,255,255,.3),transparent);
+  transform: translate3d(-180%,0,0) skewX(-20deg);
+  pointer-events:none;
+}
+.shell :is(.primary-button,.welcome-cta):hover::before,
+.amorri-booking-dialog button[type='submit']:hover::before { animation: am-shine 770ms ease-out backwards; }
+.shell :is(.primary-button,.secondary-button,.welcome-cta,.text-action,.ops29-action) svg {
+  transition: transform var(--am-motion-standard) var(--am-motion-spring);
+}
+.shell :is(.primary-button,.welcome-cta,.text-action,.ops29-action):hover svg { transform: translate3d(3px,0,0) scale(1.08); }
+.shell .secondary-button:hover:not(:disabled),
+.amorri-booking-dialog .amorri-service-choice:hover:not(:disabled) {
+  transform: translate3d(0,-2px,0);
+  box-shadow: 0 12px 24px rgba(7,4,19,.28), inset 0 1px rgba(255,242,227,.09);
+}
+.shell .am-press-wave,.amorri-booking-dialog .am-press-wave {
+  position:absolute;
+  z-index:2;
+  width:260px;
+  height:260px;
+  border-radius:50%;
+  background: radial-gradient(circle,rgba(255,255,255,.45),rgba(244,201,144,.19) 45%,transparent 72%);
+  pointer-events:none;
+  animation:am-press 560ms ease-out both;
+}
+.shell :is(button,a):focus-visible, .amorri-booking-dialog button:focus-visible { outline-offset:3px; }
+.shell .live-dot { animation: am-live 2.5s ease-in-out infinite; }
+
+/* 3. Perspective-aware KPI surfaces; JS updates custom properties only on mouse move. */
+.shell :is(.metric,.welcome-band,.ops29-analytics-kpis article) {
+  --am-rotate-x: 0deg;
+  --am-rotate-y: 0deg;
+  --am-pointer-x: 50%;
+  --am-pointer-y: 50%;
+  position: relative;
+  isolation: isolate;
+  transform-style: preserve-3d;
+  transition: transform 360ms var(--am-motion-ease), border-color 250ms,
+    box-shadow 360ms var(--am-motion-ease);
+}
+.shell :is(.metric,.welcome-band,.ops29-analytics-kpis article)::before {
+  content:'';
+  position:absolute;
+  z-index:0;
+  inset:0;
+  pointer-events:none;
+  border-radius:inherit;
+  background:radial-gradient(circle 190px at var(--am-pointer-x) var(--am-pointer-y),rgba(255,227,186,.22),transparent 78%);
+  opacity:0;
+  transition:opacity 280ms ease;
+}
+.shell :is(.metric,.welcome-band,.ops29-analytics-kpis article) > * { position:relative; z-index:1; }
+@media (hover:hover) and (pointer:fine) {
+  .shell :is(.metric,.welcome-band,.ops29-analytics-kpis article).am-tilt-active {
+    transform: perspective(1100px) translate3d(0,-5px,0) rotateX(var(--am-rotate-x)) rotateY(var(--am-rotate-y));
+    box-shadow: 0 32px 64px rgba(4,2,12,.47), 0 8px 18px rgba(4,2,12,.24);
+    border-color:rgba(255,220,176,.66);
+  }
+  .shell :is(.metric,.welcome-band,.ops29-analytics-kpis article).am-tilt-active::before { opacity:1; }
+}
+.shell .metrics-grid .metric { animation:am-card-in 620ms var(--am-motion-ease) backwards; }
+.shell .metrics-grid .metric:nth-child(2) {animation-delay:70ms;}
+.shell .metrics-grid .metric:nth-child(3) {animation-delay:140ms;}
+.shell .metrics-grid .metric:nth-child(4) {animation-delay:210ms;}
+.shell .metric-icon {transition: transform 380ms var(--am-motion-spring),box-shadow 300ms;}
+.shell .metric:hover .metric-icon {transform:translate3d(0,-3px,14px) rotate(-5deg) scale(1.13);box-shadow:0 12px 18px rgba(10,5,23,.23);}
+.shell .metric strong {font-variant-numeric:tabular-nums;}
+.shell .dashboard-two .surface:first-child {animation:am-card-in 600ms 120ms var(--am-motion-ease) backwards;}
+.shell .dashboard-two .surface:nth-child(2) {animation:am-card-in 600ms 200ms var(--am-motion-ease) backwards;}
+.shell .welcome-band {animation:am-view-in 650ms var(--am-motion-ease) backwards;}
+.shell .welcome-art {animation:am-hero-float 5.4s ease-in-out infinite;}
+.shell .welcome-band .art-center {transition:filter 330ms;}
+.shell .welcome-band:hover .art-center {filter:brightness(1.15);}
+.shell .progress-track>div {transform-origin:left;animation:am-bar-grow 740ms 200ms var(--am-motion-ease) backwards;}
+
+/* 4. Functional transitions: calendar modes, rows, analytics, diagnostic tabs. */
+.shell .ops29-calendar,.shell .ops29-analytics,.shell .ops29-hub { animation:am-view-in 520ms var(--am-motion-ease) backwards; }
+.shell :is(.ops29-month-cells,.ops29-week-grid,.ops29-list) {animation:am-view-in 410ms var(--am-motion-ease) backwards;}
+.shell .ops29-month-day { transition:background-color 180ms,box-shadow 240ms,border-color 180ms; }
+.shell .ops29-month-day:is(:hover,:focus-within) {box-shadow:inset 0 0 0 2px rgba(255,216,162,.5),0 8px 20px rgba(5,3,12,.14);}
+.shell .ops29-event {transition: transform 180ms var(--am-motion-spring), box-shadow 180ms,filter 180ms;}
+.shell .ops29-event:hover {transform:translate3d(0,-2px,0) scale(1.025);box-shadow:0 9px 17px rgba(5,3,12,.23);}
+.shell .ops29-view-switch button.selected,
+.shell .ops30-system-tabs button.active {animation:am-slide-indicator 280ms var(--am-motion-spring) backwards;}
+.shell .ops29-list>button,.shell .upcoming-row,.shell .data-table tbody tr {
+  transition:background-color 180ms,transform 200ms var(--am-motion-ease),box-shadow 190ms;
+}
+@media (hover:hover) and (pointer:fine) {
+  .shell .ops29-list>button:hover,.shell .upcoming-row:hover {transform:translate3d(3px,0,0);box-shadow:inset 3px 0 var(--am-accent);}
+}
+.shell .ops29-analytics-kpis article {animation:am-card-in 500ms var(--am-motion-ease) backwards;}
+.shell .ops29-analytics-kpis article:nth-child(2) {animation-delay:70ms;}
+.shell .ops29-analytics-kpis article:nth-child(3) {animation-delay:140ms;}
+.shell .ops29-analytics-kpis article:nth-child(4) {animation-delay:210ms;}
+.shell .ops30-system-panel,.shell .amorri-payroll,.shell .amorri-migration {animation:am-view-in 480ms var(--am-motion-ease) backwards;}
+.shell .delivery-card {animation:am-card-in 520ms var(--am-motion-ease) backwards;}
+.shell .delivery-card:nth-child(2) {animation-delay:65ms;}
+.shell .delivery-card:nth-child(3) {animation-delay:130ms;}
+
+/* 5. Booking flows: modal opens in depth, service choices cascade, inputs glow on focus. */
+.shell .amorri-booking-backdrop {animation:am-view-in 180ms ease-out backwards;}
+.shell .amorri-booking-dialog {
+  transform-origin:50% 30%;
+  animation:am-sheet-in 460ms var(--am-motion-ease) backwards;
+}
+.shell .amorri-booking-services,.shell .amorri-booking-form {animation:am-dialog-step 320ms var(--am-motion-ease) backwards;}
+.shell .amorri-service-choice {animation:am-card-in 380ms var(--am-motion-ease) backwards;}
+.shell .amorri-service-choice:nth-child(2){animation-delay:35ms;}
+.shell .amorri-service-choice:nth-child(3){animation-delay:70ms;}
+.shell .amorri-service-choice:nth-child(4){animation-delay:105ms;}
+.shell .amorri-service-choice:nth-child(5){animation-delay:140ms;}
+.shell .amorri-service-choice:nth-child(6){animation-delay:175ms;}
+.shell .amorri-booking-form :is(input:not([type=checkbox]),select,textarea) {
+  transition:border-color 190ms,box-shadow 260ms,background-color 190ms;
+}
+.shell .amorri-booking-form :is(input:not([type=checkbox]),select,textarea):focus-visible {
+  border-color:var(--am-accent);
+  box-shadow:0 0 0 3px rgba(244,201,144,.19),0 0 25px rgba(244,201,144,.09);
+}
+
+/* 6. Public delivery, staff portal and login: only UI surfaces, never video frames. */
+.client-delivery .delivery-hero {animation:am-view-in 600ms var(--am-motion-ease) backwards;}
+.client-delivery .delivery-product {animation:am-card-in 570ms var(--am-motion-ease) backwards;}
+.client-delivery .delivery-product:nth-child(2) {animation-delay:90ms;}
+.client-delivery .delivery-product:nth-child(3) {animation-delay:180ms;}
+.client-delivery .delivery-photo {transition:transform 220ms var(--am-motion-ease),box-shadow 220ms,border-color 180ms;}
+.client-delivery .delivery-photo:focus-within {box-shadow:0 0 0 2px rgba(185,134,110,.34);}
+.client-delivery :is(.delivery-primary,.delivery-photo-select,.delivery-photo-download,.delivery-form button),
+.amorri-staff-portal button {
+  position:relative;isolation:isolate;overflow:hidden;
+  transition:transform var(--am-motion-quick) var(--am-motion-spring),box-shadow 220ms,background-color 180ms;
+}
+.client-delivery .am-press-wave,.amorri-staff-portal .am-press-wave {
+  position:absolute;z-index:2;width:260px;height:260px;border-radius:50%;pointer-events:none;
+  background:radial-gradient(circle,rgba(244,201,144,.36),transparent 70%);
+  animation:am-press 560ms ease-out both;
+}
+.amorri-staff-portal>div>header {animation:am-view-in 480ms var(--am-motion-ease) backwards;}
+.amorri-staff-portal>div>section {animation:am-card-in 520ms var(--am-motion-ease) backwards;}
+.login-layout .login-showcase {animation:am-view-in 600ms var(--am-motion-ease) backwards;}
+.login-layout .login-box {animation:am-card-in 580ms 100ms var(--am-motion-ease) backwards;}
+@media (hover:hover) and (pointer:fine) {
+  .client-delivery .delivery-photo:hover {transform:translate3d(0,-3px,0);box-shadow:0 14px 32px rgba(41,27,47,.16);}
+  .client-delivery :is(.delivery-primary,.delivery-photo-select,.delivery-photo-download,.delivery-form button):hover:not(:disabled),
+  .amorri-staff-portal button:hover:not(:disabled) {transform:translate3d(0,-2px,0);}
+}
+.client-delivery :is(.delivery-primary,.delivery-photo-select,.delivery-photo-download,.delivery-form button):active:not(:disabled),
+.amorri-staff-portal button:active:not(:disabled) {transform:translate3d(0,1px,0) scale(.98);}
+
+/* Respect hardware, accessibility and data-entry precision. */
+@media (hover:none), (pointer:coarse) {
+  .shell .welcome-art {animation:none;}
+  .shell .metric:hover .metric-icon {transform:none;}
+  .shell :is(.metric,.welcome-band,.ops29-analytics-kpis article).am-tilt-active {transform:none;}
+}
+@media (prefers-reduced-motion:reduce) {
+  .login-layout .login-showcase,.login-layout .login-box,.client-delivery .delivery-hero,.client-delivery .delivery-product,
+  .amorri-staff-portal>div>header,.amorri-staff-portal>div>section,
+  .shell .amorri-view-motion,.shell .metric,.shell .welcome-band,.shell .welcome-art,
+  .shell .ops29-calendar,.shell .ops29-analytics,.shell .ops29-hub,.shell .ops29-month-cells,
+  .shell .ops29-week-grid,.shell .ops29-list,.shell .ops29-analytics-kpis article,
+  .shell .dashboard-two .surface,.shell .progress-track>div,.shell .ops30-system-panel,
+  .shell .amorri-payroll,.shell .amorri-migration,.shell .delivery-card,
+  .shell .amorri-booking-backdrop,.shell .amorri-booking-dialog,
+  .shell .amorri-booking-services,.shell .amorri-booking-form,.shell .amorri-service-choice,
+  .shell .live-dot,.shell .nav-item.nav-active,.shell .ops29-view-switch button.selected,
+  .shell .ops30-system-tabs button.active {animation:none!important;transition:none!important;}
+  .shell :is(.metric,.welcome-band,.ops29-analytics-kpis article),
+  .shell :is(.metric,.welcome-band,.ops29-analytics-kpis article).am-tilt-active,
+  .shell :is(.primary-button,.secondary-button,.welcome-cta,.nav-item,.ops29-action,.month-navigator,.top-icon):is(:hover,:active),
+  .amorri-booking-dialog button:is(:hover,:active) {transform:none!important;}
+  .shell :is(.metric,.welcome-band,.ops29-analytics-kpis article)::before {opacity:0!important;}
+  .client-delivery .delivery-photo:hover,.client-delivery button:is(:hover,:active),.amorri-staff-portal button:is(:hover,:active),.amorri-staff-portal>div>section article:hover {transform:none!important;}
+  .shell .metric:hover .metric-icon {transform:none!important;}
+  .shell .am-press-wave,.amorri-booking-dialog .am-press-wave,.client-delivery .am-press-wave,.amorri-staff-portal .am-press-wave {display:none!important;}
+  .shell .primary-button::before,.shell .welcome-cta::before,.amorri-booking-dialog button[type='submit']::before {animation:none!important;}
+}

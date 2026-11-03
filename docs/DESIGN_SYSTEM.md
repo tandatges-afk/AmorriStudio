@@ -43,3 +43,16 @@ Run `npm ci`, `npm run typecheck`, `npm test`, `npm run test:unit`, `node script
 In Chromium, review: desktop and mobile dashboard; calendar month hover/outside days/list row focus; payroll even/odd rows; diagnostics cards; service picker and full booking form; staff portal; client image/video delivery. Verify date input contrast and button focus state on Windows/Chrome, and check `prefers-reduced-motion`.
 
 The static color and CSS browser mock checks run without production APIs. They **do not** prove that real production Firebase, Google Drive, R2 media, or Electron UX works.
+
+## Operations event status palette — R7
+
+Calendar month/week event cards and list-view chips use the same semantic mapping, never reusing the `done` palette for `confirmed`:
+
+| Status | Meaning | Text | Background |
+| --- | --- | --- | --- |
+| `pending` | Chờ xác nhận | `#ffdfa8` | `#5a412a` |
+| `confirmed` | Đã chốt | `#c5e0ff` | `#294762` |
+| `done` | Hoàn thành | `#a0f1c9` | `#24483b` |
+| `cancelled` | Đã hủy | `#ffc0d0` | `#543340` |
+
+Status color is supplemented with existing labels in list view and accessible status text in calendar view. The color system respects reduced-motion settings.

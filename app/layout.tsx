@@ -3,6 +3,8 @@ import './globals.css';
 import './amorri-premium.css';
 import './amorri-premium-v2.css';
 import './amorri-design-system.css';
+import './amorri-motion-system.css';
+import {AmorriMicroInteractions} from '@/components/AmorriMicroInteractions';
 
 export const metadata: Metadata = {
   title: 'Amorri Studio — Studio OS 3.2.5',
@@ -11,5 +13,5 @@ export const metadata: Metadata = {
 export const viewport: Viewport = { width: 'device-width', initialScale: 1 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  return <html lang="vi"><body>{children}</body></html>;
+  return <html lang="vi"><body><AmorriMicroInteractions/>{children}</body></html>;
 }

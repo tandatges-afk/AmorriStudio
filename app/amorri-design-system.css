@@ -132,7 +132,8 @@ body:has(.shell) {background:var(--amorri-plum-950);color:#fff8f4;}
 .shell .progress-track {background:rgba(255,237,222,.14);}
 .shell .progress-track>div {background:linear-gradient(90deg,#d3a2ac,var(--am-accent));}
 .shell .status {font-weight:800;border:1px solid transparent;}
-.shell .status-confirmed,.shell .status-done {color:var(--am-success);background:#24483e;border-color:#4d8b73;}
+.shell .status-confirmed {color:#c5e0ff;background:#294762;border-color:#6997c2;}
+.shell .status-done {color:var(--am-success);background:#24483e;border-color:#4d8b73;}
 .shell .status-pending {color:var(--am-warn);background:#57412b;border-color:#967045;}
 .shell .status-cancelled {color:var(--am-danger);background:#58333f;border-color:#9e6174;}
 
@@ -176,11 +177,11 @@ body:has(.shell) {background:var(--amorri-plum-950);color:#fff8f4;}
 .shell .ops29-week-day.ops325-create-day:hover {background:#493650;}
 .shell .ops29-week-day h3 {background:#44334a;color:var(--am-ink);border-color:var(--am-border);}
 .shell .ops29-day-empty,.shell .ops29-extra {color:var(--am-muted);}
-.shell .ops29-event {background:#35465d;color:#f2f5ff;border:1px solid #7798bd;border-left:3px solid #b5d3fa;transition:transform var(--amorri-duration-fast),border-color var(--amorri-duration-fast);}
-.shell .ops29-event.s-pending {background:#59432c;color:var(--am-warn);border-color:#b9874a;border-left-color:#ffdaa0;}
-.shell .ops29-event.s-confirmed {background:#2b4e45;color:var(--am-success);border-color:#59967b;border-left-color:var(--am-success);}
-.shell .ops29-event.s-done {background:#295344;color:var(--am-success);border-color:#67a989;border-left-color:#a0f1c9;}
-.shell .ops29-event.s-cancelled {background:#4d3542;color:var(--am-danger);border-color:#9a6176;border-left-color:#f0a8bc;}
+.shell .ops29-event {background:#294762;color:#dcecff;border:1px solid #6997c2;border-left:4px solid #b6dcff;transition:transform var(--amorri-duration-fast),border-color var(--amorri-duration-fast);}
+.shell .ops29-event.s-pending {background:#5a412a;color:#ffdfa8;border-color:#ab8250;border-left-color:#ffdda2;}
+.shell .ops29-event.s-confirmed {background:#294762;color:#c5e0ff;border-color:#6997c2;border-left-color:#b6dcff;}
+.shell .ops29-event.s-done {background:#24483b;color:#a0f1c9;border-color:#5c9f83;border-left-color:#a0f1c9;}
+.shell .ops29-event.s-cancelled {background:#543340;color:#ffc0d0;border-color:#ac667c;border-left-color:#ffc0cc;}
 .shell .ops29-event:hover {transform:translateY(-1px);filter:brightness(1.12);}
 .shell .ops29-view-switch {background:#261e31;border:1px solid var(--am-border);}
 .shell .ops29-view-switch button {color:var(--am-body);}
@@ -195,9 +196,12 @@ body:has(.shell) {background:var(--amorri-plum-950);color:#fff8f4;}
 .shell .ops29-date,.shell .ops29-main b {color:var(--am-ink);}
 .shell .ops29-main small,.shell .ops29-calendar-foot,.shell .ops29-empty {color:var(--am-muted);}
 .shell .ops29-calendar-foot,.shell .ops29-empty {background:rgba(18,13,26,.3);}
-.shell .ops29-status-text.s-confirmed,.shell .ops29-status-text.s-done {color:var(--am-success);}
-.shell .ops29-status-text.s-pending {color:var(--am-warn);}
-.shell .ops29-status-text.s-cancelled {color:var(--am-danger);}
+/* Statuses must remain distinguishable in the list view, not just by hue. */
+.shell .ops29-status-text {padding:5px 8px;border:1px solid transparent;border-radius:8px;}
+.shell .ops29-status-text.s-confirmed {color:#c5e0ff;background:#294762;border-color:#6997c2;}
+.shell .ops29-status-text.s-done {color:var(--am-success);background:#24483e;border-color:#5c9f83;}
+.shell .ops29-status-text.s-pending {color:var(--am-warn);background:#5a412a;border-color:#ab8250;}
+.shell .ops29-status-text.s-cancelled {color:var(--am-danger);background:#543340;border-color:#ac667c;}
 .shell .ops29-warning {background:#54402d;color:var(--am-warn);border:1px solid #99764c;}
 
 /* Payroll, data, operations analytics — numeric text must remain readable on every row. */

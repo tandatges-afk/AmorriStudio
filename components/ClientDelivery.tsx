@@ -112,8 +112,12 @@ function VideoReview({eventId,productId,file,token}:{eventId:string;productId:st
 }
 function PhotoProduct({eventId,productId,files,preselected,token}:{eventId:string;productId:string;files:DeliveryMedia[];preselected:string[];token:string}){
   const [checked,setChecked]=useState<string[]>(preselected),[filter,setFilter]=useState<'all'|'selected'|'unselected'>('all');
+  const [visibleCount,setVisibleCount]=useState(96);
   const [busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[downloading,setDownloading]=useState('');
   const images=files.filter(f=>!f.isVideo);
+  const filteredImages=images.filter(i=>filter==='all'||(filter==='selected'?checked.includes(i.id):!checked.includes(i.id)));
+  const displayedImages=filteredImages.slice(0,visibleCount);
+  const changeFilter=(next:'all'|'selected'|'unselected')=>{setFilter(next);setVisibleCount(96);};
   const photoFeedback=usePhotoFeedback(eventId,productId,token);
   const save=async()=>{setBusy(true);setNotice('');
     try{const r=await fetch(`/api/delivery/${encodeURIComponent(eventId)}/selections`,{method:'PUT',headers:{'Content-Type':'application/json','x-amorri-delivery-token':token},body:JSON.stringify({productId,fileIds:checked})});
@@ -160,9 +164,9 @@ function PhotoProduct({eventId,productId,files,preselected,token}:{eventId:strin
   };
   if(!images.length)return null;
   return <><div className="delivery-photo-toolbar"><strong>Ảnh đã chọn: {checked.length}/{images.length}</strong>
-    <div><button className={filter==='all'?'active':''} onClick={()=>setFilter('all')}>Tất cả</button><button className={filter==='selected'?'active':''} onClick={()=>setFilter('selected')}>Đã chọn</button><button className={filter==='unselected'?'active':''} onClick={()=>setFilter('unselected')}>Chưa chọn</button>
+    <div><button className={filter==='all'?'active':''} onClick={()=>changeFilter('all')}>Tất cả</button><button className={filter==='selected'?'active':''} onClick={()=>changeFilter('selected')}>Đã chọn</button><button className={filter==='unselected'?'active':''} onClick={()=>changeFilter('unselected')}>Chưa chọn</button>
     <button className="delivery-primary" disabled={busy} onClick={save}>{busy?'Đang đồng bộ…':'Gửi lựa chọn'}</button></div></div>
-    <div className="delivery-photos">{images.filter(i=>filter==='all'||(filter==='selected'?checked.includes(i.id):!checked.includes(i.id))).map(i=><article className={`delivery-photo ${checked.includes(i.id)?'is-selected':''}`} key={i.id}>
+    <div className="delivery-photos">{displayedImages.map(i=><article className={`delivery-photo ${checked.includes(i.id)?'is-selected':''}`} key={i.id}>
       <div className="delivery-photo-image"><img loading="lazy" alt={i.name} src={i.thumb}/><small className="delivery-photo-name" title={i.name}>{i.name}</small></div>
       <div className="delivery-photo-footer">
         <div className="delivery-photo-actions">
@@ -170,6 +174,7 @@ function PhotoProduct({eventId,productId,files,preselected,token}:{eventId:strin
           <button type="button" className="delivery-photo-download" disabled={!!downloading} onClick={()=>void download(i)} title={`Tải ảnh gốc ${i.name} về máy`}>{downloading===i.id?'Đang tải…':'↓ Tải ảnh'}</button>
         </div>
       </div><PhotoCommentCard fileName={i.name} comment={photoFeedback.comments[i.id]} onSave={text=>photoFeedback.save(i.id,text)} onDelete={()=>photoFeedback.remove(i.id)}/></article>)}</div>
+    {filteredImages.length>visibleCount&&<div className="delivery-photo-more"><span>Đang hiển thị {Math.min(visibleCount,filteredImages.length)}/{filteredImages.length} ảnh</span><button type="button" onClick={()=>setVisibleCount(n=>n+96)}>Hiển thị thêm ảnh</button></div>}
     {photoFeedback.error&&<p role="alert" className="delivery-alert">{photoFeedback.error}</p>}
     {notice&&<p role="status" className="delivery-alert">{notice}</p>}
   </>;

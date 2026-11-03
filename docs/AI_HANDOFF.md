@@ -45,3 +45,19 @@ Read `../CLAUDE.md` and `../AGENTS.md` before editing this repository.
 - Adds CSS-only 2.5D depth, responsive hover elevation and modal animation with `prefers-reduced-motion` support. No runtime JS, WebGL or video playback changes.
 - New regression file `tests/amorri-design-system-4.test.mjs` checks semantic structure, contrast, hover safeguards and reduced motion. Chromium static mock screenshots were inspected; production UI is NOT yet verified.
 - Run full tests and Next.js build on the user's Windows machine before push. Original source ZIP used was `AmorriStudio_FULL_SOURCE_R4_REDOWNLOAD.zip`; installer must check hashes/current `main` and never overwrite unrelated work.
+
+## Motion System R6 (2026-11-02)
+
+- R5 was largely semantic color; user explicitly requested visible button, dashboard, menu, calendar, form and 3D microinteractions.
+- R6 adds `app/amorri-motion-system.css` after colors, `components/AmorriMicroInteractions.tsx` (delegated pointer ripple / 3D spotlight), `components/AnimatedCount.tsx` (accessible KPI count-up), and keys for visual tab / calendar transitions.
+- Full implementation and accessibility policy in `docs/MOTION_SYSTEM.md`. No dependency additions, network/API changes or player effects.
+- Validate with `npm test`, typecheck, Vitest, static checks, build, and live browser screenshot/interaction checks before asserting production success.
+
+## Large Google Drive albums and operations status colors — R7 (2026-11-03)
+
+- Root cause of `DRIVE_LIST_INCOMPLETE`: `listDeliveryMedia` stopped after three pages of 500 files, failing all folders with a further cursor after ~1,500 items.
+- `lib/server/drive-pagination.ts` now reads all Drive pages with 1,000 files/request, up to 12 pages, and rejects incomplete or cyclic listings. Never authorize photo selections from partial lists.
+- Encrypted shared metadata cache can retain verified albums up to 5,000 items / 3 MB JSON; larger completed albums remain usable but bypass the persistent cache. Client gallery renders 96 images at a time to reduce DOM/memory pressure, without dropping unseen selections.
+- Four distinct calendar status palettes in `app/amorri-design-system.css`: pending amber, confirmed blue, done mint green, cancelled rose. Week/month accessible labels include the status.
+- New regression tests: `tests/drive-list-large-folders-r7.test.mjs`. Live Google Drive listing speed, Vercel function budget, and production behavior must still be tested.
+- R7 source is based on the latest user-provided full source ZIP R6; installer must compare its manifest with local GitHub main. A newer remote change must stop the installer rather than overwrite it.

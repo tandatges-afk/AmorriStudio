@@ -3,6 +3,7 @@ import {parseDriveSource,DRIVE_ID,type DeliveryMedia} from '@/lib/domain/deliver
 import {DeliveryError} from './delivery-access';
 import {mediaCacheKey,MEDIA_CACHE_ROOT,openMetadata,sealMetadata} from './delivery-media-cache';
 import {adminDatabase} from './firebase-admin';
+import {collectDriveFolderPages,DRIVE_FOLDER_PAGE_SIZE,DriveListingIncompleteError} from './drive-pagination';
 
 const DRIVE='https://www.googleapis.com/drive/v3/files';
 const fields='id,name,mimeType,thumbnailLink,webViewLink,size,shortcutDetails,videoMediaMetadata,imageMediaMetadata';
@@ -16,7 +17,7 @@ async function sharedMedia(key:string):Promise<DeliveryMedia[]|null>{
   return null;
 }
 async function persistMedia(key:string,items:DeliveryMedia[]):Promise<void>{
-  if(items.length>1500||JSON.stringify(items).length>750_000)return;
+  if(items.length>5000||JSON.stringify(items).length>3_000_000)return;
   try{await adminDatabase().ref(`${MEDIA_CACHE_ROOT}/${key}`).set(sealMetadata(items,process.env.DRIVE_SERVICE_ACCOUNT_JSON||'',key));}
   catch{/* Optional metadata cache failure must not prevent delivery. */}
 }
@@ -70,18 +71,19 @@ export async function listDeliveryMedia(product:Record<string,unknown>,forceRefr
     const doc=await getJson(`${DRIVE}/${source.id}?${params}`,hdr);
     const item=mediaFromDrive(doc);const items=item?[item]:[];await persistMedia(sharedKey,items);return remember(cacheKey,items);
   }
-  const files:Record<string,unknown>[]=[];
-  let pageToken='';
-  for(let page=0;page<3;page++){
-    const params=new URLSearchParams({q:`'${source.id}' in parents and trashed=false`,pageSize:'500',
-      fields:`nextPageToken,files(${fields})`,orderBy:'name',supportsAllDrives:'true',includeItemsFromAllDrives:'true'});
-    if(pageToken)params.set('pageToken',pageToken);
-    const data=await getJson(`${DRIVE}?${params}`,hdr);
-    if(Array.isArray(data.files))files.push(...data.files as Record<string,unknown>[]);
-    pageToken=String(data.nextPageToken||'');
-    if(!pageToken)break;
+  let files:Record<string,unknown>[];
+  try {
+    files=await collectDriveFolderPages(async pageToken=>{
+      const params=new URLSearchParams({q:`'${source.id}' in parents and trashed=false`,pageSize:String(DRIVE_FOLDER_PAGE_SIZE),
+        fields:`nextPageToken,incompleteSearch,files(${fields})`,orderBy:'name',supportsAllDrives:'true',includeItemsFromAllDrives:'true'});
+      if(pageToken)params.set('pageToken',pageToken);
+      return getJson(`${DRIVE}?${params}`,hdr);
+    });
+  } catch(error) {
+    if(error instanceof DriveListingIncompleteError)
+      throw new DeliveryError(503,'DRIVE_LIST_INCOMPLETE','Không thể xác minh đầy đủ thư mục Drive (quá 12.000 file hoặc Google Drive trả danh sách chưa hoàn chỉnh). Hãy tách album thành các thư mục nhỏ hơn.');
+    throw error;
   }
-  if(pageToken)throw new DeliveryError(503,'DRIVE_LIST_INCOMPLETE','Thư mục có quá nhiều file. Chưa thể xác nhận danh sách đầy đủ để chọn ảnh an toàn');
   // Shortcuts are resolved in bounded batches to avoid exhausting Vercel Functions.
   const resolved:Record<string,unknown>[]=[];
   for(let i=0;i<files.length;i+=6){
