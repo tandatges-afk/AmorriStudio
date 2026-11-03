@@ -22,10 +22,11 @@
  </div>
  <section class="results sync-panel" id="syncPanel">
   <div class="result-heading"><div><div class="section-num">IMPORT EXISTING ALBUM</div><h2>Đồng bộ album đã có trên Drive</h2></div></div>
-  <p class="sync-description">Nếu JPG đã được upload thủ công hoặc bằng máy khác: chọn thư mục khách trên máy này, chọn folder trực tiếp trên Drive, kiểm tra khớp toàn bộ ảnh và RAW trước khi liên kết. Không tải lại hay sửa ảnh trên Drive.</p>
+  <p class="sync-description">Nếu JPG đã được upload thủ công hoặc bằng máy khác: chọn thư mục khách trên máy này, chọn folder trực tiếp trên Drive, đối chiếu hai ảnh đầu cùng mã trên máy/Drive (tối thiểu 90%), sau đó kiểm tra tên, số lượng, checksum các ảnh còn lại và RAW trước khi liên kết. Không tải lại hay sửa ảnh trên Drive.</p>
   <label for="syncLink" class="sync-label">Link thư mục Google Drive</label>
   <input id="syncLink" type="url" placeholder="https://drive.google.com/drive/folders/..." autocomplete="off" spellcheck="false">
-  <div class="sync-actions"><button id="syncCheck" type="button" class="ghost">Kiểm tra liên kết</button><button id="syncCommit" type="button" class="sync-primary" disabled>Liên kết nguồn trên máy này</button></div>
+  <p id="syncLinkStatus" role="alert" aria-live="polite" hidden></p>
+  <div class="sync-actions"><button id="syncCheck" type="button" class="ghost">Kiểm tra ảnh và liên kết</button><button id="syncCommit" type="button" class="sync-primary" disabled>Liên kết nguồn trên máy này</button></div>
   <pre id="syncReport" aria-live="polite">Chưa kiểm tra album có sẵn.</pre>
  </section>
  <!-- Hidden compatibility telemetry. Visible history and errors live inside the queue card. -->

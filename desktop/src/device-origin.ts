@@ -4,7 +4,7 @@ import path from 'node:path';
 import {randomUUID,createHash} from 'node:crypto';
 
 export type DeviceIdentity={deviceId:string;deviceName:string;driveFolderName:string;createdAt:string};
-export type DriveJpgRecord={name:string;md5Checksum?:string;deviceId?:string;deviceName?:string;batchId?:string};
+export type DriveJpgRecord={id?:string;name:string;thumbnailLink?:string;md5Checksum?:string;deviceId?:string;deviceName?:string;batchId?:string};
 export type OriginSummary={kind:'self'|'foreign'|'mixed'|'unknown';labels:string[];unknown:number;selected:number;missing:string[];records:DriveJpgRecord[]};
 const namePattern=/^[\p{L}\p{N}][\p{L}\p{N} _.-]{1,48}$/u;
 export function validateDeviceName(input:unknown):string{

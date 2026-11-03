@@ -85,3 +85,12 @@ See `docs/AMORRI_R8_UPLOAD_AND_BRAND.md` for queue behavior, visibility and app/
 ## R8.3 Contrast & Motion (2026-11-03)
 
 Added accessible high-contrast admin and Electron CSS surfaces, tactile button depth, increased card tilt on desktop pointer and higher visibility gold logo. See `docs/AMORRI_R83_CONTRAST_MOTION.md` and regression `tests/amorri-r83-contrast-motion.test.mjs`. R8.1 RAW and R8.2 logo CSP fixes remain intact. No upload, OAuth, video or database logic changed. Continue from a clean Git main and verify production build before pushing.
+
+## R8.4 Smart Existing Album Linking
+
+- Desktop import compares first two local JPG codes with corresponding Drive images (A1→A1, A2→A2), requiring visual similarity >=90% per image before allowing user-confirmed link.
+- Checks full album names/count; files other than the two visual samples still require exact Drive MD5; RAW checks retained.
+- `desktop/src/album-visual.ts` contains deterministic visual fingerprinting and local duplicate-link mapping. This is **not an ML AI model** or a substitute for operator verification.
+- Linked IDs are remembered on the same device (`driveFolders`, `driveUploads`, `rawLinks`), warning/blocking duplicates; it does not synchronize links across devices.
+- `desktop/src/google-drive.ts` downloads bounded Drive JPEG previews into memory. Validate on Windows Electron + real Drive test account.
+- Tests: `desktop/tests/album-visual-r84.test.mjs`; see `docs/AMORRI_R84_SMART_ALBUM_LINK.md`.

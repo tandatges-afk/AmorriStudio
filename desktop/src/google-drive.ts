@@ -7,7 +7,7 @@ import https from 'node:https';
 
 type Tokens={access_token:string;refresh_token?:string;expires_at:number;scope?:string};
 type OAuthResponse={access_token?:string;refresh_token?:string;expires_in?:number;scope?:string;error?:string;error_description?:string};
-type DriveFile={id:string;name?:string;mimeType?:string;webViewLink?:string;parents?:string[];md5Checksum?:string;appProperties?:Record<string,string>};
+type DriveFile={id:string;name?:string;mimeType?:string;webViewLink?:string;parents?:string[];thumbnailLink?:string;md5Checksum?:string;appProperties?:Record<string,string>};
 type DriveList={files?:DriveFile[];nextPageToken?:string};
 const GOOGLE_SCOPE='https://www.googleapis.com/auth/drive.file';
 const GOOGLE_FULL_SCOPE='https://www.googleapis.com/auth/drive';
@@ -416,17 +416,64 @@ export async function listDriveJpgRecords(folderId:string):Promise<import('./dev
  const records:import('./device-origin').DriveJpgRecord[]=[];let pageToken='';
  for(let page=0;page<30;page++){
   const q=`'${folderId}' in parents and trashed = false`;
-  const qs=new URLSearchParams({q,fields:'nextPageToken,files(id,name,md5Checksum,appProperties)',pageSize:'1000'});
+  const qs=new URLSearchParams({q,fields:'nextPageToken,files(id,name,thumbnailLink,md5Checksum,appProperties)',pageSize:'1000'});
   if(pageToken)qs.set('pageToken',pageToken);
   const data=await driveRequest<DriveList>(`${DRIVE_API}/files?${qs}`);
   for(const item of data.files||[]){if(!item.name||!/\.jpe?g$/i.test(item.name))continue;
    const props=item.appProperties||{};
-   records.push({name:item.name,md5Checksum:item.md5Checksum,deviceId:props.amorriDeviceId,deviceName:props.amorriDeviceName,batchId:props.amorriBatchId});
+   records.push({id:item.id,name:item.name,thumbnailLink:item.thumbnailLink,md5Checksum:item.md5Checksum,deviceId:props.amorriDeviceId,deviceName:props.amorriDeviceName,batchId:props.amorriBatchId});
   }
   if(!data.nextPageToken)return records;
   pageToken=data.nextPageToken;
  }
  throw new Error('Album Drive có quá 30.000 ảnh; dừng để tránh đối chiếu không đầy đủ.');
+}
+
+/** Read at most two Drive JPEG previews for local visual verification.
+ * No images are persisted; never forward OAuth tokens to an untrusted URL.
+ */
+export async function readDriveVisualSample(record:import('./device-origin').DriveJpgRecord):Promise<Buffer>{
+ if(!record.id||!/^[A-Za-z0-9_-]{10,160}$/.test(record.id))throw new Error('Thiếu mã file Drive để so khớp ảnh.');
+ const controller=new AbortController();
+ const timeout=setTimeout(()=>controller.abort(),30000);
+ const readBounded=async(response:Response,limit:number)=>{
+  if(!response.ok)throw new Error(`Không thể đọc ảnh đối chiếu trên Drive (HTTP ${response.status}).`);
+  const size=Number(response.headers.get('content-length')||0);
+  if(size>limit)throw new Error('Ảnh mẫu quá lớn để quét an toàn; giảm dung lượng ảnh rồi thử lại.');
+  const reader=response.body?.getReader();
+  if(!reader)throw new Error('Drive không trả nội dung ảnh mẫu.');
+  const parts:Uint8Array[]=[];let total=0;
+  try{while(true){
+   const chunk=await reader.read();if(chunk.done)break;
+   total+=chunk.value.byteLength;
+   if(total>limit)throw new Error('Ảnh mẫu vượt giới hạn bộ nhớ; không liên kết.');
+   parts.push(chunk.value);
+  }}finally{await reader.cancel().catch(()=>{});}
+  const bytes=Buffer.concat(parts.map(x=>Buffer.from(x)),total);
+  if(bytes.length<4||bytes[0]!==0xff||bytes[1]!==0xd8||bytes[2]!==0xff)
+   throw new Error('Ảnh mẫu Drive không phải JPEG hợp lệ.');
+  return bytes;
+ };
+ try{
+  if(record.thumbnailLink){
+   try{
+    const u=new URL(record.thumbnailLink);
+    if(u.protocol==='https:'&&(u.hostname==='googleusercontent.com'||u.hostname.endsWith('.googleusercontent.com'))){
+     const response=await fetch(u,{signal:controller.signal,redirect:'manual'});
+     if(response.ok)return await readBounded(response,8*1024*1024);
+    }
+   }catch(error){if(controller.signal.aborted)throw error;}
+  }
+  const api=`${DRIVE_API}/files/${encodeURIComponent(record.id)}?alt=media`;
+  const first=await fetch(api,{signal:controller.signal,headers:{Authorization:`Bearer ${await accessToken()}`},redirect:'manual'});
+  if(first.status===301||first.status===302||first.status===303||first.status===307||first.status===308){
+   const target=new URL(first.headers.get('location')||'',api);
+   if(target.protocol!=='https:'||!(target.hostname==='googleusercontent.com'||target.hostname.endsWith('.googleusercontent.com')))
+    throw new Error('Drive trả đường dẫn ảnh không được tin cậy.');
+   return await readBounded(await fetch(target,{signal:controller.signal,redirect:'error'}),64*1024*1024);
+  }
+  return await readBounded(first,64*1024*1024);
+ }finally{clearTimeout(timeout);}
 }
 
 /** Resolve the direct parent for a pre-1.5.9 album without moving it. */

@@ -12,6 +12,7 @@ export type AlbumComparison={ok:boolean;localJpg:number;driveJpg:number;rawCount
 const imageExt=/\.jpe?g$/i;
 const rawExt=/\.(?:cr2|cr3|nef|nrw|arw|srf|sr2|raf|dng|rw2|orf|pef|raw|3fr|fff|iiq|k25|kdc|mos|mrw|erf|mef|rwl|srw|x3f)$/i;
 const key=(name:string)=>name.normalize('NFC').toLocaleLowerCase('en-US');
+const imageCode=(name:string)=>key(path.parse(name).name);
 
 export function parseDriveAlbumLink(input:unknown):string{
  if(typeof input!=='string'||input.length>2048)throw new Error('Dán link Google Drive hợp lệ.');
@@ -41,7 +42,7 @@ export function inspectLocalAlbum(jpgFolder:string){
  const items=new Map<string,{name:string;fullPath:string;size:number}>();
  for(const d of fs.readdirSync(jpgFolder,{withFileTypes:true})){
   if(!d.isFile()||d.isSymbolicLink()||!imageExt.test(d.name))continue;
-  const k=key(d.name);
+  const k=imageCode(d.name);
   if(items.has(k))throw new Error('JPG trên máy có tên trùng (không phân biệt chữ hoa/thường): '+d.name);
   const fullPath=path.join(jpgFolder,d.name);
   const size=fs.statSync(fullPath).size;
@@ -68,7 +69,7 @@ export async function compareExistingAlbum(jpgFolder:string,records:DriveJpgReco
  const remote=new Map<string,DriveJpgRecord>();
  for(const record of records){
   if(!imageExt.test(record.name))continue;
-  const k=key(record.name);
+  const k=imageCode(record.name);
   if(remote.has(k))throw new Error('Trên Drive có ảnh trùng tên: '+record.name+'. Hãy xử lý trước khi đồng bộ.');
   remote.set(k,record);
  }

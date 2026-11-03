@@ -1,12 +1,13 @@
-import {app,BrowserWindow,dialog,ipcMain,shell} from 'electron';
+import {app,BrowserWindow,dialog,ipcMain,shell,nativeImage} from 'electron';
 import fs from 'node:fs';
 import {randomUUID} from 'node:crypto';
 import {compareExistingAlbum,parseDriveAlbumLink} from './album-sync';
+import {firstTwoMatchingImageCodes,perceptualImageScore,mergeVisualAlbumEvidence,existingAlbumLinkStatus} from './album-visual';
 import {loadDeviceIdentity,renameDevice,originFromRecords,verifyLocalJpgSample,type OriginSummary} from './device-origin';
 import path from 'node:path';
 import {clientFolderForJpgSource,resolveCustomerJpgFolder,copySelectedRaws,inspectRawMatches,inspectRawPresence,type RawReport} from './raw-match';
 import {parseDesktopCommand,type DesktopCommand} from './desktop-commands';
-import {configureDriveOAuth,connectGoogleDrive,connectedGoogleDrive,disconnectGoogleDrive,createPhotoFolder,shareFolderForReader,listCreatedJpgs,uploadLocalJpg,getOrCreateChildFolder,ensureCustomerPublicView,isFolderPubliclyReadable,listAppDriveFolders,createDriveStorageFolder,driveAccountEmail,verifyDriveFolder,pickExistingDriveFolder,connectFullGoogleDrive,googleDriveScopeMode,listDriveFolderChildren,searchDriveFolders,listDriveJpgRecords,driveParentOf} from './google-drive';
+import {configureDriveOAuth,connectGoogleDrive,connectedGoogleDrive,disconnectGoogleDrive,createPhotoFolder,shareFolderForReader,listCreatedJpgs,uploadLocalJpg,getOrCreateChildFolder,ensureCustomerPublicView,isFolderPubliclyReadable,listAppDriveFolders,createDriveStorageFolder,driveAccountEmail,verifyDriveFolder,pickExistingDriveFolder,connectFullGoogleDrive,googleDriveScopeMode,listDriveFolderChildren,searchDriveFolders,listDriveJpgRecords,readDriveVisualSample,driveParentOf} from './google-drive';
 
 type Config={googleOAuthClientId?:string;googleOAuthClientSecret?:string;driveReaderEmail?:string};
 type DriveMapping={id:string;url:string;shared:boolean;sharingWarning:string;complete?:boolean;parentId?:string;customerFolderId?:string;accountEmail?:string};
@@ -453,6 +454,31 @@ export function setupDesktopTools(win:BrowserWindow){
    return {jpgFolder,clientRoot,jpgCount:checked.jpgCount,locCount:checked.locCount,warning:checked.warning};
  });
  // Import a pre-existing JPG album uploaded outside Amorri (read-only comparison first).
+ async function visualAlbumCheck(jpgFolder:string,records:import('./device-origin').DriveJpgRecord[]){
+  const selected=firstTwoMatchingImageCodes(jpgFolder,records);
+  const pairs=[];
+  for(const item of selected){
+   notifyProgress(`Đang đối chiếu ảnh ${item.code} trên máy với đúng mã trên Drive…`);
+   const local=nativeImage.createFromPath(item.localPath);
+   const remote=nativeImage.createFromBuffer(await readDriveVisualSample(item.drive));
+   if(local.isEmpty()||remote.isEmpty())throw new Error(`Không đọc được ảnh JPG mã ${item.code} để đối chiếu.`);
+   const pixels=(image:Electron.NativeImage)=>{
+    const resized=image.resize({width:32,height:32,quality:'best'});
+    const size=resized.getSize();
+    return {width:size.width,height:size.height,data:resized.toBitmap()};
+   };
+   const score=perceptualImageScore(pixels(local),pixels(remote));
+   pairs.push({code:item.code,localName:item.localName,driveName:item.drive.name,score,passed:score>=90});
+  }
+  return pairs;
+ }
+ registered('tools:sync-album-link-status',(rawUrl:unknown)=>{
+  const folderId=parseDriveAlbumLink(rawUrl);
+  const jpgFolder=state().jpgFolder||'';
+  const result=existingAlbumLinkStatus(folderId,jpgFolder,state());
+  return {linked:result.linked,sameCustomer:result.sameCustomer,differentFolder:'differentFolder' in result&&result.differentFolder,
+   owners:result.owners.map(p=>path.basename(clientFolderForJpgSource(p)))};
+ });
  registered('tools:sync-album-preview',async(rawUrl:unknown)=>{
   if(busy)throw new Error('Ứng dụng đang xử lý. Hãy thử lại sau.');
   const jpgFolder=state().jpgFolder;
@@ -474,15 +500,16 @@ export function setupDesktopTools(win:BrowserWindow){
    const selectedIsJpg=parentSiblings.some(f=>f.id===selectedFolderId&&f.name.toLowerCase()==='jpg');
    const customerFolderId=jpgChildren.length?selectedFolderId:(selectedIsJpg?directParent:selectedFolderId);
    const current=state();
-   const prior=current.driveFolders?.[jpgFolder];
-   if(prior?.id&&prior.id!==folderId)throw new Error('Thư mục JPG trên máy đã liên kết album Drive khác. Không ghi đè liên kết cũ.');
-   if(prior?.accountEmail&&prior.accountEmail!==accountEmail)throw new Error('Nguồn JPG đã liên kết với tài khoản Google khác.');
-   for(const [otherFolder,mapping] of Object.entries(current.driveFolders||{})){
-    if(mapping.id===folderId&&otherFolder!==jpgFolder)throw new Error('Album Drive đã liên kết với một thư mục khác trên máy này. Hãy kiểm tra trước.');
+   const linked=existingAlbumLinkStatus(folderId,jpgFolder,current);
+   if(linked.linked){
+    if(linked.sameCustomer)throw new Error('CẢNH BÁO: Link này đã được liên kết với khách hiện tại trên máy. Không liên kết lại.');
+    throw new Error('CẢNH BÁO: Album đã có liên kết với một nguồn khác hoặc khách hiện tại đã liên kết Drive khác. Kiểm tra lịch sử trước khi tiếp tục.');
    }
    notifyProgress('Đang đọc danh sách JPG đã upload thủ công trên Drive…');
    const records=await listDriveJpgRecords(folderId);
-   const report=await compareExistingAlbum(jpgFolder,records,notifyProgress);
+   const base=await compareExistingAlbum(jpgFolder,records,notifyProgress);
+   const pairs=await visualAlbumCheck(jpgFolder,records);
+   const report=mergeVisualAlbumEvidence(base,pairs);
    const token=report.ok?randomUUID():'';
    if(token)pendingAlbumSync={token,jpgFolder,folderId,customerFolderId,accountEmail,expiresAt:Date.now()+10*60_000};
    return {...report,token,folderId,driveUrl:`https://drive.google.com/drive/folders/${folderId}`,
@@ -504,9 +531,13 @@ export function setupDesktopTools(win:BrowserWindow){
    await verifyDriveFolder(plan.folderId);
    // Re-read and verify all original JPEG checksums to prevent TOCTOU changes.
    const records=await listDriveJpgRecords(plan.folderId);
-   const report=await compareExistingAlbum(plan.jpgFolder,records,notifyProgress);
-   if(!report.ok)throw new Error('JPG trên máy và Drive đã thay đổi từ lần kiểm tra trước. Không liên kết.');
+   const base=await compareExistingAlbum(plan.jpgFolder,records,notifyProgress);
+   const pairs=await visualAlbumCheck(plan.jpgFolder,records);
+   const report=mergeVisualAlbumEvidence(base,pairs);
+   if(!report.ok)throw new Error('Ảnh mẫu hoặc danh sách JPG đã thay đổi từ lần kiểm tra trước. Không liên kết.');
    const before=state();
+   const duplicate=existingAlbumLinkStatus(plan.folderId,plan.jpgFolder,before);
+   if(duplicate.linked)throw new Error('CẢNH BÁO: Album đã có liên kết trước đó, không ghi đè hoặc tạo trùng.');
    const prior=before.driveFolders?.[plan.jpgFolder];
    if(prior?.id&&prior.id!==plan.folderId)throw new Error('Nguồn này đã liên kết Drive khác. Không thay thế tự động.');
    for(const [otherFolder,mapping] of Object.entries(before.driveFolders||{})){

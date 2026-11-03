@@ -3,10 +3,11 @@
 const api=window.amorriDesktopTools;
 const el=id=>document.getElementById(id);
 let busy=false;
+let albumAlreadyLinked=false;
 const announce=message=>{el('status').textContent=String(message)};
 const text=(id,value)=>{el(id).textContent=String(value)};
 function error(e){announce('Lỗi: '+(e?.message||e));text('progressLabel','Lỗi');text('driveResult','Lỗi: '+(e?.message||e));}
-function setBusy(active){busy=active;el('syncCheck').disabled=active;el('syncCommit').disabled=active||!syncPlanToken;el('pick').disabled=active;el('chooseParent').disabled=active;el('login').disabled=active;}
+function setBusy(active){busy=active;el('syncCheck').disabled=active||albumAlreadyLinked;el('syncCommit').disabled=active||!syncPlanToken;el('pick').disabled=active;el('chooseParent').disabled=active;el('login').disabled=active;}
 async function run(action){if(busy)return;setBusy(true);try{await action()}catch(e){error(e)}finally{setBusy(false)}}
 async function status(){
  const s=await api.status();const base=s.clientRoot||'';
@@ -68,27 +69,51 @@ api.onUploadResult?.(report=>{result(report);void status().catch(error);});
 
 // Import a Drive album already uploaded outside the Desktop application.
 let syncPlanToken=null;
-el('syncLink').addEventListener('input',()=>{syncPlanToken=null;el('syncCommit').disabled=true;});
+let linkCheckSeq=0,linkCheckTimer;
+el('syncLink').addEventListener('input',()=>{
+ syncPlanToken=null;el('syncCommit').disabled=true;albumAlreadyLinked=false;el('syncCheck').disabled=busy;
+ const link=el('syncLink').value.trim();
+ const sequence=++linkCheckSeq;
+ clearTimeout(linkCheckTimer);el('syncLinkStatus').hidden=true;
+ if(!/^https:\/\/drive\.google\.com\/drive\//.test(link))return;
+ linkCheckTimer=setTimeout(async()=>{
+  try{
+   const r=await api.albumLinkStatus(link);
+   if(sequence!==linkCheckSeq)return;
+   albumAlreadyLinked=!!r.linked;el('syncCheck').disabled=busy||albumAlreadyLinked;
+   if(r.linked){
+    const msg=r.differentFolder?'Khách này đã liên kết album Drive khác.':
+     `Link đã có liên kết trên máy này${r.owners?.length?' với '+r.owners.join(', '):''}.`;
+    text('syncLinkStatus','CẢNH BÁO: '+msg+' Không liên kết trùng.');
+    el('syncLinkStatus').hidden=false;
+   }
+  }catch(e){if(sequence===linkCheckSeq){el('syncLinkStatus').hidden=true;}}
+ },350);
+});
 el('syncCheck').onclick=()=>run(async()=>{
  syncPlanToken=null;el('syncCommit').disabled=true;
  const link=el('syncLink').value.trim();
  let report;
  try{report=await api.previewAlbumSync(link)}catch(e){text('syncReport','Không thể đồng bộ: '+(e?.message||e));throw e;}
+ const visual=Array.isArray(report.visualPairs)?report.visualPairs:[];
+ const visualSummary=visual.length?'ĐỐI CHIẾU THỊ GIÁC (đúng mã ảnh, ngưỡng 90%):\n'+
+  visual.map(p=>`• ${p.localName} ↔ ${p.driveName}: ${p.score.toFixed(1)}% ${p.passed?'ĐẠT':'KHÔNG ĐẠT'}`).join('\n')+'\n':'';
+ const visuallyAccepted=new Set(visual.filter(p=>p.passed).map(p=>p.localName.toLowerCase()));
  const issues=[
   report.missingOnDrive?.length?'Chỉ trên máy: '+report.missingOnDrive.slice(0,20).join(', '):'',
   report.missingOnComputer?.length?'Chỉ trên Drive: '+report.missingOnComputer.slice(0,20).join(', '):'',
-  report.differentContent?.length?'Khác nội dung: '+report.differentContent.slice(0,20).join(', '):'',
+  report.differentContent?.length?'Khác MD5'+(report.ok?' (2 ảnh đã được đối chiếu thị giác)':'')+': '+report.differentContent.slice(0,20).join(', '):'',
   report.missingChecksum?.length?'Drive thiếu checksum: '+report.missingChecksum.slice(0,20).join(', '):'',
   report.rawMissing?.length?'Chưa có RAW tương ứng: '+report.rawMissing.slice(0,20).join(', '):''
  ].filter(Boolean);
- text('syncReport',`JPG trên máy: ${report.localJpg} | JPG trên Drive: ${report.driveJpg}\nRAW nguồn: ${report.rawCount}; trùng tên JPG: ${report.rawMatched} (${report.rawFolderName})\nAlbum: ${report.driveUrl}\n${report.warning}`+(issues.length?'\n'+issues.join('\n'):(report.ok?'\nSẵn sàng liên kết trên máy này.':'')));
+ text('syncReport',`${visualSummary}JPG trên máy: ${report.localJpg} | JPG trên Drive: ${report.driveJpg}\nRAW nguồn: ${report.rawCount}; trùng tên JPG: ${report.rawMatched} (${report.rawFolderName})\nAlbum: ${report.driveUrl}\n${report.warning}`+(issues.length?'\n'+issues.join('\n'):(report.ok?'\nSẵn sàng liên kết trên máy này.':'')));
  syncPlanToken=report.ok?report.token:null;
  el('syncCommit').disabled=!syncPlanToken;
- announce(report.ok?'Đối chiếu thành công. Xác nhận liên kết khi đã chọn đúng khách.':'Không khớp JPG; xem chi tiết trong phần đồng bộ.');
+ announce(report.ok?'Hai ảnh cùng mã đạt ít nhất 90%; đã kiểm tra toàn album. Xác nhận đúng khách trước khi liên kết.':'Chưa đạt xác minh an toàn; xem hai ảnh mẫu và checksum.');
 });
 el('syncCommit').onclick=()=>run(async()=>{
  if(!syncPlanToken)throw new Error('Hãy kiểm tra album và RAW trước khi liên kết.');
- if(!confirm('Đã xác minh đúng khách và nguồn RAW trên máy này? Liên kết chỉ lưu thông tin trong ứng dụng, không thay đổi file trên Drive.'))return;
+ if(!confirm('Hai ảnh mẫu đạt từ 90% KHÔNG bảo đảm 100% đúng khách. Bạn đã kiểm tra đúng người, nguồn RAW và album Drive? Chỉ lưu liên kết trên máy, không sửa file Drive.'))return;
  const token=syncPlanToken;syncPlanToken=null;el('syncCommit').disabled=true;
  const report=await api.commitAlbumSync(token);
  text('syncReport',`Đã liên kết thành công!\n${report.localJpg} JPG trên máy = ${report.driveJpg} JPG trên Drive\nRAW: ${report.rawCount}; JPG có RAW cùng tên: ${report.rawMatched}\nAlbum: ${report.driveUrl}`+(report.sharingWarning?'\n'+report.sharingWarning:''));

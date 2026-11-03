@@ -11,7 +11,7 @@
     "start": "npm run build:main && electron .",
     "dist:win": "npm run build:main && electron-builder --config electron-builder.yml --win nsis --x64",
     "test:raw": "npm run build:main && node --test tests/raw-match.test.mjs",
-    "test:desktop": "npm run build:main && node --test tests/raw-match.test.mjs tests/desktop-commands.test.mjs"
+    "test:desktop": "npm run build:main && node --test tests/raw-match.test.mjs tests/desktop-commands.test.mjs tests/hotfix-166-existing-album.test.mjs tests/album-visual-r84.test.mjs"
   },
   "keywords": [],
   "author": "",

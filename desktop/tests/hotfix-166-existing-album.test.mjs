@@ -29,6 +29,12 @@ test('existing album: same count + same JPG MD5 + nonempty RAW links successfull
   assert.equal(result.ok,true);assert.equal(result.localJpg,2);assert.equal(result.driveJpg,2);assert.equal(result.rawCount,1);
  }finally{f.cleanup();}
 });
+test('image code matches JPG and JPEG extensions when bytes correspond',async()=>{
+ const f=fixture();try{
+  const result=await compareExistingAlbum(f.jpg,[{name:'IMG_001.jpeg',md5Checksum:matching[0].md5Checksum},matching[1]]);
+  assert.equal(result.ok,true);
+ }finally{f.cleanup();}
+});
 test('same count and filenames with different JPG bytes is NOT trusted',async()=>{
  const f=fixture();try{
   const result=await compareExistingAlbum(f.jpg,[{...matching[0],md5Checksum:md5('a different customer JPG')},matching[1]]);
