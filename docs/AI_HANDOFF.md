@@ -112,3 +112,11 @@ Added accessible high-contrast admin and Electron CSS surfaces, tactile button d
 - Native browser photo POST uses `target="_self"` (no orphan download tab). Server still streams the authorized full-resolution attachment without buffering; an error navigates to a readable message, where the browser Back action returns to the gallery.
 - Clicking a gallery thumbnail opens an accessible portal lightbox with X/Esc/backdrop close, filename bottom left, selection and native photo download; the popup uses the available Drive thumbnail as preview, not the full resolution source. Selection state stays shared with the grid; the existing `Gửi lựa chọn` action persists changes.
 - See `tests/delivery-zalo-lightbox-r86.test.mjs`. Verify on real iOS Safari, Chrome mobile, and Zalo in-app browser after deployment.
+
+
+## R8.7 — Messenger-compatible delivery links, no duplicate share button (2026-11-04)
+
+- Removed the redundant `Sao chép link đầy đủ` button from customer delivery. Studio's `Copy link sản phẩm` remains the single place to create/copy a new grant link. No change to grants or their server-side validation.
+- Newly generated links use `/delivery/<eventId>/s/<grant>` so messenger apps can append **or remove tracking query strings** without removing the access grant. Older `?access=`, `?token=`, `#token=` and `#access=` variants are still readable, and are canonicalized into the path form in the customer's address bar. Duplicates are rejected. URL grants must still be kept private.
+- Crucial security limit: if a messenger removes the **entire** access grant (`/delivery/<eventId>` alone), the server cannot infer it. Studio must use `Copy link sản phẩm` to send the complete link; never enable token-free access.
+- Tests: `tests/delivery-message-links-r87.test.mjs` and updated `tests/delivery-zalo-lightbox-r86.test.mjs`. No changes to upload/RAW, photo download, videos, or Electron.

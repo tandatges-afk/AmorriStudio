@@ -188,10 +188,9 @@ function PhotoProduct({eventId,productId,files,preselected,token}:{eventId:strin
 export function ClientDelivery({eventId}:{eventId:string}){
   const [token,setToken]=useState(''),[data,setData]=useState<DeliveryPayload|null>(null),[files,setFiles]=useState<Record<string,DeliveryMedia[]>>({});
   const [busy,setBusy]=useState(true),[error,setError]=useState(''),[mediaErrors,setMediaErrors]=useState<Record<string,string>>({});
-  const [shareLink,setShareLink]=useState(''),[copyNotice,setCopyNotice]=useState('');
   useEffect(()=>{
-    // Zalo and other messengers can discard URL fragments. New share links
-    // carry the revocable capability in ?access=; tracking params are ignored.
+    // New share links keep the grant in the URL path. Messenger tracking
+    // parameters may change freely without removing the access capability.
     const fromUrl=readDeliveryAccessUrl(window.location.href);
     let saved='';
     try{saved=sessionStorage.getItem(`amorri_delivery:${eventId}`)||'';}catch{}
@@ -199,8 +198,7 @@ export function ClientDelivery({eventId}:{eventId:string}){
     if(value){
       try{sessionStorage.setItem(`amorri_delivery:${eventId}`,value);}catch{}
       const shareable=buildDeliveryShareUrl(window.location.origin,eventId,value);
-      setShareLink(shareable);
-      // Convert old #token links and remove Zalo tracking; never erase access.
+      // Upgrade legacy query/hash links to the chat-safe path form; remove tracking.
       if(window.location.href!==shareable)window.history.replaceState(null,'',shareable);
     }
     setToken(value);
@@ -221,14 +219,8 @@ export function ClientDelivery({eventId}:{eventId:string}){
     }catch(err){if(active)setError(err instanceof Error?err.message:'Không thể tải sản phẩm');}
     finally{if(active)setBusy(false);}})();return()=>{active=false;};
   },[eventId,token]);
-  const copyShareLink=async()=>{
-    if(!shareLink)return;
-    try{await navigator.clipboard.writeText(shareLink);setCopyNotice('Đã sao chép liên kết có mã truy cập.');}
-    catch{setCopyNotice('Không thể sao chép tự động. Hãy sao chép địa chỉ đầy đủ trên thanh trình duyệt.');}
-  };
   return <div className="client-delivery"><header className="delivery-hero"><div className="delivery-brand"><img className="amorri-delivery-logo" src="/brand/amorri-mark.png" alt="" width="38" height="38"/> AMORRI <b>STUDIO</b></div><p>PRIVATE CLIENT DELIVERY</p>
     <h1>{data?.name||'Bàn giao hình ảnh & video'}</h1><div className="delivery-hero-sub">{data?.date||'Trải nghiệm riêng tư dành cho khách hàng'}</div>
-    {shareLink&&<div className="delivery-share-tools"><button type="button" onClick={()=>void copyShareLink()}>Sao chép link đầy đủ</button>{copyNotice&&<span role="status">{copyNotice}</span>}</div>}
     </header>
     <main className="delivery-content">
       {busy&&<div className="delivery-message">Đang xác minh link và tải sản phẩm…</div>}

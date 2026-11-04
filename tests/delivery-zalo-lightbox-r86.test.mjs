@@ -4,13 +4,13 @@ import {readFileSync} from 'node:fs';
 import {buildDeliveryShareUrl,readDeliveryAccessUrl} from '../lib/domain/delivery-link.ts';
 const src=file=>readFileSync(new URL('../'+file,import.meta.url),'utf8');
 const eventId='3db5aa84-aae6-4dab-884c-0aa31d9a27b0';
-const token='0123456789abcdef01234567.some_secret';
+const token='0123456789abcdef01234567.'+'A'.repeat(43);
 
 test('Zalo tracking parameters do not erase or change a shareable access grant',()=>{
  const url=buildDeliveryShareUrl('https://amorri.vercel.app',eventId,token);
  assert.match(url,/\/delivery\//);
- assert.ok(url.includes('?access='));
- const tracked=`${url}&zarsrc=30&utm_source=zalo&utm_medium=zalo&utm_campaign=zalo`;
+ assert.ok(url.includes('/s/'));
+ const tracked=`${url}?zarsrc=30&utm_source=zalo&utm_medium=zalo&utm_campaign=zalo`;
  assert.equal(readDeliveryAccessUrl(tracked),token);
  assert.equal(readDeliveryAccessUrl(url),token);
 });
@@ -28,7 +28,8 @@ test('admin issues chat-safe links and guest normalizes the address bar without 
  assert.match(client,/readDeliveryAccessUrl\(window.location.href\)/);
  assert.match(client,/sessionStorage\.setItem/);
  assert.match(client,/history\.replaceState\(null,'',shareable\)/);
- assert.match(client,/Sao chép link đầy đủ/);
+ assert.doesNotMatch(client,/Sao chép link đầy đủ|copyShareLink|delivery-share-tools/);
+ assert.match(src('components/DeliveryGrantManager.tsx'),/Copy link sản phẩm/);
  assert.doesNotMatch(client,/window\.history\.replaceState\(null,'',window.location.pathname\)/);
 });
 test('delivery responses minimize capability disclosure via referrer/caching/robots',()=>{
