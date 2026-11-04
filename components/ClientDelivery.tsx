@@ -1,5 +1,7 @@
 'use client';
 import {useCallback,useEffect,useRef,useState,type FormEvent,type SyntheticEvent} from 'react';
+import {createPortal} from 'react-dom';
+import {buildDeliveryShareUrl,readDeliveryAccessUrl} from '@/lib/domain/delivery-link';
 import type {DeliveryMedia,DeliveryPayload} from '@/lib/domain/delivery';
 import './delivery.css';
 import './photo-feedback.css';
@@ -113,10 +115,23 @@ function VideoReview({eventId,productId,file,token}:{eventId:string;productId:st
 function PhotoProduct({eventId,productId,files,preselected,token}:{eventId:string;productId:string;files:DeliveryMedia[];preselected:string[];token:string}){
   const [checked,setChecked]=useState<string[]>(preselected),[filter,setFilter]=useState<'all'|'selected'|'unselected'>('all');
   const [visibleCount,setVisibleCount]=useState(96);
-  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[downloadHint,setDownloadHint]=useState('');
+  const [busy,setBusy]=useState(false),[notice,setNotice]=useState('');
+  const [previewId,setPreviewId]=useState<string|null>(null);
+  const closePreviewRef=useRef<HTMLButtonElement>(null);
   const images=files.filter(f=>!f.isVideo);
   const filteredImages=images.filter(i=>filter==='all'||(filter==='selected'?checked.includes(i.id):!checked.includes(i.id)));
   const displayedImages=filteredImages.slice(0,visibleCount);
+  const preview=images.find(item=>item.id===previewId)||null;
+  useEffect(()=>{
+    if(!previewId)return;
+    const originalOverflow=document.body.style.overflow;
+    const previousFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
+    const closeOnEscape=(event:KeyboardEvent)=>{if(event.key==='Escape')setPreviewId(null);};
+    document.body.style.overflow='hidden';
+    window.addEventListener('keydown',closeOnEscape);
+    closePreviewRef.current?.focus();
+    return()=>{document.body.style.overflow=originalOverflow;window.removeEventListener('keydown',closeOnEscape);previousFocus?.focus();};
+  },[previewId]);
   const changeFilter=(next:'all'|'selected'|'unselected')=>{setFilter(next);setVisibleCount(96);};
   const photoFeedback=usePhotoFeedback(eventId,productId,token);
   const save=async()=>{setBusy(true);setNotice('');
@@ -124,23 +139,22 @@ function PhotoProduct({eventId,productId,files,preselected,token}:{eventId:strin
       const value=await r.json();if(!r.ok)throw new Error(value.error||'Không lưu được ảnh');setNotice(`Đã đồng bộ ${value.selected} ảnh với Studio`);
     }catch(err){setNotice(err instanceof Error?err.message:'Không thể đồng bộ');}finally{setBusy(false);}
   };
-  // Submit with a REAL browser user gesture and a top-level download context.
-  // Hidden-iframe / script-driven submission is unreliable on iOS Safari and
-  // mobile Chrome. Keep the grant token in the POST body, never in the URL.
+  // Native POST download in the SAME tab avoids an orphan tab after saving
+  // on Safari / Android Chrome. Successful attachment responses keep this page.
   const photoDownloadPath=`/api/delivery/${encodeURIComponent(eventId)}/photo-download`;
-  const downloadStarted=(photo:DeliveryMedia)=>{
-    setDownloadHint(`Đang chuyển yêu cầu tải ${photo.name} sang trình duyệt. Trên iPhone/iPad, nếu ảnh mở trong tab mới, dùng Chia sẻ → Lưu vào Tệp. Trên Android, xem mục Tệp đã tải xuống. Nếu gặp lỗi, kiểm tra thông báo trong tab mới.`);
-  };
+  const toggleSelected=(mediaId:string)=>setChecked(previous=>previous.includes(mediaId)?previous.filter(id=>id!==mediaId):[...previous,mediaId]);
   if(!images.length)return null;
   return <><div className="delivery-photo-toolbar"><strong>Ảnh đã chọn: {checked.length}/{images.length}</strong>
     <div><button className={filter==='all'?'active':''} onClick={()=>changeFilter('all')}>Tất cả</button><button className={filter==='selected'?'active':''} onClick={()=>changeFilter('selected')}>Đã chọn</button><button className={filter==='unselected'?'active':''} onClick={()=>changeFilter('unselected')}>Chưa chọn</button>
     <button className="delivery-primary" disabled={busy} onClick={save}>{busy?'Đang đồng bộ…':'Gửi lựa chọn'}</button></div></div>
     <div className="delivery-photos">{displayedImages.map(i=><article className={`delivery-photo ${checked.includes(i.id)?'is-selected':''}`} key={i.id}>
-      <div className="delivery-photo-image"><img loading="lazy" alt={i.name} src={i.thumb}/><small className="delivery-photo-name" title={i.name}>{i.name}</small></div>
+      <div className="delivery-photo-image"><img loading="lazy" alt={i.name} src={i.thumb}/>
+        <button type="button" className="delivery-photo-zoom-trigger" onClick={()=>setPreviewId(i.id)} aria-label={`Phóng to ảnh ${i.name}`} title={`Xem lớn ${i.name}`}><span aria-hidden="true">⤢</span></button>
+        <small className="delivery-photo-name" title={i.name}>{i.name}</small></div>
       <div className="delivery-photo-footer">
         <div className="delivery-photo-actions">
-          <button type="button" className="delivery-photo-select" onClick={()=>setChecked(p=>p.includes(i.id)?p.filter(id=>id!==i.id):[...p,i.id])} aria-pressed={checked.includes(i.id)}>{checked.includes(i.id)?'✓ Đã chọn':'○ Chọn ảnh'}</button>
-          <form className="delivery-photo-download-form" method="POST" action={photoDownloadPath} target="_blank" rel="noopener noreferrer" onSubmit={()=>downloadStarted(i)}>
+          <button type="button" className="delivery-photo-select" onClick={()=>toggleSelected(i.id)} aria-pressed={checked.includes(i.id)}>{checked.includes(i.id)?'✓ Đã chọn':'○ Chọn ảnh'}</button>
+          <form className="delivery-photo-download-form" method="POST" action={photoDownloadPath} target="_self">
             <input type="hidden" name="productId" value={productId}/>
             <input type="hidden" name="mediaId" value={i.id}/>
             <input type="hidden" name="deliveryToken" value={token}/>
@@ -151,18 +165,46 @@ function PhotoProduct({eventId,productId,files,preselected,token}:{eventId:strin
     {filteredImages.length>visibleCount&&<div className="delivery-photo-more"><span>Đang hiển thị {Math.min(visibleCount,filteredImages.length)}/{filteredImages.length} ảnh</span><button type="button" onClick={()=>setVisibleCount(n=>n+96)}>Hiển thị thêm ảnh</button></div>}
     {photoFeedback.error&&<p role="alert" className="delivery-alert">{photoFeedback.error}</p>}
     {notice&&<p role="status" className="delivery-alert">{notice}</p>}
-    {downloadHint&&<p role="status" className="delivery-download-hint">{downloadHint}</p>}
+    {preview&&createPortal(<div className="delivery-photo-lightbox" onMouseDown={event=>{if(event.target===event.currentTarget)setPreviewId(null);}}>
+      <section className="delivery-photo-lightbox-panel" role="dialog" aria-modal="true" aria-label={`Xem lớn ảnh ${preview.name}`}>
+        <button ref={closePreviewRef} type="button" className="delivery-photo-lightbox-close" aria-label="Đóng ảnh phóng to" onClick={()=>setPreviewId(null)}>×</button>
+        <img className="delivery-photo-lightbox-image" src={preview.thumb} alt={preview.name}/>
+        <footer className="delivery-photo-lightbox-footer">
+          <span className="delivery-photo-lightbox-name" title={preview.name}>{preview.name}</span>
+          <div className="delivery-photo-lightbox-actions">
+            <button type="button" className="delivery-photo-select" aria-pressed={checked.includes(preview.id)} onClick={()=>toggleSelected(preview.id)}>{checked.includes(preview.id)?'✓ Đã chọn':'○ Chọn ảnh'}</button>
+            <form className="delivery-photo-download-form" method="POST" action={photoDownloadPath} target="_self">
+              <input type="hidden" name="productId" value={productId}/>
+              <input type="hidden" name="mediaId" value={preview.id}/>
+              <input type="hidden" name="deliveryToken" value={token}/>
+              <button type="submit" className="delivery-photo-download" title={`Tải ảnh gốc ${preview.name} về máy`}>↓ Tải ảnh</button>
+            </form>
+          </div>
+        </footer>
+      </section>
+    </div>,document.body)}
   </>;
 }
 export function ClientDelivery({eventId}:{eventId:string}){
   const [token,setToken]=useState(''),[data,setData]=useState<DeliveryPayload|null>(null),[files,setFiles]=useState<Record<string,DeliveryMedia[]>>({});
   const [busy,setBusy]=useState(true),[error,setError]=useState(''),[mediaErrors,setMediaErrors]=useState<Record<string,string>>({});
+  const [shareLink,setShareLink]=useState(''),[copyNotice,setCopyNotice]=useState('');
   useEffect(()=>{
-    const hash=new URLSearchParams(window.location.hash.slice(1)).get('token')||'';
-    const value=hash||sessionStorage.getItem(`amorri_delivery:${eventId}`)||'';
-    if(hash){sessionStorage.setItem(`amorri_delivery:${eventId}`,hash);window.history.replaceState(null,'',window.location.pathname);}
+    // Zalo and other messengers can discard URL fragments. New share links
+    // carry the revocable capability in ?access=; tracking params are ignored.
+    const fromUrl=readDeliveryAccessUrl(window.location.href);
+    let saved='';
+    try{saved=sessionStorage.getItem(`amorri_delivery:${eventId}`)||'';}catch{}
+    const value=fromUrl||saved;
+    if(value){
+      try{sessionStorage.setItem(`amorri_delivery:${eventId}`,value);}catch{}
+      const shareable=buildDeliveryShareUrl(window.location.origin,eventId,value);
+      setShareLink(shareable);
+      // Convert old #token links and remove Zalo tracking; never erase access.
+      if(window.location.href!==shareable)window.history.replaceState(null,'',shareable);
+    }
     setToken(value);
-    if(!value){setError('Link bàn giao thiếu mã truy cập. Hãy mở lại đúng liên kết Studio đã gửi.');setBusy(false);}
+    if(!value){setError('Link chưa chứa mã truy cập. Vui lòng nhờ Studio sao chép lại link bàn giao đầy đủ bằng nút Copy link sản phẩm; chỉ đường dẫn /delivery/... không đủ quyền truy cập.');setBusy(false);}
   },[eventId]);
   useEffect(()=>{
     if(!token)return;let active=true;const headers={'x-amorri-delivery-token':token};
@@ -179,8 +221,15 @@ export function ClientDelivery({eventId}:{eventId:string}){
     }catch(err){if(active)setError(err instanceof Error?err.message:'Không thể tải sản phẩm');}
     finally{if(active)setBusy(false);}})();return()=>{active=false;};
   },[eventId,token]);
+  const copyShareLink=async()=>{
+    if(!shareLink)return;
+    try{await navigator.clipboard.writeText(shareLink);setCopyNotice('Đã sao chép liên kết có mã truy cập.');}
+    catch{setCopyNotice('Không thể sao chép tự động. Hãy sao chép địa chỉ đầy đủ trên thanh trình duyệt.');}
+  };
   return <div className="client-delivery"><header className="delivery-hero"><div className="delivery-brand"><img className="amorri-delivery-logo" src="/brand/amorri-mark.png" alt="" width="38" height="38"/> AMORRI <b>STUDIO</b></div><p>PRIVATE CLIENT DELIVERY</p>
-    <h1>{data?.name||'Bàn giao hình ảnh & video'}</h1><div className="delivery-hero-sub">{data?.date||'Trải nghiệm riêng tư dành cho khách hàng'}</div></header>
+    <h1>{data?.name||'Bàn giao hình ảnh & video'}</h1><div className="delivery-hero-sub">{data?.date||'Trải nghiệm riêng tư dành cho khách hàng'}</div>
+    {shareLink&&<div className="delivery-share-tools"><button type="button" onClick={()=>void copyShareLink()}>Sao chép link đầy đủ</button>{copyNotice&&<span role="status">{copyNotice}</span>}</div>}
+    </header>
     <main className="delivery-content">
       {busy&&<div className="delivery-message">Đang xác minh link và tải sản phẩm…</div>}
       {error&&<div role="alert" className="delivery-message delivery-error">{error}</div>}

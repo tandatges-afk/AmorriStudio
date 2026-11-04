@@ -1,3 +1,4 @@
+import {buildDeliveryShareUrl} from '@/lib/domain/delivery-link';
 import {ensureDeliveryGrant,listDeliveryGrants} from '@/lib/server/delivery-access';
 import {requireAdmin,payload,json,deliveryFailure} from '@/lib/server/delivery-http';
 import {validId} from '@/lib/domain/delivery';
@@ -12,7 +13,7 @@ export async function GET(request:Request){
     const base=new URL(request.url).origin;
     const grants=(await listDeliveryGrants(eventId)).map(({token,...grant})=>({
       ...grant,
-      shareUrl:token ? `${base}/delivery/${encodeURIComponent(eventId)}#token=${encodeURIComponent(token)}` : null
+      shareUrl:token ? buildDeliveryShareUrl(base,eventId,token) : null
     }));
     return json({grants});
   }catch(err){return deliveryFailure(err);}
@@ -27,7 +28,7 @@ export async function POST(request:Request){
     if(!isEventReleased(booking.value))return json({error:'Link bàn giao chỉ mở sau giờ kết thúc lịch',code:'DELIVERY_LOCKED'},403);
     const grant=await ensureDeliveryGrant(eventId,user.uid,30,productId);
     const url=new URL(request.url);
-    const shareUrl=`${url.origin}/delivery/${encodeURIComponent(eventId)}#token=${encodeURIComponent(grant.token)}`;
+    const shareUrl=buildDeliveryShareUrl(url.origin,eventId,grant.token);
     return json({success:true,shareUrl,grantId:grant.grantId,expiresAt:grant.expiresAt,scope:grant.scope,productId:grant.productId,created:grant.created});
   }catch(err){return deliveryFailure(err);}
 }

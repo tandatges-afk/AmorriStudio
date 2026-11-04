@@ -13,7 +13,7 @@ test('mobile and desktop use browser-native photo form submissions, not hidden f
   const client=source('components/ClientDelivery.tsx');
   const server=source('app/api/delivery/[eventId]/photo-download/route.ts');
   assert.match(client,/method="POST"/);
-  assert.match(client,/target="_blank"/);
+  assert.match(client,/target="_self"/);
   assert.match(client,/type="submit" className="delivery-photo-download"/);
   assert.match(client,/deliveryToken:token/);
   assert.doesNotMatch(client,/showSaveFilePicker|URL\.createObjectURL|document\.createElement\('iframe'\)|form\.submit\(\)/);

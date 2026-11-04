@@ -87,3 +87,33 @@
 /* The download button lives in its own native POST form. Keep both action columns equal. */
 .delivery-photo-download-form{display:block;min-width:0;margin:0;}
 .delivery-download-hint{margin-top:10px;border:1px solid #9eb7cc;background:#edf4fb;color:#233f60;border-radius:10px;padding:11px 14px;line-height:1.5;font-size:13px;overflow-wrap:anywhere;}
+
+/* R8.6 · Photo lightbox. The preview uses the verified Drive thumbnail;
+   downloading the full original still uses the authenticated native POST. */
+.delivery-photo-zoom-trigger{position:absolute;inset:0;display:flex;align-items:flex-start;justify-content:flex-end;padding:9px;border:0;background:transparent;cursor:zoom-in;color:#fff;z-index:2;}
+.delivery-photo-zoom-trigger span{position:static;border:1px solid #ffffffa6;background:#18131fcc;box-shadow:0 3px 12px #0005;color:#fff;font-size:16px;border-radius:8px;padding:4px 8px;}
+.delivery-photo-zoom-trigger:focus-visible{outline:3px solid #dfb878;outline-offset:-3px;}
+.delivery-photo-lightbox{position:fixed;inset:0;z-index:10000;background:rgba(10,9,15,.94);display:flex;justify-content:center;align-items:center;padding:clamp(10px,3vw,30px);overscroll-behavior:contain;}
+.delivery-photo-lightbox-panel{position:relative;display:flex;flex-direction:column;max-width:min(1100px,100%);width:100%;max-height:100%;min-height:0;align-items:center;gap:0;color:#f6f0e7;}
+.delivery-photo-lightbox-image{display:block;width:auto;max-width:100%;height:auto;max-height:calc(100dvh - 160px);object-fit:contain;box-shadow:0 20px 65px #0009;border-radius:9px;background:#15151b;}
+.delivery-photo-lightbox-close{position:absolute;z-index:2;top:5px;right:5px;background:#2d2437ee;color:#fff;border:1px solid #b6a4b5;border-radius:50%;width:44px;height:44px;font-size:30px;line-height:1;display:grid;place-items:center;cursor:pointer;box-shadow:0 4px 14px #0008;}
+.delivery-photo-lightbox-close:hover,.delivery-photo-lightbox-close:focus-visible{background:#56405c;outline:2px solid #f4c990;outline-offset:2px;}
+.delivery-photo-lightbox-footer{display:flex;align-items:center;justify-content:space-between;gap:18px;width:100%;padding:14px 0 4px;min-width:0;}
+.delivery-photo-lightbox-name{text-align:left;font-size:13px;font-weight:700;color:#f4c990;overflow-wrap:anywhere;min-width:0;flex:1;}
+.delivery-photo-lightbox-actions{display:flex;align-items:center;gap:9px;flex-shrink:0;}
+.delivery-photo-lightbox-actions .delivery-photo-select,.delivery-photo-lightbox-actions .delivery-photo-download{font:inherit;font-size:12px;font-weight:750;min-height:42px;padding:10px 14px;border-radius:9px;cursor:pointer;border:1px solid #958b97;background:#31283a;color:#fff;}
+.delivery-photo-lightbox-actions .delivery-photo-download{background:#f4c990;color:#201626;border-color:#f4c990;}
+.delivery-photo-lightbox-actions .delivery-photo-select[aria-pressed="true"]{background:#215a42;border-color:#83d3a9;}
+.delivery-photo-lightbox-actions .delivery-photo-download-form{margin:0;}
+.delivery-share-tools{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:9px;margin-top:15px;}
+.delivery-share-tools button{padding:8px 14px;border-radius:8px;border:1px solid #d7c49c;background:#f4c990;color:#221a2a;cursor:pointer;font-weight:750;}
+.delivery-share-tools span{font-size:12px;color:#f5e8cb;}
+@media(max-width:560px){
+  .delivery-photo-lightbox{padding:9px;}
+  .delivery-photo-lightbox-image{max-height:calc(100dvh - 208px);}
+  .delivery-photo-lightbox-footer{align-items:stretch;flex-direction:column;gap:12px;}
+  .delivery-photo-lightbox-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;width:100%;}
+  .delivery-photo-lightbox-actions>button,.delivery-photo-lightbox-actions>form,.delivery-photo-lightbox-actions form>button{width:100%;}
+  .delivery-photo-lightbox-close{top:3px;right:3px;}
+}
+@media(prefers-reduced-motion:reduce){.delivery-photo-lightbox *{transition:none!important;animation:none!important;}}

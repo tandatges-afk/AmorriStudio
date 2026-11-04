@@ -103,3 +103,12 @@ Added accessible high-contrast admin and Electron CSS surfaces, tactile button d
 - Native form errors render a no-store HTML explanation in the new tab; JSON API requests still receive JSON. UI no longer claims completed download or references Ctrl+J on iOS.
 - Tests: `tests/mobile-photo-download-r85.test.mjs` and refreshed download tests. Verify on real iOS Safari/iOS Chrome and Android Chrome after deploy.
 - No changes to Electron uploads, Smart Album (R8.4), RAW logic, or R2 playback.
+
+
+## R8.6 — Zalo delivery access, same-tab downloads, photo lightbox (2026-11-04)
+
+- New delivery links use `?access=<revocable grant token>` instead of `#token=` because Zalo/other messengers may strip fragments and append tracking query parameters. Client accepts both old fragment and new query. A query-only `/delivery/<eventId>` without token cannot be recovered on an unfamiliar browser: admin must copy a fresh complete link. The guest page includes a `Sao chép link đầy đủ` action; it canonicalizes/removes Zalo tracking without removing access. All client API access still requires the verified token in private headers or POST body. URL capabilities are sensitive; avoid posting them publicly.
+- `/delivery/:path*` responses set `Referrer-Policy: no-referrer`, `Cache-Control: private, no-store` and `X-Robots-Tag: noindex` to reduce leakage from URLs containing the access capability. The token can still appear in the host's access logs: never add it to analytics.
+- Native browser photo POST uses `target="_self"` (no orphan download tab). Server still streams the authorized full-resolution attachment without buffering; an error navigates to a readable message, where the browser Back action returns to the gallery.
+- Clicking a gallery thumbnail opens an accessible portal lightbox with X/Esc/backdrop close, filename bottom left, selection and native photo download; the popup uses the available Drive thumbnail as preview, not the full resolution source. Selection state stays shared with the grid; the existing `Gửi lựa chọn` action persists changes.
+- See `tests/delivery-zalo-lightbox-r86.test.mjs`. Verify on real iOS Safari, Chrome mobile, and Zalo in-app browser after deployment.

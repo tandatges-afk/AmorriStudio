@@ -13,7 +13,7 @@ test('photo original download streams through browser attachment with scoped POS
   const ui=read('components/ClientDelivery.tsx');
   const route=read('app/api/delivery/[eventId]/photo-download/route.ts');
   assert.match(ui,/method="POST"/);
-  assert.match(ui,/target="_blank"/);
+  assert.match(ui,/target="_self"/);
   assert.match(ui,/type="submit" className="delivery-photo-download"/);
   assert.match(ui,/deliveryToken:token/);
   assert.doesNotMatch(ui,/response\.blob\(\)|URL\.createObjectURL|document\.createElement\('iframe'\)|form\.submit\(\)/);

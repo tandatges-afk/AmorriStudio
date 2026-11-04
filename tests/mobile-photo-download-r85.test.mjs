@@ -7,9 +7,9 @@ const client=source('components/ClientDelivery.tsx');
 const route=source('app/api/delivery/[eventId]/photo-download/route.ts');
 const css=source('components/delivery.css');
 
-test('mobile browser download is a real submit-button POST into a top-level browser tab',()=>{
+test('mobile browser download is a real submit-button POST in the current browser tab',()=>{
   assert.match(client,/<form className="delivery-photo-download-form" method="POST"/);
-  assert.match(client,/target="_blank" rel="noopener noreferrer"/);
+  assert.match(client,/target="_self"/);
   assert.match(client,/name="productId" value=\{productId\}/);
   assert.match(client,/name="mediaId" value=\{i\.id\}/);
   assert.match(client,/name="deliveryToken" value=\{token\}/);
@@ -45,6 +45,6 @@ test('full-resolution original download is attachment, streamed and scoped to ph
 test('download action uses full-width form button and does not claim completion',()=>{
   assert.match(css,/\.delivery-photo-download-form\{display:block/);
   assert.match(css,/\.delivery-photo-download-form>\.delivery-photo-download/);
-  assert.match(client,/Trên iPhone\/iPad/);
+  assert.match(client,/target="_self"/);
   assert.doesNotMatch(client,/Đã yêu cầu tải|Ctrl\+J/);
 });

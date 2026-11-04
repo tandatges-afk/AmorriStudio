@@ -80,14 +80,14 @@ export async function POST(request:Request,{params}:{params:Promise<{eventId:str
   }catch(err){
     const failure=deliveryFailure(err);
     if(!isNativeForm)return failure;
-    // Native mobile form submissions open a real tab. Show a legible error
+    // Failed native downloads show a legible error in the same tab.
     // instead of a raw JSON document; never include credentials or URLs.
     const data=await failure.json() as {error?:string};
     const escapeHtml=(value:string)=>value.replace(/[&<>"']/g,char=>({
       '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
     })[char]||char);
     const message=escapeHtml(String(data.error||'Không thể tải ảnh lúc này.'));
-    return new Response(`<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Không thể tải ảnh · Amorri Studio</title><style>body{font-family:system-ui,sans-serif;background:#18131f;color:#f5ebdb;max-width:35rem;margin:12vh auto;padding:1.5rem;line-height:1.6}h1{color:#f4c990}p{overflow-wrap:anywhere}small{color:#c6bbd0}</style></head><body><h1>Không thể tải ảnh</h1><p>${message}</p><small>Đóng tab này và thử lại từ album, hoặc liên hệ Studio nếu lỗi tiếp diễn.</small></body></html>`,{
+    return new Response(`<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Không thể tải ảnh · Amorri Studio</title><style>body{font-family:system-ui,sans-serif;background:#18131f;color:#f5ebdb;max-width:35rem;margin:12vh auto;padding:1.5rem;line-height:1.6}h1{color:#f4c990}p{overflow-wrap:anywhere}small{color:#c6bbd0}</style></head><body><h1>Không thể tải ảnh</h1><p>${message}</p><small>Hãy bấm Quay lại để trở về album và thử lại, hoặc liên hệ Studio nếu lỗi tiếp diễn.</small></body></html>`,{
       status:failure.status,headers:{...NO_STORE,'Content-Type':'text/html; charset=utf-8',
         'Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"}
     });
