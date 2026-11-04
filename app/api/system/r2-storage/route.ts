@@ -16,6 +16,6 @@ export async function GET(request:Request){
   }catch(err){
     const code=err instanceof Error?err.message:'R2_STORAGE_UNAVAILABLE';
     console.warn('[r2-storage] read failed',{code:code.slice(0,80)});
-    return NextResponse.json({error:'Không thể liệt kê dung lượng Cloudflare R2. Kiểm tra quyền Object Read/List và cấu hình R2.'},{status:503,headers});
+    return NextResponse.json({error:'Không thể liệt kê dung lượng video. Kiểm tra quyền List và cấu hình kho lưu trữ.'},{status:503,headers});
   }
 }

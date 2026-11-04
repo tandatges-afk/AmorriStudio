@@ -1,0 +1,23 @@
+[Unit]
+Description=Amorri Studio Next.js 16
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=amorri
+Group=amorri
+WorkingDirectory=/var/www/amorri/current
+EnvironmentFile=/etc/amorri/prod.env
+Environment=NODE_ENV=production
+ExecStart=/usr/bin/env node node_modules/next/dist/bin/next start -H 127.0.0.1 -p 3304
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=90
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

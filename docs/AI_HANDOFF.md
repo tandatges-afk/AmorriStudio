@@ -120,3 +120,11 @@ Added accessible high-contrast admin and Electron CSS surfaces, tactile button d
 - Newly generated links use `/delivery/<eventId>/s/<grant>` so messenger apps can append **or remove tracking query strings** without removing the access grant. Older `?access=`, `?token=`, `#token=` and `#access=` variants are still readable, and are canonicalized into the path form in the customer's address bar. Duplicates are rejected. URL grants must still be kept private.
 - Crucial security limit: if a messenger removes the **entire** access grant (`/delivery/<eventId>` alone), the server cannot infer it. Studio must use `Copy link sản phẩm` to send the complete link; never enable token-free access.
 - Tests: `tests/delivery-message-links-r87.test.mjs` and updated `tests/delivery-zalo-lightbox-r86.test.mjs`. No changes to upload/RAW, photo download, videos, or Electron.
+
+
+## VPS staging (2026-11-04) — NOT FULLY CUT OVER
+
+- VPS target `180.93.43.162`, domain `amorri.io.vn`, media `media.amorri.io.vn`.
+- Source supports `AMORRI_STORAGE_BACKEND=s3` for signed video GET/HEAD/List and private concept media; legacy `r2` remains default.
+- Templates in `vps/`: Nginx, systemd, RustFS, Postgres, source deployment, backup/export staging. **Auth/DB still Firebase** until transactional migration is implemented and verified; Google Drive still an independent source.
+- Read `vps/README.md` before running anything. Never turn off Vercel, R2 or Firebase solely because this kit was installed.

@@ -1,0 +1,18 @@
+[Unit]
+Description=Amorri Studio VPS 1080p Private S3 Synchronization
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=amorri
+Group=amorri
+RuntimeDirectory=amorri
+RuntimeDirectoryMode=0700
+WorkingDirectory=/var/www/amorri/current
+EnvironmentFile=/etc/amorri/prod.env
+ExecStart=/bin/bash /opt/amorri/scripts/run-video-worker.sh
+TimeoutStartSec=7200
+NoNewPrivileges=yes
+PrivateTmp=yes
+UMask=0077

@@ -59,7 +59,7 @@ test('a guest session canonicalizes chat tracking while preserving the validated
  assert.match(guest,/readDeliveryAccessUrl\(window.location.href\)/);
  assert.match(guest,/buildDeliveryShareUrl\(window.location.origin,eventId,value\)/);
  assert.match(guest,/window.history.replaceState\(null,'',shareable\)/);
- assert.match(grants,/buildDeliveryShareUrl\(url.origin,eventId,grant.token\)/);
+ assert.match(grants,/buildDeliveryShareUrl\(process\.env\.AMORRI_PUBLIC_ORIGIN\|\|url\.origin,eventId,grant\.token\)/);
  assert.match(grants,/buildDeliveryShareUrl\(base,eventId,token\)/);
  assert.match(read('app/delivery/[eventId]/s/[token]/page.tsx'),/ClientDelivery eventId=\{eventId\}/);
  assert.doesNotMatch(guest,/window.history.replaceState\(null,'',window.location.pathname\)/);

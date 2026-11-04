@@ -11,7 +11,7 @@ export async function POST(request:Request){
   const body=await jsonBody(request,2000) as {staffId?:unknown;days?:unknown};
   if(!body||typeof body.staffId!=='string'||typeof body.days!=='number')throw new ScheduleError(400,'Thiếu ID hoặc thời hạn link');
   const issued=await ensureStaffShare(body.staffId,user.uid,body.days);
-  const origin=new URL(request.url).origin;
+  const origin=process.env.AMORRI_PUBLIC_ORIGIN||new URL(request.url).origin;
   // Token in URL fragment: never sent to the server in navigation, query logs or referrer.
   return json({shareUrl:`${origin}/staff?staff=${encodeURIComponent(body.staffId)}#token=${issued.token}`,grantId:issued.grantId,expiresAt:issued.expiresAt});
  }catch(err){return failure(err);}

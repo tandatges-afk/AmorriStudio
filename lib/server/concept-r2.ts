@@ -8,12 +8,27 @@ const validEvent=/^[A-Za-z0-9_-]{12,100}$/;
 const validPhoto=/^[0-9a-f]{8}-[0-9a-f-]{27,}$/i;
 
 function config(){
+ if (process.env.AMORRI_STORAGE_BACKEND === 's3') {
+  let endpoint:URL;
+  try { endpoint=new URL(process.env.AMORRI_S3_ENDPOINT||''); }
+  catch { throw new Error('CONCEPT_S3_NOT_CONFIGURED'); }
+  const bucket=String(process.env.AMORRI_S3_CONCEPT_BUCKET||'');
+  const access=String(process.env.AMORRI_S3_ACCESS_KEY_ID||'');
+  const secret=String(process.env.AMORRI_S3_SECRET_ACCESS_KEY||'');
+  const region=String(process.env.AMORRI_S3_REGION||'us-east-1');
+  if(endpoint.protocol!=='https:'||!endpoint.hostname||endpoint.username||endpoint.password||
+   endpoint.pathname!=='/'||endpoint.search||endpoint.hash||endpoint.port||
+   !/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(bucket)||
+   !/^[A-Za-z0-9]+$/.test(access)||secret.length<16||
+   !/^[a-z0-9-]{2,32}$/.test(region))throw new Error('CONCEPT_S3_NOT_CONFIGURED');
+  return {host:endpoint.host,origin:endpoint.origin,bucket,access,secret,region};
+ }
  const account=String(process.env.R2_ACCOUNT_ID||'');
  const bucket=String(process.env.R2_CONCEPT_BUCKET||'');
  const access=String(process.env.R2_CONCEPT_ACCESS_KEY_ID||'');
  const secret=String(process.env.R2_CONCEPT_SECRET_ACCESS_KEY||'');
  if(!/^[a-f0-9]{32}$/i.test(account)||!/^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(bucket)||!access||secret.length<16)throw new Error('CONCEPT_R2_NOT_CONFIGURED');
- return {host:`${account}.r2.cloudflarestorage.com`,bucket,access,secret};
+ return {host:`${account}.r2.cloudflarestorage.com`,origin:`https://${account}.r2.cloudflarestorage.com`,bucket,access,secret,region:'auto'};
 }
 export function conceptKey(eventId:string,photoId:string,ext:'jpg'|'png'|'webp'){
  if(!validEvent.test(eventId)||!validPhoto.test(photoId)||!['jpg','png','webp'].includes(ext))throw new Error('CONCEPT_R2_INVALID_KEY');
@@ -23,10 +38,10 @@ function ctx(method:'GET'|'PUT'|'DELETE',key:string,now=new Date()){
  if(!/^concepts\/[A-Za-z0-9_-]{12,100}\/[0-9a-f-]{36}\.(jpg|png|webp)$/.test(key))throw new Error('CONCEPT_R2_INVALID_KEY');
  const c=config();const stamp=now.toISOString().slice(0,10).replaceAll('-','');
  const instant=now.toISOString().replace(/[:-]|\.\d{3}/g,'');
- const scope=`${stamp}/auto/s3/aws4_request`;
+ const scope=`${stamp}/${c.region}/s3/aws4_request`;
  const path=`/${enc(c.bucket)}/${key.split('/').map(enc).join('/')}`;
- const base=`https://${c.host}${path}`;
- const secret=hmac(hmac(hmac(hmac(Buffer.from(`AWS4${c.secret}`),stamp),'auto'),'s3'),'aws4_request');
+ const base=`${c.origin}${path}`;
+ const secret=hmac(hmac(hmac(hmac(Buffer.from(`AWS4${c.secret}`),stamp),c.region),'s3'),'aws4_request');
  return {c,instant,scope,base,secret,method};
 }
 export function signConceptRead(key:string,now=new Date()){

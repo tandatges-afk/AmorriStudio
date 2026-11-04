@@ -32,3 +32,8 @@ tmp/
 .config/
 *.key
 *.key.json
+
+# Amorri VPS private config files
+vps/compose.env
+vps/*.env
+vps/**/*.secret

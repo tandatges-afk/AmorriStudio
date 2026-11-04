@@ -10,11 +10,11 @@ export async function GET() {
     upgradeRelease: 'availability-money-302-auto-20261013-r1',
     authApi: 'diagnostic-codes-enabled',
     deliveryApi: 'capability-tokens-enabled',
-    streamingApi: 'r2-only-1080p-signed-url-no-vercel-video',
+    streamingApi: process.env.AMORRI_STORAGE_BACKEND === 's3' ? 'vps-s3-1080p-signed-url' : 'r2-only-1080p-signed-url-no-vercel-video',
     privateVideoRelease: 'r2-signed-private-20261013-r1',
     autoVideoSyncRelease: 'r2-auto-worker-20261014-r1',
     currentRelease: 'amorri-3.2.5-r2-only',
-    privateVideoMode: 'r2-only',
+    privateVideoMode: process.env.AMORRI_STORAGE_BACKEND === 's3' ? 'vps-s3-only' : 'r2-only',
     systemDiagnostics: 'admin-only',
     time: new Date().toISOString()
   }, { headers: { 'Cache-Control': 'no-store, max-age=0' } });

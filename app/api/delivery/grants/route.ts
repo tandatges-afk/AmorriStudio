@@ -10,7 +10,7 @@ export async function GET(request:Request){
     if(!validId(eventId))return json({error:'Mã lịch không hợp lệ'},400);
     const booking=await findBooking(eventId);
     if(!isEventReleased(booking.value))return json({error:'Link bàn giao chỉ mở sau giờ kết thúc lịch',code:'DELIVERY_LOCKED'},403);
-    const base=new URL(request.url).origin;
+    const base=process.env.AMORRI_PUBLIC_ORIGIN||new URL(request.url).origin;
     const grants=(await listDeliveryGrants(eventId)).map(({token,...grant})=>({
       ...grant,
       shareUrl:token ? buildDeliveryShareUrl(base,eventId,token) : null
@@ -28,7 +28,7 @@ export async function POST(request:Request){
     if(!isEventReleased(booking.value))return json({error:'Link bàn giao chỉ mở sau giờ kết thúc lịch',code:'DELIVERY_LOCKED'},403);
     const grant=await ensureDeliveryGrant(eventId,user.uid,30,productId);
     const url=new URL(request.url);
-    const shareUrl=buildDeliveryShareUrl(url.origin,eventId,grant.token);
+    const shareUrl=buildDeliveryShareUrl(process.env.AMORRI_PUBLIC_ORIGIN||url.origin,eventId,grant.token);
     return json({success:true,shareUrl,grantId:grant.grantId,expiresAt:grant.expiresAt,scope:grant.scope,productId:grant.productId,created:grant.created});
   }catch(err){return deliveryFailure(err);}
 }

@@ -1,0 +1,11 @@
+[Unit]
+Description=Amorri Studio periodic 1080p video sync
+
+[Timer]
+OnCalendar=hourly
+RandomizedDelaySec=8m
+Persistent=true
+Unit=amorri-video-sync.service
+
+[Install]
+WantedBy=timers.target

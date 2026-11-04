@@ -23,7 +23,7 @@ test('legacy hash links, token query and unrelated tracking are handled determin
 test('admin issues chat-safe links and guest normalizes the address bar without removing token',()=>{
  const route=src('app/api/delivery/grants/route.ts');
  const client=src('components/ClientDelivery.tsx');
- assert.match(route,/buildDeliveryShareUrl\(url.origin,eventId,grant.token\)/);
+ assert.match(route,/buildDeliveryShareUrl\(process\.env\.AMORRI_PUBLIC_ORIGIN\|\|url\.origin,eventId,grant\.token\)/);
  assert.match(route,/buildDeliveryShareUrl\(base,eventId,token\)/);
  assert.match(client,/readDeliveryAccessUrl\(window.location.href\)/);
  assert.match(client,/sessionStorage\.setItem/);

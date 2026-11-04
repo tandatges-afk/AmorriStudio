@@ -5,6 +5,8 @@ export type Source={type:'file'|'folder';id:string};
 export type DispatchResult={queued:boolean;reason:string};
 const ID=/^[A-Za-z0-9_-]{10,200}$/;
 export async function dispatchR2Sync(source:Source):Promise<DispatchResult>{
+  // After storage cutover, the VPS timer owns synchronization. Never dispatch the old R2-only workflow.
+  if (process.env.AMORRI_STORAGE_BACKEND === 's3') return {queued:false,reason:'vps-hourly-worker'};
   const token=(process.env.AMORRI_GITHUB_ACTIONS_DISPATCH_TOKEN||'').trim();
   if(!token)return {queued:false,reason:'hourly-scan-only'};
   if(!ID.test(source.id)||!['file','folder'].includes(source.type))return {queued:false,reason:'invalid-source'};
