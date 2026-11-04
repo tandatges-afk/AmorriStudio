@@ -113,7 +113,7 @@ function VideoReview({eventId,productId,file,token}:{eventId:string;productId:st
 function PhotoProduct({eventId,productId,files,preselected,token}:{eventId:string;productId:string;files:DeliveryMedia[];preselected:string[];token:string}){
   const [checked,setChecked]=useState<string[]>(preselected),[filter,setFilter]=useState<'all'|'selected'|'unselected'>('all');
   const [visibleCount,setVisibleCount]=useState(96);
-  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[downloading,setDownloading]=useState('');
+  const [busy,setBusy]=useState(false),[notice,setNotice]=useState(''),[downloadHint,setDownloadHint]=useState('');
   const images=files.filter(f=>!f.isVideo);
   const filteredImages=images.filter(i=>filter==='all'||(filter==='selected'?checked.includes(i.id):!checked.includes(i.id)));
   const displayedImages=filteredImages.slice(0,visibleCount);
@@ -124,43 +124,12 @@ function PhotoProduct({eventId,productId,files,preselected,token}:{eventId:strin
       const value=await r.json();if(!r.ok)throw new Error(value.error||'Không lưu được ảnh');setNotice(`Đã đồng bộ ${value.selected} ảnh với Studio`);
     }catch(err){setNotice(err instanceof Error?err.message:'Không thể đồng bộ');}finally{setBusy(false);}
   };
-  // Use a native form POST so the browser streams an attachment into its
-  // download manager. Do not buffer up to 150 MB in a JavaScript Blob.
-  const download=(photo:DeliveryMedia)=>{
-    if(downloading)return;
-    setDownloading(photo.id);setNotice('');
-    try{
-      const frame=document.createElement('iframe');
-      frame.name=`amorri-photo-download-${crypto.randomUUID()}`;
-      frame.hidden=true;frame.setAttribute('aria-hidden','true');
-      document.body.appendChild(frame);
-      const form=document.createElement('form');
-      form.method='POST';
-      form.action=`/api/delivery/${encodeURIComponent(eventId)}/photo-download`;
-      form.target=frame.name;form.hidden=true;
-      for(const [key,value] of Object.entries({productId,mediaId:photo.id,deliveryToken:token})){
-        const input=document.createElement('input');input.type='hidden';input.name=key;input.value=value;
-        form.appendChild(input);
-      }
-      // On a rejected download, the iframe receives a JSON error response.
-      // Read the same-origin error without replacing the client's gallery.
-      frame.addEventListener('load',()=>{
-        try{
-          const raw=frame.contentDocument?.body?.textContent||'';
-          if(raw.trim().startsWith('{')){
-            const value=JSON.parse(raw) as {error?:string};
-            if(value.error)setNotice(value.error);
-          }
-        }catch{/* A successful attachment does not render a document. */}
-      });
-      document.body.appendChild(form);
-      form.submit();
-      form.remove();
-      setNotice(`Đã yêu cầu tải ${photo.name}. Theo dõi tiến trình bằng Ctrl+J trong Chrome.`);
-      // Keep the target alive while Chrome receives the attachment.
-      window.setTimeout(()=>frame.remove(),10*60*1000);
-    }catch(err){setNotice(err instanceof Error?err.message:'Không thể bắt đầu tải ảnh.');}
-    finally{window.setTimeout(()=>setDownloading(''),1000);}
+  // Submit with a REAL browser user gesture and a top-level download context.
+  // Hidden-iframe / script-driven submission is unreliable on iOS Safari and
+  // mobile Chrome. Keep the grant token in the POST body, never in the URL.
+  const photoDownloadPath=`/api/delivery/${encodeURIComponent(eventId)}/photo-download`;
+  const downloadStarted=(photo:DeliveryMedia)=>{
+    setDownloadHint(`Đang chuyển yêu cầu tải ${photo.name} sang trình duyệt. Trên iPhone/iPad, nếu ảnh mở trong tab mới, dùng Chia sẻ → Lưu vào Tệp. Trên Android, xem mục Tệp đã tải xuống. Nếu gặp lỗi, kiểm tra thông báo trong tab mới.`);
   };
   if(!images.length)return null;
   return <><div className="delivery-photo-toolbar"><strong>Ảnh đã chọn: {checked.length}/{images.length}</strong>
@@ -171,12 +140,18 @@ function PhotoProduct({eventId,productId,files,preselected,token}:{eventId:strin
       <div className="delivery-photo-footer">
         <div className="delivery-photo-actions">
           <button type="button" className="delivery-photo-select" onClick={()=>setChecked(p=>p.includes(i.id)?p.filter(id=>id!==i.id):[...p,i.id])} aria-pressed={checked.includes(i.id)}>{checked.includes(i.id)?'✓ Đã chọn':'○ Chọn ảnh'}</button>
-          <button type="button" className="delivery-photo-download" disabled={!!downloading} onClick={()=>void download(i)} title={`Tải ảnh gốc ${i.name} về máy`}>{downloading===i.id?'Đang tải…':'↓ Tải ảnh'}</button>
+          <form className="delivery-photo-download-form" method="POST" action={photoDownloadPath} target="_blank" rel="noopener noreferrer" onSubmit={()=>downloadStarted(i)}>
+            <input type="hidden" name="productId" value={productId}/>
+            <input type="hidden" name="mediaId" value={i.id}/>
+            <input type="hidden" name="deliveryToken" value={token}/>
+            <button type="submit" className="delivery-photo-download" title={`Tải ảnh gốc ${i.name} về máy`}>↓ Tải ảnh</button>
+          </form>
         </div>
       </div><PhotoCommentCard fileName={i.name} comment={photoFeedback.comments[i.id]} onSave={text=>photoFeedback.save(i.id,text)} onDelete={()=>photoFeedback.remove(i.id)}/></article>)}</div>
     {filteredImages.length>visibleCount&&<div className="delivery-photo-more"><span>Đang hiển thị {Math.min(visibleCount,filteredImages.length)}/{filteredImages.length} ảnh</span><button type="button" onClick={()=>setVisibleCount(n=>n+96)}>Hiển thị thêm ảnh</button></div>}
     {photoFeedback.error&&<p role="alert" className="delivery-alert">{photoFeedback.error}</p>}
     {notice&&<p role="status" className="delivery-alert">{notice}</p>}
+    {downloadHint&&<p role="status" className="delivery-download-hint">{downloadHint}</p>}
   </>;
 }
 export function ClientDelivery({eventId}:{eventId:string}){

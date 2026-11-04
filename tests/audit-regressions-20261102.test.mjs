@@ -12,10 +12,11 @@ test('legacy unauthenticated gallery path and assets are not deployed',()=>{
 test('photo original download streams through browser attachment with scoped POST authorization',()=>{
   const ui=read('components/ClientDelivery.tsx');
   const route=read('app/api/delivery/[eventId]/photo-download/route.ts');
-  assert.match(ui,/form\.method='POST'/);
-  assert.match(ui,/form\.submit\(\)/);
+  assert.match(ui,/method="POST"/);
+  assert.match(ui,/target="_blank"/);
+  assert.match(ui,/type="submit" className="delivery-photo-download"/);
   assert.match(ui,/deliveryToken:token/);
-  assert.doesNotMatch(ui,/response\.blob\(\)|URL\.createObjectURL/);
+  assert.doesNotMatch(ui,/response\.blob\(\)|URL\.createObjectURL|document\.createElement\('iframe'\)|form\.submit\(\)/);
   assert.match(route,/application\/x-www-form-urlencoded/);
   assert.match(route,/fields\.getAll\(key\)\.length!==1/);
   assert.match(route,/deliveryEvent\(authRequest,eventId,false,productId\)/);

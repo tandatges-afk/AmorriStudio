@@ -37,7 +37,9 @@ test('full resolution image download is authenticated and never accepts video fi
  assert.match(api,/!item.isVideo/);
  assert.match(api,/Content-Disposition/);
  assert.doesNotMatch(delivery,/showSaveFilePicker/);
- assert.match(delivery,/form\.submit\(\)/);
+ assert.match(delivery,/method="POST"/);
+ assert.match(delivery,/type="submit" className="delivery-photo-download"/);
+ assert.doesNotMatch(delivery,/form\.submit\(\)|createElement\('iframe'/);
  assert.match(delivery,/delivery-photo-download/);
  assert.match(delivery,/photo-download/);
 });

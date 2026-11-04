@@ -94,3 +94,12 @@ Added accessible high-contrast admin and Electron CSS surfaces, tactile button d
 - Linked IDs are remembered on the same device (`driveFolders`, `driveUploads`, `rawLinks`), warning/blocking duplicates; it does not synchronize links across devices.
 - `desktop/src/google-drive.ts` downloads bounded Drive JPEG previews into memory. Validate on Windows Electron + real Drive test account.
 - Tests: `desktop/tests/album-visual-r84.test.mjs`; see `docs/AMORRI_R84_SMART_ALBUM_LINK.md`.
+
+
+## R8.5 · Mobile Safari / Chrome photo original download (2026-11-04)
+
+- Customer gallery image download uses actual browser-native form POST via submit button and `_blank`; removed hidden iframe and JavaScript programmatic `form.submit()` (fragile on mobile Safari/Chrome).
+- Scoped grant token is still only in POST body, never URL. Route streams photo originals from Drive with `Content-Disposition: attachment`, ASCII filename fallback and original RFC5987 name. The server keeps grant, product membership, image-only, and 150 MB constraints.
+- Native form errors render a no-store HTML explanation in the new tab; JSON API requests still receive JSON. UI no longer claims completed download or references Ctrl+J on iOS.
+- Tests: `tests/mobile-photo-download-r85.test.mjs` and refreshed download tests. Verify on real iOS Safari/iOS Chrome and Android Chrome after deploy.
+- No changes to Electron uploads, Smart Album (R8.4), RAW logic, or R2 playback.

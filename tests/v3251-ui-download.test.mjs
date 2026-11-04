@@ -9,13 +9,14 @@ test('calendar omits lunar prefix and does not use crosshair cursor',()=>{
   assert.match(css,/\.ops325-create-day\{cursor:default;/);
   assert.doesNotMatch(css,/\.ops325-create-day\{cursor:crosshair;/);
 });
-test('Chrome download uses native attachment navigation, not save picker/Blob',()=>{
+test('mobile and desktop use browser-native photo form submissions, not hidden frames/Blob',()=>{
   const client=source('components/ClientDelivery.tsx');
   const server=source('app/api/delivery/[eventId]/photo-download/route.ts');
-  assert.match(client,/form\.method='POST'/);
-  assert.match(client,/form\.submit\(\)/);
+  assert.match(client,/method="POST"/);
+  assert.match(client,/target="_blank"/);
+  assert.match(client,/type="submit" className="delivery-photo-download"/);
   assert.match(client,/deliveryToken:token/);
-  assert.doesNotMatch(client,/showSaveFilePicker|URL\.createObjectURL/);
+  assert.doesNotMatch(client,/showSaveFilePicker|URL\.createObjectURL|document\.createElement\('iframe'\)|form\.submit\(\)/);
   assert.match(server,/application\/x-www-form-urlencoded/);
   assert.match(server,/deliveryEvent\(authRequest,eventId,false,productId\)/);
   assert.match(server,/!item.isVideo/);

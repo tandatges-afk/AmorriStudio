@@ -64,16 +64,17 @@
   color:#fff; background:#277448; border-color:#277448;
 }
 
-/* 3.2.5 · Equal-priority select / native photo download, no Drive preview. */
+/* R8.5 · Equal-priority native form download, including iOS Safari/Chrome mobile. */
 .delivery-photos>.delivery-photo{cursor:default;}
 .delivery-photo-actions{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:6px;min-width:0;}
-.delivery-photos>.delivery-photo>.delivery-photo-footer>.delivery-photo-actions>button{
+.delivery-photos>.delivery-photo>.delivery-photo-footer>.delivery-photo-actions>button,
+.delivery-photos>.delivery-photo>.delivery-photo-footer>.delivery-photo-actions>.delivery-photo-download-form>button{
  position:static;display:block;width:100%;min-width:0;min-height:38px;padding:8px 3px;cursor:pointer;
  font:inherit;font-size:11px;font-weight:700;border-radius:7px;text-align:center;border:1px solid #cddace;
  background:#f4f8f5;color:#355c40;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;
 }
 .delivery-photos>.delivery-photo.is-selected>.delivery-photo-footer>.delivery-photo-actions>.delivery-photo-select{background:#277448;color:#fff;border-color:#277448;}
-.delivery-photos>.delivery-photo>.delivery-photo-footer>.delivery-photo-actions>.delivery-photo-download{background:#f3f6fc;color:#325a93;border-color:#cddbec;}
+.delivery-photos>.delivery-photo>.delivery-photo-footer>.delivery-photo-actions>.delivery-photo-download-form>.delivery-photo-download{background:#f3f6fc;color:#325a93;border-color:#cddbec;}
 .delivery-photo-actions button:hover:not(:disabled){filter:brightness(.96)}
 .delivery-photo-actions button:disabled{opacity:.55;cursor:wait;}
 .delivery-photo-actions button:focus-visible{outline:2px solid #436c9f;outline-offset:2px;}
@@ -82,3 +83,7 @@
 .delivery-photo-more{display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:12px;margin:18px 0 4px;color:#637466;font-size:13px;}
 .delivery-photo-more button{padding:10px 18px;border:1px solid #a7baa7;border-radius:9px;background:#e8f1e6;color:#284a35;font-weight:750;cursor:pointer;}
 .delivery-photo-more button:is(:hover,:focus-visible){background:#d9eada;border-color:#679576;}
+
+/* The download button lives in its own native POST form. Keep both action columns equal. */
+.delivery-photo-download-form{display:block;min-width:0;margin:0;}
+.delivery-download-hint{margin-top:10px;border:1px solid #9eb7cc;background:#edf4fb;color:#233f60;border-radius:10px;padding:11px 14px;line-height:1.5;font-size:13px;overflow-wrap:anywhere;}

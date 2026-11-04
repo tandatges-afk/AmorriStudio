@@ -15,13 +15,14 @@ function filename(name:string){
  * The response is streamed, not buffered in the serverless function.
  */
 export async function POST(request:Request,{params}:{params:Promise<{eventId:string}>}){
+  const isNativeForm=(request.headers.get('content-type')||'').toLowerCase().startsWith('application/x-www-form-urlencoded');
   try{
     const {eventId}=await params;
     // A native form POST keeps large image downloads out of browser memory.
     // The guest token is accepted in POST body only, never in a URL.
     let body:Record<string,unknown>;
     let authRequest=request;
-    if((request.headers.get('content-type')||'').startsWith('application/x-www-form-urlencoded')){
+    if(isNativeForm){
       if(Number(request.headers.get('content-length')||0)>2048)
         throw new DeliveryError(400,'PHOTO_BAD_BODY','Yêu cầu tải ảnh quá lớn');
       const raw=await request.text();
@@ -66,12 +67,29 @@ export async function POST(request:Request,{params}:{params:Promise<{eventId:str
     const declaredLength=Number(upstream.headers.get('content-length'));
     if(Number.isFinite(declaredLength)&&declaredLength>MAX_PHOTO_BYTES){await upstream.body.cancel();throw new DeliveryError(413,'PHOTO_TOO_LARGE','Ảnh vượt quá 150 MB');}
     const name=filename(metadata.name||photo.name);
+    // Older Safari builds can ignore filename*: keep an ASCII filename with
+    // the original extension as a compatible fallback.
+    const asciiName=name.replace(/[^a-zA-Z0-9._ -]/g,'_').slice(0,180)||'amorri-photo.jpg';
     return new Response(upstream.body,{
       status:200,
       headers:{...NO_STORE,
         'Content-Type':String(metadata.mimeType),
-        'Content-Disposition':`attachment; filename="amorri-photo"; filename*=UTF-8''${encodeURIComponent(name)}`,
+        'Content-Disposition':`attachment; filename="${asciiName}"; filename*=UTF-8''${encodeURIComponent(name)}`,
         ...(Number.isFinite(size)?{'Content-Length':String(size)}:{})}
     });
-  }catch(err){return deliveryFailure(err);}
+  }catch(err){
+    const failure=deliveryFailure(err);
+    if(!isNativeForm)return failure;
+    // Native mobile form submissions open a real tab. Show a legible error
+    // instead of a raw JSON document; never include credentials or URLs.
+    const data=await failure.json() as {error?:string};
+    const escapeHtml=(value:string)=>value.replace(/[&<>"']/g,char=>({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    })[char]||char);
+    const message=escapeHtml(String(data.error||'Không thể tải ảnh lúc này.'));
+    return new Response(`<!doctype html><html lang="vi"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Không thể tải ảnh · Amorri Studio</title><style>body{font-family:system-ui,sans-serif;background:#18131f;color:#f5ebdb;max-width:35rem;margin:12vh auto;padding:1.5rem;line-height:1.6}h1{color:#f4c990}p{overflow-wrap:anywhere}small{color:#c6bbd0}</style></head><body><h1>Không thể tải ảnh</h1><p>${message}</p><small>Đóng tab này và thử lại từ album, hoặc liên hệ Studio nếu lỗi tiếp diễn.</small></body></html>`,{
+      status:failure.status,headers:{...NO_STORE,'Content-Type':'text/html; charset=utf-8',
+        'Content-Security-Policy':"default-src 'none'; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'"}
+    });
+  }
 }
