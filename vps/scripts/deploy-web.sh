@@ -20,7 +20,7 @@ set -a
 # shellcheck disable=SC1091
 source "$ENV"
 set +a
-npm ci --no-audit --no-fund
+npm ci --include=dev --no-audit --no-fund
 npm run typecheck
 npm run test
 npm run test:unit

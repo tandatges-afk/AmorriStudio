@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# AMORRI R10: one maintenance-window migration and deployment. Not unattended.
+# AMORRI R10.2: one maintenance-window DB-first migration, NO legacy R2 media copy.
+# Not unattended; existing R2/Vercel/Firebase resources remain unchanged.
 # Never deletes or disables any source Firebase/R2/Vercel resources.
 set -Eeuo pipefail
 umask 077
@@ -15,10 +16,13 @@ set -a
 source "$ENV_FILE"
 set +a
 export HOME=/var/www/amorri
-for key in DATABASE_URL AMORRI_BRIDGE_SECRET AMORRI_SESSION_SECRET AMORRI_DELIVERY_LINK_KEY DRIVE_VIDEO_SIGNING_SECRET FIREBASE_DATABASE_URL FIREBASE_SERVICE_ACCOUNT_JSON DRIVE_SERVICE_ACCOUNT_JSON AMORRI_ADMIN_UIDS R2_ACCOUNT_ID R2_BUCKET R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_CONCEPT_BUCKET R2_CONCEPT_ACCESS_KEY_ID R2_CONCEPT_SECRET_ACCESS_KEY; do
+for key in DATABASE_URL AMORRI_BRIDGE_SECRET AMORRI_SESSION_SECRET AMORRI_DELIVERY_LINK_KEY DRIVE_VIDEO_SIGNING_SECRET FIREBASE_DATABASE_URL FIREBASE_SERVICE_ACCOUNT_JSON DRIVE_SERVICE_ACCOUNT_JSON AMORRI_ADMIN_UIDS AMORRI_S3_VIDEO_BUCKET AMORRI_S3_CONCEPT_BUCKET AMORRI_S3_ACCESS_KEY_ID AMORRI_S3_SECRET_ACCESS_KEY; do
   value="${!key:-}"
   [[ -n "$value" && "$value" != *REPLACE* && "$value" != *KEEP_ORIGINAL* ]] || { echo "Missing production secret: $key" >&2; exit 2; }
 done
+[[ "${AMORRI_LEGACY_R2_MEDIA:-}" == 'skip' ]] || {
+ echo 'R10.2 is a DB-only legacy migration. Explicitly set AMORRI_LEGACY_R2_MEDIA=skip; old R2 objects will NOT be copied.' >&2; exit 2;
+}
 [[ "${AMORRI_DATABASE_BACKEND:-}" == postgres && "${AMORRI_AUTH_BACKEND:-}" == local && "${NEXT_PUBLIC_AMORRI_AUTH_BACKEND:-}" == local && "${AMORRI_STORAGE_BACKEND:-}" == s3 ]] || {
  echo 'R10 config must explicitly use PostgreSQL, local Auth, and VPS S3.' >&2; exit 2;
 }
@@ -31,9 +35,7 @@ if [[ -d "$APP/repo/.git" ]]; then
 else
  echo 'Creating new private Amorri deployment workspace.'
 fi
-printf '\n===== AMORRI R10: initial preflight =====\n'
-read -r -p 'Confirm old Vercel admin writes AND guest delivery writes are frozen for final export (type I_FROZE_WRITES): ' CONFIRM_WRITES
-[[ "$CONFIRM_WRITES" == I_FROZE_WRITES ]] || { echo 'STOP: otherwise live calendar updates could be lost';exit 2; }
+printf '\n===== AMORRI R10.2: preflight and environment setup =====\n'
 # Secrets stay off Git; no printenv, no shell tracing.
 export DEBIAN_FRONTEND=noninteractive
 apt-get update -qq
@@ -72,6 +74,8 @@ if ! swapon --show=NAME --noheadings | grep -q .;then
  grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
 fi
 systemctl enable --now docker nginx
+# Keep historical video-sync timer OFF; it would pull old Drive clips and fill the 50 GB disk.
+systemctl disable --now amorri-video-sync.timer amorri-video-sync.service >/dev/null 2>&1 || true
 if ! id amorri >/dev/null 2>&1;then useradd --system --create-home --home-dir "$APP" --shell /bin/bash amorri;fi
 install -d -m 0750 -o amorri -g amorri "$APP" "$APP/releases"
 install -d -m 0750 -o root -g amorri /etc/amorri
@@ -88,7 +92,13 @@ runuser -u amorri -- git -C "$APP/repo" show origin/main:lib/server/selfhost/pg-
 runuser -u amorri -- git -C "$APP/repo" show origin/main:vps/live/import_live.py >/dev/null
 # Build dependencies FIRST, so Firebase Admin SDK can securely export.
 cd "$APP/repo"
-runuser -u amorri -- npm ci --no-audit --no-fund
+# NODE_ENV=production MUST NOT omit TypeScript/Vitest during build.
+runuser -u amorri -- npm ci --include=dev --no-audit --no-fund
+# Freeze writes only NOW, immediately before taking the authoritative snapshot.
+# This shortens maintenance time and protects calendar/payroll/delivery updates.
+printf '\n===== FINAL SOURCE-WRITE FREEZE CHECKPOINT =====\n'
+read -r -p 'Confirm old Vercel admin AND guest writes are frozen (type I_FROZE_WRITES): ' CONFIRM_WRITES
+[[ "$CONFIRM_WRITES" == I_FROZE_WRITES ]] || { echo 'STOP: otherwise updates may be lost';exit 2; }
 STAMP=$(date -u +%Y%m%dT%H%M%SZ)
 EXPORT_DIR=/var/backups/amorri/exports/$STAMP
 printf '\n===== EXPORT FIREBASE IN ONE PRIVATE STREAM =====\n'
@@ -115,6 +125,12 @@ docker exec amorri-postgres pg_isready -U amorri -d amorri
 docker exec -i amorri-postgres psql -v ON_ERROR_STOP=1 -U amorri -d amorri < "$KIT/live/02-live-schema.sql"
 runuser -u amorri --preserve-environment -- python3 "$KIT/live/import_live.py" "$EXPORT_DIR/firebase-rtdb.json" --report "$EXPORT_DIR/report.json"
 runuser -u amorri --preserve-environment -- python3 "$KIT/live/import_users.py" "$EXPORT_DIR/firebase-auth-identities.json"
+# Create a verified, portable PostgreSQL dump before exposing the VPS website.
+# Copy this dump + Firebase export to an OFF-VPS location before decommissioning.
+docker exec amorri-postgres pg_dump -Fc -U amorri -d amorri > "$EXPORT_DIR/amorri-postgres-after-import.dump"
+test -s "$EXPORT_DIR/amorri-postgres-after-import.dump"
+( cd "$EXPORT_DIR" && sha256sum firebase-rtdb.json firebase-auth-identities.json report.json amorri-postgres-after-import.dump > SHA256SUMS )
+chmod 0600 "$EXPORT_DIR/amorri-postgres-after-import.dump" "$EXPORT_DIR/SHA256SUMS"
 printf '\n===== ACTIVATE LOCAL ADMIN LOGIN =====\n'
 read -r -p 'Enter existing admin EMAIL in Firebase Auth export (not password): ' ADMIN_EMAIL
 [[ "$ADMIN_EMAIL" == *@* ]] || exit 2
@@ -127,38 +143,27 @@ for attempt in {1..20};do
  sleep 1
 done
 systemctl is-active amorri-db-bridge
-printf '\n===== CHECK ALL R2 VIDEO AND CONCEPT DATA FITS ON 50 GB =====\n'
-# rclone remotes defined via env; never save old credentials to rclone.conf.
-export RCLONE_CONFIG_OLDVIDEO_TYPE=s3 RCLONE_CONFIG_OLDVIDEO_PROVIDER=Cloudflare
-export RCLONE_CONFIG_OLDVIDEO_ACCESS_KEY_ID="$R2_ACCESS_KEY_ID"
-export RCLONE_CONFIG_OLDVIDEO_SECRET_ACCESS_KEY="$R2_SECRET_ACCESS_KEY"
-export RCLONE_CONFIG_OLDVIDEO_ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-export RCLONE_CONFIG_OLDVIDEO_REGION=auto
-export RCLONE_CONFIG_OLDCONCEPT_TYPE=s3 RCLONE_CONFIG_OLDCONCEPT_PROVIDER=Cloudflare
-export RCLONE_CONFIG_OLDCONCEPT_ACCESS_KEY_ID="$R2_CONCEPT_ACCESS_KEY_ID"
-export RCLONE_CONFIG_OLDCONCEPT_SECRET_ACCESS_KEY="$R2_CONCEPT_SECRET_ACCESS_KEY"
-export RCLONE_CONFIG_OLDCONCEPT_ENDPOINT="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
-export RCLONE_CONFIG_OLDCONCEPT_REGION=auto
-export RCLONE_CONFIG_LOCAL_TYPE=s3 RCLONE_CONFIG_LOCAL_PROVIDER=Other
-export RCLONE_CONFIG_LOCAL_REGION=us-east-1
+printf '\n===== CREATE EMPTY VPS MEDIA BUCKETS (NO LEGACY R2 COPY) =====\n'
+# These buckets are ONLY for files uploaded after cutover. Existing Drive/RTDB
+# references are retained as metadata, but old R2 clips/concepts are absent.
+# Do not run the legacy R2 worker or automatically backfill historic Drive videos.
+export RCLONE_CONFIG_LOCAL_TYPE=s3
+export RCLONE_CONFIG_LOCAL_PROVIDER=Other
+export RCLONE_CONFIG_LOCAL_REGION="${AMORRI_S3_REGION:-us-east-1}"
 export RCLONE_CONFIG_LOCAL_ENDPOINT=http://127.0.0.1:9000
 export RCLONE_CONFIG_LOCAL_ACCESS_KEY_ID="$AMORRI_S3_ACCESS_KEY_ID"
 export RCLONE_CONFIG_LOCAL_SECRET_ACCESS_KEY="$AMORRI_S3_SECRET_ACCESS_KEY"
 export RCLONE_CONFIG_LOCAL_FORCE_PATH_STYLE=true
-VIDEO_BYTES=$(rclone size "oldvideo:$R2_BUCKET" --json | jq -er '.bytes')
-CONCEPT_BYTES=$(rclone size "oldconcept:$R2_CONCEPT_BUCKET" --json | jq -er '.bytes')
-FREE_BYTES=$(df -B1 --output=avail / | tail -1 | tr -d ' ')
-NEEDED=$(((VIDEO_BYTES+CONCEPT_BYTES)*12/10 + 5000000000))
-printf 'R2 total = %s bytes; disk available = %s bytes; safety needed = %s bytes\n' "$((VIDEO_BYTES+CONCEPT_BYTES))" "$FREE_BYTES" "$NEEDED"
-[[ "$FREE_BYTES" -gt "$NEEDED" ]] || { echo 'STOP: not enough storage. Attach/resize media disk before re-running. No source objects deleted.' >&2;exit 3; }
-rclone mkdir local:amorri-video
-rclone mkdir local:amorri-concept
-rclone copy "oldvideo:$R2_BUCKET" local:amorri-video --transfers 2 --checkers 3 --stats 30s
-rclone copy "oldconcept:$R2_CONCEPT_BUCKET" local:amorri-concept --transfers 2 --checkers 3 --stats 30s
-rclone check "oldvideo:$R2_BUCKET" local:amorri-video --one-way
-rclone check "oldconcept:$R2_CONCEPT_BUCKET" local:amorri-concept --one-way
-rclone size local:amorri-video --json | jq -e --argjson b "$VIDEO_BYTES" '.bytes==$b' >/dev/null
-rclone size local:amorri-concept --json | jq -e --argjson b "$CONCEPT_BYTES" '.bytes==$b' >/dev/null
+rclone mkdir "local:${AMORRI_S3_VIDEO_BUCKET}"
+rclone mkdir "local:${AMORRI_S3_CONCEPT_BUCKET}"
+# No copy/check/delete against R2 or historic Drive sources is performed.
+# Refuse a nonempty local media store on initial migration: never mix datasets.
+for BUCKET in "$AMORRI_S3_VIDEO_BUCKET" "$AMORRI_S3_CONCEPT_BUCKET"; do
+  INFO=$(rclone size "local:$BUCKET" --json)
+  COUNT=$(jq -er '.count' <<<"$INFO")
+  [[ "$COUNT" == 0 ]] || { echo "Expected EMPTY new VPS bucket $BUCKET (found $COUNT objects). Stop." >&2; exit 3; }
+done
+printf 'No R2 credentials requested; old clips/concept images are NOT migrated.\n'
 printf '\n===== BUILD VERIFIED R10 VPS RELEASE =====\n'
 # Reuse stage1 atomic deploy and do not switch symlink until build checks pass.
 runuser -u amorri --preserve-environment -- bash "$KIT/scripts/deploy-web.sh" | tee /tmp/amorri-build-output.log
@@ -201,12 +206,12 @@ curl -fsS https://amorri.io.vn/api/health | jq -e '.ok==true'
 # At this checkpoint the admin must manually verify login/calendar writes, guest links,
 # mobile galleries and private 1080p Range; never auto-delete providers.
 cat <<'DONE'
-Amorri R10 VPS is HTTPS live. Keep Firebase/R2/Vercel intact for rollback.
+Amorri R10.2 VPS is HTTPS live. Keep Firebase/R2/Vercel intact for rollback.
 FINAL CHECKS REQUIRED BEFORE DECOMMISSION:
 - All booking/calendar counts, booking edits, duplicate-write protection
 - Local admin login; other staff/admin password resets
 - Delivery old grants, Zalo/Messenger links, photo saves, reviews
-- 1080p signed video stream Range on Safari/Chrome, payroll and staff portal
-- OFFSITE BACKUPS of PostgreSQL + object store, tested restore
+- Old R2 clips intentionally unavailable; test NEW upload, signed 1080p Range on Safari/Chrome before enabling sync; payroll and staff portal
+- OFFSITE BACKUPS of PostgreSQL (+ any NEW object storage), tested restore
 Do not delete Firebase/R2 objects or Vercel while any check is pending.
 DONE
