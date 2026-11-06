@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useMemo,useState} from 'react';
-import type {User} from 'firebase/auth';
+import type {User} from '@/lib/selfhost/auth-client';
 
 export type StaffBusy = {kind:'event'|'blackout';label:string;eventId?:string};
 type Lookup = {key:string;busy:Record<string,StaffBusy>;loading:boolean;error:string};

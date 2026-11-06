@@ -1,6 +1,6 @@
 'use client';
 import { useCallback,useEffect,useState } from 'react';
-import type { User } from 'firebase/auth';
+import type { User } from '@/lib/selfhost/auth-client';
 import { authorizedFetch,decodeResult } from '@/lib/firebase/authorized-fetch';
 import { CalendarOff, Save, UserPlus, RotateCw, UserX, Copy } from 'lucide-react';
 

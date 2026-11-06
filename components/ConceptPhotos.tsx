@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useState, type ChangeEvent} from 'react';
 import {ImagePlus,Trash2,X,RefreshCw,Image as ImageIcon} from 'lucide-react';
-import type {User} from 'firebase/auth';
+import type {User} from '@/lib/selfhost/auth-client';
 
 export const MAX_CONCEPT_PHOTOS=6;
 export type ConceptPhoto={id:string;name:string;size:number;createdAt:number;url:string};

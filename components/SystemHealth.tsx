@@ -1,7 +1,7 @@
 'use client';
 
 import {useCallback,useEffect,useState} from 'react';
-import type {User} from 'firebase/auth';
+import type {User} from '@/lib/selfhost/auth-client';
 import {AlertCircle,AlertTriangle,CheckCircle2,Copy,RefreshCw,ServerCog,ShieldCheck} from 'lucide-react';
 import type {HealthCheck,HealthStatus} from '@/lib/domain/system-health';
 import {R2StorageHealth} from './R2StorageHealth';

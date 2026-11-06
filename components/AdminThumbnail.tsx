@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useRef,useState} from 'react';
 import {Film,ImageOff,Images,LoaderCircle} from 'lucide-react';
-import type {User} from 'firebase/auth';
+import type {User} from '@/lib/selfhost/auth-client';
 // Optional per-browser cache; no token or customer name is stored in keys.
 export const THUMB_CACHE_NAME='amorri-admin-thumbs-v301';
 const THUMB_TTL_MS=6*60*60*1000;

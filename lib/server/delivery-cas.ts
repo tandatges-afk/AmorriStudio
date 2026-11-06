@@ -4,6 +4,7 @@
  */
 import {firebaseAdminApp} from './firebase-admin';
 import {DeliveryError} from './delivery-access';
+import {pgRestCas} from './selfhost/pg-rest-cas';
 
 function baseUrl():string {
   const value=String(process.env.FIREBASE_DATABASE_URL||'').replace(/\/+$/,'');
@@ -26,11 +27,13 @@ export async function conditionalDeliveryMutation<T extends object>(
 ):Promise<{updated:boolean;value:T}> {
   if(!/^[A-Za-z0-9_/-]+$/.test(path)||path.includes('..')||path.startsWith('/'))
     throw new DeliveryError(400,'DELIVERY_BAD_PATH','Đường dẫn dữ liệu không hợp lệ');
-  const target=`${baseUrl()}/${path}.json`;
-  const token=await authToken();
+  const isPg=process.env.AMORRI_DATABASE_BACKEND==='postgres';
+  const target=isPg?`http://127.0.0.1:3312/${path}.json`:`${baseUrl()}/${path}.json`;
+  const token=isPg?'local':await authToken();
+  const send=isPg?pgRestCas:fetch;
   for(let attempt=0;attempt<attempts;attempt++){
     let read:Response;
-    try{read=await fetch(target,{headers:{Authorization:`Bearer ${token}`,'X-Firebase-ETag':'true'},cache:'no-store'});}
+    try{read=await send(target,{headers:{Authorization:`Bearer ${token}`,'X-Firebase-ETag':'true'},cache:'no-store'});}
     catch{throw new DeliveryError(503,'DELIVERY_CAS_READ','Không thể đọc trạng thái Firebase');}
     if(!read.ok)throw new DeliveryError(503,'DELIVERY_CAS_READ','Firebase không trả về dữ liệu để cập nhật');
     const etag=read.headers.get('etag');
@@ -39,7 +42,7 @@ export async function conditionalDeliveryMutation<T extends object>(
     const action=updater(previous);
     if(action.kind==='return')return {updated:false,value:action.value};
     let write:Response;
-    try{write=await fetch(target,{method:'PUT',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json','if-match':etag},body:JSON.stringify(action.value),cache:'no-store'});}
+    try{write=await send(target,{method:'PUT',headers:{Authorization:`Bearer ${token}`,'Content-Type':'application/json','if-match':etag},body:JSON.stringify(action.value),cache:'no-store'});}
     catch{throw new DeliveryError(503,'DELIVERY_CAS_UNCERTAIN','Không xác định được kết quả lưu. Vui lòng tải lại trước khi thử');}
     if(write.status===412)continue;
     if(!write.ok)throw new DeliveryError(503,'DELIVERY_CAS_WRITE','Firebase từ chối cập nhật dữ liệu');

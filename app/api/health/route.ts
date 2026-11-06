@@ -5,6 +5,8 @@ export const dynamic = 'force-dynamic';
 export async function GET() {
   return NextResponse.json({
     ok: true,
+    database:process.env.AMORRI_DATABASE_BACKEND==='postgres'?'postgresql-vps':'firebase-legacy',
+    authentication:process.env.AMORRI_AUTH_BACKEND==='local'?'vps-local':'firebase-legacy',
     app: 'Amorri Studio VNext 3.2.5 — R2 Only + Lunar Calendar + Photo Download',
     release: 'drive-302-pilot-20261013-r1',
     upgradeRelease: 'availability-money-302-auto-20261013-r1',

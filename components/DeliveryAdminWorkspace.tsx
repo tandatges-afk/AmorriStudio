@@ -1,6 +1,6 @@
 'use client';
 import {useCallback,useEffect,useRef,useState} from 'react';
-import type {User} from 'firebase/auth';
+import type {User} from '@/lib/selfhost/auth-client';
 import {Copy,FolderOpen,RefreshCw} from 'lucide-react';
 import type {CoverInfo} from './AdminThumbnail';
 

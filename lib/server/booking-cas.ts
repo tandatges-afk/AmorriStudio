@@ -11,6 +11,7 @@
  */
 import { firebaseAdminApp } from './firebase-admin';
 import { bookingVersion } from './event-storage';
+import {pgRestCas} from './selfhost/pg-rest-cas';
 import { conditionalBookingWrite, BookingCasError } from '../domain/booking-cas';
 export {BookingCasError} from '../domain/booking-cas';
 
@@ -30,9 +31,10 @@ async function firebaseToken(){
 export async function saveBookingConditional(input:{key:string;id:string;expectedVersion:string;changes:object;actorUid:string}){
   // Keys came from a verified Firebase snapshot, but still reject any paths.
   if(!/^[A-Za-z0-9_-]{1,160}$/.test(input.key))throw new BookingCasError(503,'BOOKING_CAS_KEY','Khóa lịch Firebase không hợp lệ.');
-  const url=`${databaseUrl()}/studioPlanner_v1/events/${encodeURIComponent(input.key)}.json`;
-  const token=await firebaseToken();
-  return conditionalBookingWrite({...input,url,token,versionOf:bookingVersion});
+  const isPg=process.env.AMORRI_DATABASE_BACKEND==='postgres';
+  const url=isPg?`http://127.0.0.1:3312/studioPlanner_v1/events/${input.key}.json`:`${databaseUrl()}/studioPlanner_v1/events/${encodeURIComponent(input.key)}.json`;
+  const token=isPg?'local':await firebaseToken();
+  return conditionalBookingWrite({...input,url,token,versionOf:bookingVersion,...(isPg?{request:pgRestCas}:{})});
 }
 
 /** Product writes reuse the same verified Firebase REST credentials as booking edits. */
@@ -44,26 +46,30 @@ export async function saveProductConditional(input:{
 }){
   if(!/^[A-Za-z0-9_-]{1,160}$/.test(input.key))
     throw new BookingCasError(503,'BOOKING_CAS_KEY','Khóa lịch Firebase không hợp lệ.');
+  const isPg=process.env.AMORRI_DATABASE_BACKEND==='postgres';
   return conditionalProductWrite({
-    ...input,driveUrl:input.url,url:`${databaseUrl()}/studioPlanner_v1/events/${encodeURIComponent(input.key)}.json`,
-    token:await firebaseToken(),versionOf:bookingVersion
+    ...input,driveUrl:input.url,url:isPg?`http://127.0.0.1:3312/studioPlanner_v1/events/${input.key}.json`:`${databaseUrl()}/studioPlanner_v1/events/${encodeURIComponent(input.key)}.json`,
+    token:isPg?'local':await firebaseToken(),versionOf:bookingVersion,...(isPg?{request:pgRestCas}:{})
   });
 }
 
 export async function deleteProductConditional(input:{key:string;id:string;expectedVersion:string;productId:string;originalProduct:ProductBaseline}){
   if(!/^[A-Za-z0-9_-]{1,160}$/.test(input.key))throw new BookingCasError(503,'BOOKING_CAS_KEY','Khóa lịch không hợp lệ');
-  return conditionalProductDelete({url:`${databaseUrl()}/studioPlanner_v1/events/${encodeURIComponent(input.key)}.json`,
-    token:await firebaseToken(),id:input.id,productId:input.productId,expectedVersion:input.expectedVersion,
-    originalProduct:input.originalProduct,versionOf:bookingVersion});
+  const isPg=process.env.AMORRI_DATABASE_BACKEND==='postgres';
+  return conditionalProductDelete({url:isPg?`http://127.0.0.1:3312/studioPlanner_v1/events/${input.key}.json`:`${databaseUrl()}/studioPlanner_v1/events/${encodeURIComponent(input.key)}.json`,
+    token:isPg?'local':await firebaseToken(),id:input.id,productId:input.productId,expectedVersion:input.expectedVersion,
+    originalProduct:input.originalProduct,versionOf:bookingVersion,...(isPg?{request:pgRestCas}:{})});
 }
 /** Conditional delete after the encrypted archive has been committed. */
 export async function deleteBookingConditional(input:{key:string;id:string;expectedVersion:string}):Promise<void>{
   if(!/^[A-Za-z0-9_-]{1,160}$/.test(input.key))
     throw new BookingCasError(503,'BOOKING_CAS_KEY','Khóa lịch Firebase không hợp lệ.');
-  const url=`${databaseUrl()}/studioPlanner_v1/events/${encodeURIComponent(input.key)}.json`;
-  const token=await firebaseToken();
+  const isPg=process.env.AMORRI_DATABASE_BACKEND==='postgres';
+  const url=isPg?`http://127.0.0.1:3312/studioPlanner_v1/events/${input.key}.json`:`${databaseUrl()}/studioPlanner_v1/events/${encodeURIComponent(input.key)}.json`;
+  const token=isPg?'local':await firebaseToken();
+  const send=isPg?pgRestCas:fetch;
   let read:Response;
-  try{read=await fetch(url,{headers:{Authorization:`Bearer ${token}`,'X-Firebase-ETag':'true'},cache:'no-store',signal:AbortSignal.timeout(18000)});}
+  try{read=await send(url,{headers:{Authorization:`Bearer ${token}`,'X-Firebase-ETag':'true'},cache:'no-store',signal:AbortSignal.timeout(18000)});}
   catch{throw new BookingCasError(503,'BOOKING_DELETE_READ','Không đọc được dữ liệu trước khi xóa.');}
   if(!read.ok)throw new BookingCasError(503,'BOOKING_DELETE_READ','Firebase không cho phép kiểm tra bản ghi trước khi xóa.');
   const etag=read.headers.get('etag');
@@ -74,7 +80,7 @@ export async function deleteBookingConditional(input:{key:string;id:string;expec
   if(bookingVersion(existing)!==input.expectedVersion)
     throw new BookingCasError(409,'BOOKING_CONFLICT','Lịch đã thay đổi, hãy mở lại để xác nhận trước khi xóa.');
   let response:Response;
-  try{response=await fetch(url,{method:'DELETE',headers:{Authorization:`Bearer ${token}`,'if-match':etag},cache:'no-store',signal:AbortSignal.timeout(18000)});}
+  try{response=await send(url,{method:'DELETE',headers:{Authorization:`Bearer ${token}`,'if-match':etag},cache:'no-store',signal:AbortSignal.timeout(18000)});}
   catch{throw new BookingCasError(503,'BOOKING_DELETE_UNCERTAIN','Chưa xác định được kết quả xóa. Bản dự phòng đã được giữ; hãy kiểm tra lịch trước khi thử lại.');}
   if(response.status===412)throw new BookingCasError(409,'BOOKING_CONFLICT','Lịch đã được cập nhật trong khi xóa. Vui lòng tải lại.');
   if(!response.ok)throw new BookingCasError(503,'BOOKING_DELETE_WRITE','Firebase không cho phép xóa. Bản dự phòng vẫn được giữ.');

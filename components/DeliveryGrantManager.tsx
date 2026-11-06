@@ -1,6 +1,6 @@
 'use client';
 import {useCallback,useEffect,useState} from 'react';
-import type {User} from 'firebase/auth';
+import type {User} from '@/lib/selfhost/auth-client';
 import {Copy,LoaderCircle} from 'lucide-react';
 
 /** One-click: reuse active share link, or create one once if none can be recovered. */

@@ -10,6 +10,7 @@ import {spawn} from 'node:child_process';
 import {GoogleAuth} from 'google-auth-library';
 import {cert,initializeApp,getApps,deleteApp} from 'firebase-admin/app';
 import {getDatabase} from 'firebase-admin/database';
+import {pgWorkerDatabase} from '../vps/live/worker-db.mjs';
 import {driveRevision,videoObjectKeys} from '../lib/server/r2-private-video.mjs';
 import {headR2Video} from '../lib/server/video-sync-r2-head.mjs';
 import {checkDrive1080} from '../lib/server/video-1080-policy.mjs';
@@ -94,15 +95,15 @@ async function folderVideos(folderId,visited=new Set(),depth=0){
 }
 const firebaseJSON=process.env.FIREBASE_SERVICE_ACCOUNT_JSON;
 const databaseURL=process.env.FIREBASE_DATABASE_URL;
-let db=null;
-if(firebaseJSON && databaseURL){
+let db=process.env.AMORRI_DATABASE_BACKEND==='postgres'?pgWorkerDatabase():null;
+if(!db && firebaseJSON && databaseURL){
   const credentials=JSON.parse(firebaseJSON);
   if(!credentials.project_id||!credentials.client_email||!credentials.private_key)throw Error('Invalid Firebase service account');
   const app=getApps().find(a=>a.name==='amorri-r2-worker')||initializeApp({credential:cert({projectId:credentials.project_id,clientEmail:credentials.client_email,privateKey:credentials.private_key.replace(/\\n/g,'\n')}),databaseURL},'amorri-r2-worker');
   db=getDatabase(app);
 }
-if(!db && !options.has('--id'))throw Error('Firebase credentials required for automatic discovery');
-if(!db && !dry)throw Error('Firebase credentials required to record sync status');
+if(!db && !options.has('--id'))throw Error('Database credentials required for automatic discovery');
+if(!db && !dry)throw Error('Database credentials required to record sync status');
 const ledgerRef=db?.ref('studioPlanner_v1/videoSync_v1/status');
 async function status(id,updates){
   if(dry||!ledgerRef)return;

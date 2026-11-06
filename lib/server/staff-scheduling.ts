@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
-import { adminDatabase, authenticatedUser, isAdmin, publicAuthFailure, firebaseAdminApp } from './firebase-admin';
+import { adminDatabase, authenticatedUser, isAdmin, publicAuthFailure, firebaseAdminApp, type AuthenticatedActor } from './firebase-admin';
 import { getAuth } from 'firebase-admin/auth';
-import type { DecodedIdToken } from 'firebase-admin/auth';
+import {bridgePost} from './selfhost/pg-db';
 import { recordValues, vietnamDate } from '@/lib/domain/scheduling';
 import { eventIdValid } from '@/lib/domain/event-management';
 import { NextResponse } from 'next/server';
@@ -13,7 +13,7 @@ export function failure(err:unknown){
   console.error('[staff-scheduling]',err);
   return json({error:'Lỗi kết nối Firebase. Kiểm tra Runtime Logs.',code:'SCHEDULE_DATABASE_ERROR'},503);
 }
-export async function identity(request:Request,adminOnly=false):Promise<DecodedIdToken|Response>{
+export async function identity(request:Request,adminOnly=false):Promise<AuthenticatedActor|Response>{
   try {
     const token=await authenticatedUser(request);
     if(adminOnly&&!isAdmin(token))return json({error:'Cần quyền Admin'},403);
@@ -38,13 +38,13 @@ export async function staffByUid(uid:string):Promise<LocatedStaff|null>{
   if(arr.length>1)throw new ScheduleError(409,'UID Firebase được liên kết với nhiều nhân sự. Liên hệ admin.','STAFF_UID_CONFLICT');
   return arr[0]??null;
 }
-export async function staffPermission(token:DecodedIdToken,staffId:string):Promise<LocatedStaff>{
+export async function staffPermission(token:AuthenticatedActor,staffId:string):Promise<LocatedStaff>{
   if(isAdmin(token))return findStaff(staffId);
   const own=await staffByUid(token.uid);
   if(!own||String(own.data.id)!==staffId)throw new ScheduleError(403,'Bạn không có quyền xem nhân sự này','STAFF_ACCESS_DENIED');
   return own;
 }
-export async function staffAudit(action:string,token:DecodedIdToken,staffId:string,message:string){
+export async function staffAudit(action:string,token:AuthenticatedActor,staffId:string,message:string){
   try {
     const id=randomUUID();
     await adminDatabase().ref('studioPlanner_v1/auditLogs').child(id).set({
@@ -142,7 +142,7 @@ export async function dailyBlackouts(date:string){
 export function safeStaff(data:Record<string,unknown>){
   return {id:String(data.id??''),name:String(data.name??''),role:String(data.role??''),authUid:String(data.authUid??''),active:data.active!==false};
 }
-export async function accessibleStaff(token:DecodedIdToken){
+export async function accessibleStaff(token:AuthenticatedActor){
   if(isAdmin(token))return null;
   const own=await staffByUid(token.uid);
   if(!own)throw new ScheduleError(403,'UID đăng nhập chưa liên kết với nhân sự đang hoạt động. Liên hệ Admin.','STAFF_NOT_LINKED');
@@ -164,6 +164,11 @@ export async function jsonBody(req:Request,max=8192):Promise<unknown>{
 /** Admin must link an existing Firebase Authentication identity, never a guessed UID. */
 export async function verifyAuthUid(uid:string):Promise<void>{
   if(!uid)return;
+  if(process.env.AMORRI_AUTH_BACKEND==='local'){
+    const info=await bridgePost('/user',{uid});
+    if(!info.user)throw new ScheduleError(422,'Tài khoản nhân viên không tồn tại trong database','STAFF_AUTH_UID_NOT_FOUND');
+    return;
+  }
   try{await getAuth(firebaseAdminApp()).getUser(uid);}
   catch(err){
     if((err as {code?:string})?.code==='auth/user-not-found')

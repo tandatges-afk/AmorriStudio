@@ -1,6 +1,8 @@
 import { cert, getApp, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth, type DecodedIdToken } from 'firebase-admin/auth';
 import { getDatabase } from 'firebase-admin/database';
+import { pgDatabase, bridgePost } from './selfhost/pg-db';
+import { verifySelfHostedToken } from './selfhost/session';
 
 // Do not confuse invalid Firebase tokens with invalid server credentials.
 export type AdminAuthCode =
@@ -61,7 +63,10 @@ export function firebaseAdminApp() {
     throw configFail('AUTH_CONFIG_INVALID', 'Không khởi tạo được Firebase Admin. Kiểm tra private_key của service account.');
   }
 }
-export function adminDatabase() { return getDatabase(firebaseAdminApp()); }
+export function adminDatabase() {
+  if(process.env.AMORRI_DATABASE_BACKEND==='postgres')return pgDatabase() as unknown as ReturnType<typeof getDatabase>;
+  return getDatabase(firebaseAdminApp());
+}
 
 function tokenError(error: unknown): AdminAuthFailure {
   const code = (error as {code?:string})?.code || '';
@@ -75,7 +80,25 @@ function tokenError(error: unknown): AdminAuthFailure {
   return new AdminAuthFailure('AUTH_SERVICE_UNAVAILABLE', 503, 'Firebase Admin không xác minh được phiên đăng nhập. Kiểm tra Runtime Logs và service account.');
 }
 
-export async function authenticatedUser(request: Request): Promise<DecodedIdToken> {
+/**
+ * Claims that the application actually consumes from an authenticated actor.
+ * A Firebase DecodedIdToken has additional Firebase-only issuer/audience/timing
+ * fields, which a self-hosted session must never pretend to possess.
+ */
+export type AuthenticatedActor = Pick<DecodedIdToken, 'uid' | 'email'> & {admin?: boolean};
+
+export async function authenticatedUser(request: Request): Promise<AuthenticatedActor> {
+  if(process.env.AMORRI_AUTH_BACKEND==='local'){
+    const match=/^Bearer ([^\s]+)$/i.exec(request.headers.get('authorization')??'');
+    if(!match)throw new AdminAuthFailure('AUTH_TOKEN_MISSING',401,'Chưa đăng nhập.');
+    try {
+      const session=verifySelfHostedToken(match[1]);
+      const result=await bridgePost('/user',{uid:session.uid});
+      const found=result.user as {uid:string;email:string;role:string;disabled:boolean;session_epoch:number}|null;
+      if(!found||found.disabled||Number(found.session_epoch)!==session.epoch)throw new Error('Revoked');
+      return {uid:found.uid,email:found.email,admin:found.role==='admin'};
+    }catch{throw new AdminAuthFailure('AUTH_TOKEN_INVALID',401,'Phiên đăng nhập không hợp lệ hoặc đã bị thu hồi.');}
+  }
   const match = /^Bearer ([^\s]+)$/i.exec(request.headers.get('authorization') ?? '');
   if (!match) throw new AdminAuthFailure('AUTH_TOKEN_MISSING', 401, 'Thiếu Firebase ID token. Vui lòng đăng nhập lại.');
   let token: DecodedIdToken;
@@ -87,12 +110,12 @@ export async function authenticatedUser(request: Request): Promise<DecodedIdToke
   return token;
 }
 
-export function isAdmin(token: DecodedIdToken): boolean {
+export function isAdmin(token: AuthenticatedActor): boolean {
   const allowedUids = new Set((process.env.AMORRI_ADMIN_UIDS || '').split(',').map(x => x.trim()).filter(Boolean));
   return token.admin === true || allowedUids.has(token.uid);
 }
 
-export async function authenticatedAdmin(request: Request): Promise<DecodedIdToken | null> {
+export async function authenticatedAdmin(request: Request): Promise<AuthenticatedActor | null> {
   const token = await authenticatedUser(request);
   return isAdmin(token) ? token : null;
 }

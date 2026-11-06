@@ -1,7 +1,7 @@
 'use client';
 import {formatVnd} from '@/lib/domain/vietnam-money';
 import {useCallback,useEffect,useState} from 'react';
-import type {User} from 'firebase/auth';
+import type {User} from '@/lib/selfhost/auth-client';
 import {authorizedFetch,decodeResult} from '@/lib/firebase/authorized-fetch';
 import type {PayrollLedger,PayrollRow,Payment} from '@/lib/domain/payroll';
 import {Check,Download,RefreshCw,WalletCards,X} from 'lucide-react';

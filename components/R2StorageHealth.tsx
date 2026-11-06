@@ -1,6 +1,6 @@
 'use client';
 import {useCallback,useEffect,useState} from 'react';
-import type {User} from 'firebase/auth';
+import type {User} from '@/lib/selfhost/auth-client';
 import {HardDrive,RefreshCw,AlertTriangle,Copy} from 'lucide-react';
 type OldVideo={fileId:string;bytes:number;objects:number;latest:number;oldest:number};
 type Usage={totalBytes:number;videoBytes:number;videoObjects:number;objectCount:number;videoFiles:number;partial:boolean;oldestVideos:OldVideo[];checkedAt:string;limit:number;storageBackend?:'s3'|'r2'};

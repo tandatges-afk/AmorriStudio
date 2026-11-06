@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useId,useState} from 'react';
-import type {User} from 'firebase/auth';
+import type {User} from '@/lib/selfhost/auth-client';
 import {MapPin,ExternalLink} from 'lucide-react';
 import {googleMapUrl} from '@/lib/domain/maps';
 export function MapLocationInput({value,onChange,user,className,placeholder,required=false,maxLength=240}:{value:string;onChange:(text:string)=>void;user:User;className?:string;placeholder?:string;required?:boolean;maxLength?:number}){

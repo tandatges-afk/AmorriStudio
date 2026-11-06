@@ -17,8 +17,8 @@ import './v29.css';
 import './v30.css';
 
 import { useCallback, useEffect, useMemo, useState, useRef } from 'react';
-import type { User } from 'firebase/auth';
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from 'firebase/auth';
+import type { User } from '@/lib/selfhost/auth-client';
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut } from '@/lib/selfhost/auth-client';
 import {
   Activity, ArrowRight, BadgeCheck, CalendarDays, ChevronLeft, ChevronRight, Copy,
   CircleDollarSign, Clock3, Download, Film, FolderOpen, Images, LayoutDashboard, ChartNoAxesCombined,
@@ -69,7 +69,7 @@ function Login({onLogin,error,loading}:{onLogin:(email:string,password:string)=>
     <div className="login-panel"><div className="login-box">
       <div className="login-lock"><LockKeyhole size={21}/></div>
       <div className="eyebrow">WORKSPACE LOGIN</div><h2>Chào mừng trở lại</h2>
-      <p>Đăng nhập bằng tài khoản Firebase Admin để quản lý studio.</p>
+      <p>Đăng nhập bằng tài khoản Studio để quản lý.</p>
       <form onSubmit={e=>{e.preventDefault();onLogin(email,password);}}>
         <label htmlFor="email">Email</label><input id="email" type="email" autoComplete="username" placeholder="admin@amorri.studio" required value={email} onChange={e=>setEmail(e.target.value)}/>
         <label htmlFor="password">Mật khẩu</label><input id="password" type="password" autoComplete="current-password" placeholder="Nhập mật khẩu" required value={password} onChange={e=>setPassword(e.target.value)}/>
@@ -306,7 +306,7 @@ export function Dashboard(){
         const Icon=p.icon; return <button key={p.key} onClick={()=>goTab(p.key)} className={`nav-item ${tab===p.key?'nav-active':''}`}><Icon size={19}/><span>{p.name}</span>{tab===p.key&&<i/>}</button>;
       })}</nav>
       <div className="sidebar-bottom">
-        <div className="user-identity"><div className="user-avatar amorri-avatar amorri-brand-elevated" title="Amorri Studio"><Image src="/brand/amorri-mark.png" alt="Logo Amorri Studio" width={64} height={64}/></div><div className="user-meta"><strong>{user.email?.split('@')[0]||'Admin'}</strong><span>Firebase Admin</span></div><button title="Đăng xuất" onClick={async()=>{await signOut(browserAuth());if('caches' in window)void caches.delete(THUMB_CACHE_NAME);}}><LogOut size={19}/></button></div>
+        <div className="user-identity"><div className="user-avatar amorri-avatar amorri-brand-elevated" title="Amorri Studio"><Image src="/brand/amorri-mark.png" alt="Logo Amorri Studio" width={64} height={64}/></div><div className="user-meta"><strong>{user.email?.split('@')[0]||'Admin'}</strong><span>Quản trị Studio</span></div><button title="Đăng xuất" onClick={async()=>{await signOut(browserAuth());if('caches' in window)void caches.delete(THUMB_CACHE_NAME);}}><LogOut size={19}/></button></div>
       </div>
     </aside>
     <main className="content">

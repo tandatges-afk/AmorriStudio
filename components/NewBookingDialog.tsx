@@ -1,7 +1,7 @@
 'use client';
 import { useEffect, useState, type FormEvent } from 'react';
 import { X, CalendarPlus, CheckCircle2 } from 'lucide-react';
-import type { User } from 'firebase/auth';
+import type { User } from '@/lib/selfhost/auth-client';
 import type { Staff,Assignment } from '@/lib/domain/types';
 import { validateBooking, type BookingInput } from '@/lib/domain/booking';
 import {defaultStaffTask, taskOptionsFor} from '@/lib/domain/staff-task';

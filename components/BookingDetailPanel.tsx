@@ -2,7 +2,7 @@
 import {formatVnd} from '@/lib/domain/vietnam-money';
 import {useEffect,useState,type ReactNode} from 'react';
 import {CalendarDays,MapPin,Phone,Users,Film,Images,ExternalLink,ArrowRight,X,RefreshCw,Wallet} from 'lucide-react';
-import type {User} from 'firebase/auth';
+import type {User} from '@/lib/selfhost/auth-client';
 import type {Staff,StudioEvent} from '@/lib/domain/types';
 import {DeliveryGrantManager} from './DeliveryGrantManager';
 import {googleMapUrl} from '@/lib/domain/maps';

@@ -1,6 +1,6 @@
 'use client';
 import {useCallback,useEffect,useState} from 'react';
-import type {User} from 'firebase/auth';
+import type {User} from '@/lib/selfhost/auth-client';
 import {AlertTriangle,CheckCircle2,Cloud,RefreshCw} from 'lucide-react';
 
 type Item={id:string;state:'ready'|'processing'|'failed'|'needs_1080p';bytes:number;updatedAt:number;message:string;revision:string};

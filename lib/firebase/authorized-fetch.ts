@@ -1,4 +1,4 @@
-import type { User } from 'firebase/auth';
+import type { User } from '@/lib/selfhost/auth-client';
 export async function authorizedFetch(user:User,url:string,init:RequestInit={}){
  const send=async(force=false)=>fetch(url,{...init,cache:'no-store',headers:{...init.headers,Authorization:`Bearer ${await user.getIdToken(force)}`}});
  let res=await send();if(res.status===401)res=await send(true);return res;

@@ -1,7 +1,7 @@
 'use client';
 import {formatVnd} from '@/lib/domain/vietnam-money';
 import { useEffect, useState, type FormEvent } from 'react';
-import type { User } from 'firebase/auth';
+import type { User } from '@/lib/selfhost/auth-client';
 import { CalendarClock, ExternalLink, FolderOpen, Save, Trash2, X } from 'lucide-react';
 import { DeliveryGrantManager } from './DeliveryGrantManager';
 import type { Staff, StudioEvent } from '@/lib/domain/types';

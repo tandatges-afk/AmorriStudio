@@ -1,6 +1,6 @@
 'use client';
 import {useCallback,useEffect,useState} from 'react';
-import type {User} from 'firebase/auth';
+import type {User} from '@/lib/selfhost/auth-client';
 
 type Entry={productId:string;productName:string;photoId:string;photoName:string;name:string;text:string;updatedAt:number};
 export function PhotoFeedbackAdmin({eventId,user,productId}:{eventId:string;user:User;productId?:string}){

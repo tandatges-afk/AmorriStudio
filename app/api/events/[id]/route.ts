@@ -1,7 +1,7 @@
 import {withApiTrace} from '@/lib/server/trace';
 import { NextResponse } from 'next/server';
 import { randomUUID } from 'node:crypto';
-import { adminDatabase, authenticatedAdmin, publicAuthFailure } from '@/lib/server/firebase-admin';
+import { adminDatabase, authenticatedAdmin, publicAuthFailure, type AuthenticatedActor } from '@/lib/server/firebase-admin';
 import { findBooking, bookingVersion, BookingStoreError } from '@/lib/server/event-storage';
 import { saveBookingConditional, deleteBookingConditional, BookingCasError } from '@/lib/server/booking-cas';
 import { validateEventChanges, requireVersion } from '@/lib/domain/event-management';
@@ -9,13 +9,12 @@ import { normaliseEvents } from '@/lib/domain/studio';
 import { scheduleConflict, recordValues } from '@/lib/domain/scheduling';
 import { withScheduleLock, dailyEvents, dailyBlackouts, ScheduleError } from '@/lib/server/staff-scheduling';
 import { encryptBookingArchive, ArchiveConfigurationError } from '@/lib/server/booking-archive';
-import type { DecodedIdToken } from 'firebase-admin/auth';
 
 export const runtime='nodejs';
 export const dynamic='force-dynamic';
 const headers={'Cache-Control':'private, no-store, max-age=0'};
 const json=(payload:object,status=200)=>NextResponse.json(payload,{status,headers});
-async function requireAdmin(request:Request):Promise<DecodedIdToken|Response>{
+async function requireAdmin(request:Request):Promise<AuthenticatedActor|Response>{
   try {const user=await authenticatedAdmin(request);return user||json({error:'Tài khoản không có quyền admin'},403);}
   catch(err){const failure=publicAuthFailure(err);return json({error:failure.error,code:failure.code},failure.status);}
 }
@@ -34,7 +33,7 @@ function fail(err:unknown){
   console.error('[booking-manager]',{code:errorCode,backendCode:rawCode,details:detail,at:new Date().toISOString()});
   return json({error:'Không thể lưu lịch vào Firebase. Kiểm tra quyền service account, địa chỉ Database và Function Logs.',code:errorCode},503);
 }
-async function audit(action:string,user:DecodedIdToken,event:Record<string,unknown>,id:string,detail:string){
+async function audit(action:string,user:AuthenticatedActor,event:Record<string,unknown>,id:string,detail:string){
   try {const key=randomUUID();await adminDatabase().ref('studioPlanner_v1/auditLogs').child(key).set({
     id:key, action,actionLabel:action==='EVENT_DELETED'?'Xóa lịch':'Cập nhật lịch',category:'booking',severity:action==='EVENT_DELETED'?'danger':'info',
     actorId:user.uid, actorName:user.email||'Admin',actorRole:'admin',timestamp:Date.now(),

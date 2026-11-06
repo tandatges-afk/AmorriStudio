@@ -128,3 +128,6 @@ Added accessible high-contrast admin and Electron CSS surfaces, tactile button d
 - Source supports `AMORRI_STORAGE_BACKEND=s3` for signed video GET/HEAD/List and private concept media; legacy `r2` remains default.
 - Templates in `vps/`: Nginx, systemd, RustFS, Postgres, source deployment, backup/export staging. **Auth/DB still Firebase** until transactional migration is implemented and verified; Google Drive still an independent source.
 - Read `vps/README.md` before running anything. Never turn off Vercel, R2 or Firebase solely because this kit was installed.
+
+## R10 VPS one-window migration notes (2026-11-05)
+See docs/AMORRI_R10_ONE_WINDOW_VPS.md and vps/live/README-CUTOVER-V10.md. Do not remove the Firebase/legacy backend before real export and media verification; Vercel stays on legacy env until VPS is ready.

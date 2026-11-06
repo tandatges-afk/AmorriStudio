@@ -1,6 +1,6 @@
 'use client';
 import {useCallback,useMemo,useState} from 'react';
-import type {User} from 'firebase/auth';
+import type {User} from '@/lib/selfhost/auth-client';
 import {MessageSquare,Check,Trash2,RefreshCw,Copy} from 'lucide-react';
 import {formatTimecode} from '@/lib/domain/timecode';
 import {PhotoFeedbackAdmin} from './PhotoFeedbackAdmin';

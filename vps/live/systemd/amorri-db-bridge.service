@@ -1,0 +1,20 @@
+[Unit]
+Description=Amorri Studio private PostgreSQL adapter
+After=network-online.target docker.service
+Wants=network-online.target
+[Service]
+Type=simple
+User=amorri
+Group=amorri
+WorkingDirectory=/opt/amorri/live
+EnvironmentFile=/etc/amorri/prod.env
+ExecStart=/usr/bin/python3 /opt/amorri/live/pg_bridge.py
+Restart=on-failure
+RestartSec=3
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectHome=yes
+ProtectSystem=full
+UMask=0077
+[Install]
+WantedBy=multi-user.target

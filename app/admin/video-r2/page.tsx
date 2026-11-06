@@ -1,6 +1,6 @@
 'use client';
 import {useEffect,useState} from 'react';
-import {onAuthStateChanged,type User} from 'firebase/auth';
+import {onAuthStateChanged,type User} from '@/lib/selfhost/auth-client';
 import {browserAuth} from '@/lib/firebase/client';
 import {VideoSyncMonitor} from '@/components/VideoSyncMonitor';
 
