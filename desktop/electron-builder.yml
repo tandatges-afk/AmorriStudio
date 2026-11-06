@@ -53,7 +53,8 @@ mac:
     - target: dmg
       arch:
         - arm64
-  artifactName: 'Amorri Studio Setup ${version}.${ext}'
+        - x64
+  artifactName: 'Amorri Studio Setup ${version}-${arch}.${ext}'
 nsis:
   oneClick: false
   perMachine: false

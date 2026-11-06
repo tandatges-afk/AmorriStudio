@@ -31,10 +31,10 @@ function describeGoogleError(status: number, payload: GoogleApiError) {
 
  if (/API_KEY_INVALID|API_KEY_NOT_FOUND|INVALID_KEY|API_KEY_EXPIRED/.test(signal) || status === 401) {
   code = 'PLACES_INVALID_KEY';
-  error = 'API key Google Maps không hợp lệ. Kiểm tra lại giá trị GOOGLE_MAPS_API_KEY trên Vercel.';
+  error = 'API key Google Maps không hợp lệ. Kiểm tra GOOGLE_MAPS_API_KEY trong cấu hình riêng tư của VPS.';
  } else if (/API_KEY_HTTP_REFERRER_BLOCKED|API_KEY_IP_ADDRESS_BLOCKED|API_KEY_SERVICE_BLOCKED|API_KEY_RESTRICTION|API_KEY_ACCESS_DENIED/.test(signal)) {
   code = 'PLACES_KEY_RESTRICTION';
-  error = 'API key đang bị giới hạn sai. Với API chạy trên Vercel, không dùng giới hạn Website/referrer; cho phép Places API (New).';
+  error = 'API key đang bị giới hạn sai. Với Places REST gọi từ VPS, không dùng giới hạn Website/referrer; cho phép Places API (New) và IP máy chủ khi dùng IP restriction.';
  } else if (/BILLING|PROJECT_BILLING_INFO/.test(signal)) {
   code = 'PLACES_BILLING';
   error = 'Google Cloud chưa bật Billing hoặc tài khoản thanh toán chưa hợp lệ.';
@@ -66,7 +66,7 @@ export async function GET(request: Request) {
  const key = (process.env.GOOGLE_MAPS_API_KEY || '').trim();
  if (!key) return json({
   items: [], code: 'PLACES_MISSING_KEY',
-  error: 'Vercel chưa nhận GOOGLE_MAPS_API_KEY. Chọn đúng Environment và redeploy Production.',
+  error: 'VPS chưa có GOOGLE_MAPS_API_KEY. Cấu hình /etc/amorri/prod.env và khởi động lại amorri-web.',
  }, 503);
  try {
   const response = await fetch('https://places.googleapis.com/v1/places:autocomplete', {
@@ -99,6 +99,6 @@ export async function GET(request: Request) {
   console.error('[places:autocomplete]', {code});
   return json({items: [], code, error: code === 'PLACES_TIMEOUT'
    ? 'Google Places phản hồi quá thời gian chờ. Hãy thử lại.'
-   : 'Vercel không kết nối được Google Places. Hãy kiểm tra Logs và thử lại.'}, 502);
+   : 'VPS không kết nối được Google Places. Kiểm tra nhật ký amorri-web và thử lại.'}, 502);
  }
 }

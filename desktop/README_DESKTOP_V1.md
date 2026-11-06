@@ -1,3 +1,5 @@
+> **Tài liệu cũ cho Desktop 1.0.** Amorri R10.4 triển khai ứng dụng Windows/macOS dùng `https://amorri.io.vn/`. Xem `docs/AMORRI_R10_4_INTEGRATIONS.md` để cấu hình Google OAuth Desktop và build trên GitHub Actions. Những chỉ dẫn Vercel bên dưới chỉ còn giá trị lịch sử.
+
 # Amorri Studio Desktop 1.0 — Windows (Electron)
 
 **Bản nền tảng có thể mở cửa sổ desktop và tạo bộ cài NSIS.**

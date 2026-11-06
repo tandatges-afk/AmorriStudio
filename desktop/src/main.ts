@@ -5,7 +5,7 @@ import path from 'node:path';
 
 /**
  * Amorri Studio Desktop 1.0 — secure ONLINE shell.
- * The authenticated Next.js website stays on Vercel; no Firebase Admin or R2 secrets live here.
+ * The authenticated Next.js website runs at https://amorri.io.vn/; no Firebase Admin or S3 secrets live here.
  */
 
 type PublicConfig = { webUrl?: string };
@@ -65,7 +65,7 @@ function isInternalUrl(raw: string): boolean {
 function openApprovedExternalUrl(raw: string): void {
   try {
     const target = new URL(raw);
-    // Only open normal HTTPS links in Windows' default browser.
+    // Only open normal HTTPS links in the operating system's default browser.
     if (target.protocol === 'https:' && !target.username && !target.password) {
       void shell.openExternal(target.toString()).catch(() => {});
     }
@@ -167,7 +167,7 @@ function configureDownloads(win: BrowserWindow): void {
       if (win.isDestroyed()) return;
       win.setProgressBar(-1);
       if (state === 'completed') {
-        // File is already in Windows Downloads or the user's selected folder.
+        // File is already in Downloads or the user's selected folder.
       } else if (state !== 'cancelled') {
         void dialog.showMessageBox(win, {
           type: 'warning', title: 'Tải file chưa hoàn tất',

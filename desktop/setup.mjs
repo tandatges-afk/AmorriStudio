@@ -19,7 +19,7 @@ if (missing.length) {
 pkg.name = 'amorri-studio-desktop';
 pkg.productName = 'Amorri Studio';
 if (!pkg.version || ['1.0.0', '1.1.0'].includes(pkg.version)) pkg.version = '1.2.0';
-pkg.description = 'Amorri Studio Desktop — secure Windows shell for Vercel web app';
+pkg.description = 'Amorri Studio Desktop — secure Windows/macOS client for self-hosted VPS web app';
 pkg.main = 'dist/main.js';
 pkg.private = true;
 pkg.license = 'UNLICENSED';

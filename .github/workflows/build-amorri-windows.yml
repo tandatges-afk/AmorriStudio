@@ -1,0 +1,50 @@
+name: Amorri Desktop - Build Windows x64 EXE (VPS)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  windows:
+    runs-on: windows-latest
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+      - name: Prepare VPS and Google OAuth Desktop runtime config
+        env:
+          AMORRI_CONFIG_JSON: ${{ secrets.AMORRI_DESKTOP_CONFIG_JSON || secrets.AMORRI_WIN_CONFIG_JSON }}
+        run: node scripts/prepare-release-config.mjs
+      - name: Verify config, typecheck and test
+        run: |
+          node scripts/prepare-release-config.mjs --verify
+          npm run typecheck
+          npm run build:main
+          npm run test:desktop
+          node --test tests/google-drive-oauth-131.test.mjs
+      - name: Build unsigned NSIS Windows x64 EXE
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --config electron-builder.yml --win nsis --x64 --publish never
+      - name: Verify bundled runtime config
+        shell: pwsh
+        run: |
+          $asar = Get-ChildItem 'release/win-unpacked/resources/desktop.config.json' -ErrorAction SilentlyContinue
+          if (-not $asar) { throw 'Missing desktop.config.json inside packaged Windows resources' }
+          $actual = Get-Content $asar.FullName -Raw | ConvertFrom-Json
+          if ($actual.webUrl -ne 'https://amorri.io.vn/') { throw 'Windows client does not point to VPS' }
+          if (-not $actual.googleOAuthClientId) { throw 'Missing Desktop OAuth client ID' }
+          Write-Host 'Bundled VPS config verified (credential values hidden)'
+      - name: Upload Windows EXE
+        uses: actions/upload-artifact@v4
+        with:
+          name: Amorri-Studio-Windows-x64-EXE-VPS
+          path: desktop/release/*.exe
+          if-no-files-found: error
+          retention-days: 7

@@ -1,109 +1,47 @@
-name: Amorri Desktop - Build macOS ARM64 DMG
-
+name: Amorri Desktop - Build macOS ARM64 and Intel DMG (VPS)
 on:
   workflow_dispatch:
-
 permissions:
   contents: read
-
 jobs:
-  build-macos-dmg:
-    name: macOS ARM64 DMG
+  macos:
     runs-on: macos-15
     defaults:
       run:
         working-directory: desktop
     steps:
-      - name: Checkout main
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js 22
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: desktop/package-lock.json
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Verify icons
-        run: |
-          test -f assets/icon.icns || { echo 'Missing desktop/assets/icon.icns'; exit 1; }
-          test -f assets/icon.ico || { echo 'Missing desktop/assets/icon.ico'; exit 1; }
-
-      - name: Create bundled Amorri runtime config from Actions secret
+      - run: npm ci
+      - name: Prepare VPS and Google OAuth Desktop runtime config
         env:
-          AMORRI_CONFIG_JSON: ${{ secrets.AMORRI_MAC_CONFIG_JSON }}
+          AMORRI_CONFIG_JSON: ${{ secrets.AMORRI_DESKTOP_CONFIG_JSON || secrets.AMORRI_MAC_CONFIG_JSON }}
+        run: node scripts/prepare-release-config.mjs
+      - name: Verify configuration and compile
         run: |
-          node <<'NODE'
-          const fs = require('node:fs');
-          const raw = process.env.AMORRI_CONFIG_JSON || '';
-          if (!raw.trim()) throw new Error('Missing repository Actions secret AMORRI_MAC_CONFIG_JSON');
-          let config;
-          try { config = JSON.parse(raw); }
-          catch { throw new Error('AMORRI_MAC_CONFIG_JSON is not valid JSON'); }
-          if (!config || typeof config !== 'object' || Array.isArray(config)) throw new Error('Config must be a JSON object');
-          let url;
-          try { url = new URL(config.webUrl); }
-          catch { throw new Error('webUrl must be a valid HTTPS URL'); }
-          if (url.protocol !== 'https:' || !url.hostname || url.username || url.password)
-            throw new Error('webUrl must be an HTTPS URL without credentials');
-          const googleOAuthClientId = String(config.googleOAuthClientId || '').trim();
-          const googleOAuthClientSecret = String(config.googleOAuthClientSecret || '').trim();
-          if (!/^[A-Za-z0-9_.-]+\.apps\.googleusercontent\.com$/.test(googleOAuthClientId))
-            throw new Error('googleOAuthClientId must be a Desktop OAuth Client ID');
-          if (!googleOAuthClientSecret) throw new Error('googleOAuthClientSecret is missing');
-          const output = {
-            webUrl: url.toString(),
-            googleOAuthClientId,
-            googleOAuthClientSecret,
-            driveReaderEmail: typeof config.driveReaderEmail === 'string' ? config.driveReaderEmail.trim() : ''
-          };
-          fs.writeFileSync('desktop.config.json', JSON.stringify(output, null, 2) + '\n', { mode: 0o600 });
-          console.log('Created runtime config including Google OAuth for bundled internal macOS app (values hidden).');
-          NODE
-
-      - name: Typecheck and compile Electron
-        run: |
+          node scripts/prepare-release-config.mjs --verify
           npm run typecheck
           npm run build:main
-
-      - name: Build unsigned ARM64 DMG
+          npm run test:desktop
+          node --test tests/google-drive-oauth-131.test.mjs
+      - name: Build unsigned macOS Apple Silicon and Intel DMGs
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npx electron-builder --mac dmg --arm64 --publish never
-
-      - name: Verify runtime configuration bundled in macOS app
+        run: npx electron-builder --config electron-builder.yml --mac dmg --arm64 --x64 --publish never
+      - name: Verify bundled runtime points to VPS
         run: |
-          CONFIG_FILE="$(find release -path '*/Contents/Resources/desktop.config.json' -type f -print -quit)"
-          if [ -z "$CONFIG_FILE" ]; then
-            echo 'Build missing packaged desktop.config.json'; exit 1;
-          fi
-          node - "$CONFIG_FILE" <<'NODE'
-          const fs = require('node:fs');
-          const config = JSON.parse(fs.readFileSync(process.argv[2], 'utf8'));
-          if (!config.googleOAuthClientId || !config.googleOAuthClientSecret) throw new Error('Packaged OAuth config incomplete');
-          console.log('Packaged macOS OAuth config verified (values hidden).');
-          NODE
-
-      - name: Verify Amorri app signature
-        shell: bash
-        run: |
-          APP="$(find release -type d -name '*.app' -print -quit)"
-
-          if [ -z "$APP" ]; then
-            echo "ERROR: Amorri Studio.app not found"
-            exit 1
-          fi
-
-          codesign --verify --deep --strict --verbose=2 "$APP"
-
-          echo "APP SIGNATURE VERIFIED"
-      - name: Upload DMG artifact
+          FILE="$(find release -path '*/Contents/Resources/desktop.config.json' -type f -print -quit)"
+          test -n "$FILE"
+          cmp -s desktop.config.json "$FILE"
+          echo 'Bundled runtime config OK (values hidden)'
+      - name: Upload macOS DMG
         uses: actions/upload-artifact@v4
         with:
-          name: Amorri-Studio-macOS-ARM64-DMG
+          name: Amorri-Studio-macOS-DMG-VPS
           path: desktop/release/*.dmg
           if-no-files-found: error
           retention-days: 7

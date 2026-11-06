@@ -1,7 +1,7 @@
 {
   "name": "amorri-studio-desktop",
   "version": "1.2.0",
-  "description": "Amorri Studio Desktop — secure Windows shell for Vercel web app",
+  "description": "Amorri Studio Desktop — secure Windows/macOS client for self-hosted VPS web app",
   "main": "dist/main.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
