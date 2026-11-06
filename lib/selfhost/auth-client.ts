@@ -37,10 +37,10 @@ function localOnAuthStateChanged(_auth:Auth,listener:(u:User|null)=>void,onError
  else if(initializing)void initializing.then(()=>{if(listeners.has(listener))listener(auth.currentUser);});
  return ()=>{listeners.delete(listener);};
 }
-async function localSignInWithEmailAndPassword(_auth:Auth,email:string,password:string){
+async function localSignInWithEmailAndPassword(_auth:Auth,identifier:string,password:string){
  const r=await fetch('/api/auth/local/login',{method:'POST',headers:{'Content-Type':'application/json'},
-  credentials:'same-origin',body:JSON.stringify({email,password}),cache:'no-store'});
- if(!r.ok)throw new Error('Email hoặc mật khẩu không đúng');
+  credentials:'same-origin',body:JSON.stringify({identifier,password}),cache:'no-store'});
+ if(!r.ok)throw new Error('Tên tài khoản hoặc mật khẩu không đúng');
  const data=await r.json() as {token:string;user:{uid:string;email:string}};
  token=data.token;auth.currentUser=identity(data.user);notify();return {user:auth.currentUser};
 }

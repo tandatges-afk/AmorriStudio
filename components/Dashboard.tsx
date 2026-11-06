@@ -55,8 +55,9 @@ function Status({status}:{status:StudioEvent['status']}) {
 function Empty({title,detail}:{title:string;detail:string}){
   return <div className="empty-state"><FolderOpen size={30}/><b>{title}</b><p>{detail}</p></div>;
 }
-function Login({onLogin,error,loading}:{onLogin:(email:string,password:string)=>void;error:string;loading:boolean}){
-  const [email,setEmail]=useState(''); const [password,setPassword]=useState('');
+function Login({onLogin,error,loading}:{onLogin:(identifier:string,password:string)=>void;error:string;loading:boolean}){
+  const isLocal=process.env.NEXT_PUBLIC_AMORRI_AUTH_BACKEND==='local';
+  const [identifier,setIdentifier]=useState(''); const [password,setPassword]=useState('');
   return <div className="login-layout">
     <div className="login-showcase">
       <div className="login-brand"><div className="brand-square amorri-logo-badge"><Image src="/brand/amorri-mark.png" alt="" width={64} height={64} priority/></div><span>AMORRI <strong>STUDIO</strong></span></div>
@@ -70,9 +71,9 @@ function Login({onLogin,error,loading}:{onLogin:(email:string,password:string)=>
       <div className="login-lock"><LockKeyhole size={21}/></div>
       <div className="eyebrow">WORKSPACE LOGIN</div><h2>Chào mừng trở lại</h2>
       <p>Đăng nhập bằng tài khoản Studio để quản lý.</p>
-      <form onSubmit={e=>{e.preventDefault();onLogin(email,password);}}>
-        <label htmlFor="email">Email</label><input id="email" type="email" autoComplete="username" placeholder="admin@amorri.studio" required value={email} onChange={e=>setEmail(e.target.value)}/>
-        <label htmlFor="password">Mật khẩu</label><input id="password" type="password" autoComplete="current-password" placeholder="Nhập mật khẩu" required value={password} onChange={e=>setPassword(e.target.value)}/>
+      <form onSubmit={e=>{e.preventDefault();onLogin(identifier,password);}}>
+        <label htmlFor="account-identifier">{isLocal?'Tên tài khoản':'Email'}</label><input id="account-identifier" type={isLocal?'text':'email'} autoComplete="username" autoCapitalize="none" autoCorrect="off" spellCheck={false} placeholder={isLocal?'Tên tài khoản của bạn':'admin@amorri.studio'} required value={identifier} onChange={e=>setIdentifier(e.target.value)}/>
+        <label htmlFor="password">Mật khẩu</label><input id="password" type="password" minLength={isLocal?6:undefined} autoComplete="current-password" placeholder="Nhập mật khẩu" required value={password} onChange={e=>setPassword(e.target.value)}/>
         {error&&<div className="alert error" role="alert">{error}</div>}
         <button disabled={loading} className="primary-button wide" type="submit">{loading?'Đang xác thực…':'Đăng nhập'}<ArrowRight size={17}/></button>
       </form>
@@ -250,7 +251,7 @@ export function Dashboard(){
       setReady(true);setAuthError(error instanceof Error?error.message:'Thiếu cấu hình Firebase');
     }
   },[]);
-  const login=async (email:string,password:string)=>{setLogging(true);setAuthError('');try {await signInWithEmailAndPassword(browserAuth(),email,password);}catch{setAuthError('Đăng nhập không thành công. Kiểm tra email, mật khẩu và quyền Firebase.');}finally{setLogging(false);}};
+  const login=async (identifier:string,password:string)=>{setLogging(true);setAuthError('');try {await signInWithEmailAndPassword(browserAuth(),identifier,password);}catch{setAuthError(process.env.NEXT_PUBLIC_AMORRI_AUTH_BACKEND==='local'?'Tên tài khoản hoặc mật khẩu không đúng.':'Đăng nhập không thành công. Kiểm tra email, mật khẩu và quyền Firebase.');}finally{setLogging(false);}};
   const load=useCallback(async (signal:AbortSignal)=>{
     if(!user){setData(null);return;}
     setLoading(true);setRequestError('');

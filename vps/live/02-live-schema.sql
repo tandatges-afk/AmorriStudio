@@ -12,6 +12,7 @@ CREATE INDEX IF NOT EXISTS idx_amorri_documents_prefix ON amorri_documents (path
 CREATE TABLE IF NOT EXISTS amorri_local_users (
   uid text PRIMARY KEY,
   email text NOT NULL,
+  username text,
   salt text,
   password_hash text,
   role text NOT NULL DEFAULT 'staff' CHECK (role IN ('admin','staff')),
@@ -21,6 +22,7 @@ CREATE TABLE IF NOT EXISTS amorri_local_users (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 CREATE UNIQUE INDEX IF NOT EXISTS idx_amorri_local_users_email ON amorri_local_users (lower(email));
+CREATE UNIQUE INDEX IF NOT EXISTS idx_amorri_local_users_username ON amorri_local_users (lower(username)) WHERE username IS NOT NULL;
 CREATE TABLE IF NOT EXISTS amorri_import_runs (
   source_sha256 text PRIMARY KEY,
   imported_at timestamptz NOT NULL DEFAULT now(),

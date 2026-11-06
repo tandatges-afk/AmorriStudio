@@ -16,13 +16,14 @@ export async function POST(request:Request){
  if(!mayAttempt(request))return Response.json({error:'Thử lại sau vài phút.'},{status:429,headers:{'Retry-After':'300'}});
  try{
   if(Number(request.headers.get('content-length')||0)>4096)return Response.json({error:'Payload too large'},{status:413});
-  const body=await request.json() as {email?:string;password?:string};
-  if(typeof body.email!=='string'||typeof body.password!=='string')return Response.json({error:'Invalid credentials'},{status:400});
+  const body=await request.json() as {identifier?:string;email?:string;password?:string};
+  const identifier=body.identifier??body.email;
+  if(typeof identifier!=='string'||typeof body.password!=='string'||!identifier.trim()||identifier.length>320||body.password.length<6||body.password.length>1024)return Response.json({error:'Invalid credentials'},{status:400});
   let result;
-  try {result=await bridgePost('/login',{email:body.email,password:body.password});}
-  catch(err){if((err as {status?:number}).status===401)return Response.json({error:'Email hoặc mật khẩu không đúng'},{status:401});throw err;}
+  try {result=await bridgePost('/login',{identifier:identifier.trim(),password:body.password});}
+  catch(err){if((err as {status?:number}).status===401)return Response.json({error:'Tên tài khoản hoặc mật khẩu không đúng'},{status:401});throw err;}
   const user=result.user as {uid:string;email:string;session_epoch:number}|undefined;
-  if(!user)return Response.json({error:'Email hoặc mật khẩu không đúng'},{status:401});
+  if(!user)return Response.json({error:'Tên tài khoản hoặc mật khẩu không đúng'},{status:401});
   const token=issueSelfHostedToken(user);
   return Response.json({user:{uid:user.uid,email:user.email},token},
    {headers:{'Set-Cookie':selfHostedCookie(token),'Cache-Control':'no-store'}});

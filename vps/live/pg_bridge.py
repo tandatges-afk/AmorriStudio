@@ -192,16 +192,26 @@ def handle_user(request):
 
 
 def handle_login(request):
-    email = request.get('email', '')
+    # Username is the normal VPS login; email remains a backward-compatible alias.
+    identifier = request.get('identifier', request.get('email', ''))
     password = request.get('password', '')
-    if not isinstance(email, str) or not isinstance(password, str) or len(email) > 320 or len(password) > 1024:
+    if not isinstance(identifier, str) or not isinstance(password, str):
         raise ValueError('Invalid credentials')
+    identifier = identifier.strip()
+    if not identifier or len(identifier) > 320 or len(password) < 6 or len(password.encode('utf8')) > 1024:
+        return 401, {'error': 'Invalid credentials'}
     with psycopg2.connect(os.environ['DATABASE_URL']) as conn:
         with conn.cursor() as cur:
             cur.execute('SELECT uid,email,role,disabled,session_epoch,salt,password_hash '
-                        'FROM amorri_local_users WHERE lower(email)=lower(%s)', (email,))
-            row = cur.fetchone()
-    if not row or row[3] or not row[5] or not row[6]:
+                        'FROM amorri_local_users '
+                        'WHERE lower(username)=lower(%s) OR lower(email)=lower(%s) LIMIT 2',
+                        (identifier, identifier))
+            matches = cur.fetchall()
+    # Refuse ambiguous identity matches (e.g. from an incorrectly migrated database).
+    if len(matches) != 1:
+        return 401, {'error': 'Invalid credentials'}
+    row = matches[0]
+    if row[3] or not row[5] or not row[6]:
         return 401, {'error': 'Invalid credentials'}
     try:
         actual = hashlib.scrypt(password.encode('utf8'), salt=bytes.fromhex(row[5]),
