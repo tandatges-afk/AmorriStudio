@@ -14,6 +14,9 @@ REV=$(git rev-parse origin/main)
 DEST="$ROOT/releases/$(date -u +%Y%m%dT%H%M%SZ)-${REV:0:8}"
 mkdir -p "$DEST"
 git archive "$REV" | tar -x -C "$DEST"
+# Runtime health reads the exact source commit for this immutable release.
+printf '{"commit":"%s"}\n' "$REV" > "$DEST/release-info.json"
+chmod 0644 "$DEST/release-info.json"
 cd "$DEST"
 # Use exact existing production variables. Public Firebase config is inlined by Next during build.
 set -a

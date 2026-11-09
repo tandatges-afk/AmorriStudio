@@ -30,12 +30,12 @@ export function SystemHealth({user}:{user:User}){
   return <section className="ops30-health" aria-label="Chẩn đoán hệ thống">
     <div className="ops30-health-hero">
       <div className="ops30-health-icon"><ServerCog size={28}/></div>
-      <div><span className="eyebrow">STUDIO OS 3.0 / SYSTEM HEALTH</span><h2>Kiểm tra sức khỏe hệ thống</h2>
-        <p>Đọc cấu hình và thử truy vấn Firebase an toàn. Không kiểm tra bằng cách xóa, sửa lịch hay phát hành link mới.</p></div>
+      <div><span className="eyebrow">AMORRI R10.5 / SYSTEM HEALTH</span><h2>Kiểm tra sức khỏe hệ thống</h2>
+        <p>Đọc cấu hình và kiểm tra kết nối cơ sở dữ liệu an toàn. Không kiểm tra bằng cách xóa, sửa lịch hay phát hành link mới.</p></div>
       <button type="button" className="secondary-button" disabled={busy} onClick={()=>void refresh()}><RefreshCw size={16} className={busy?'spin':''}/> Kiểm tra lại</button>
     </div>
     {error&&<div role="alert" className="alert error"><AlertCircle size={18}/><div><strong>Không thực hiện được chẩn đoán</strong><p>{error}</p></div></div>}
-    {busy&&!report&&<div className="loading-state"><RefreshCw className="spin" size={22}/> Đang kiểm tra Firebase và cấu hình server…</div>}
+    {busy&&!report&&<div className="loading-state"><RefreshCw className="spin" size={22}/> Đang kiểm tra dữ liệu và cấu hình máy chủ…</div>}
     {report&&<>
       <div className="ops30-health-metrics">
         <div><strong>{report.summary.ok}</strong><span>Đạt</span></div>
@@ -52,10 +52,10 @@ export function SystemHealth({user}:{user:User}){
       </div>
       <div className="ops30-health-footer">
         <p>Kiểm tra lúc {new Date(report.checkedAt).toLocaleString('vi-VN')} · {report.release}<span> · Chỉ Admin được xem</span></p>
-        <button type="button" onClick={()=>navigator.clipboard?.writeText(`Amorri Studio 3.0 · ${report.release}\n${checks.map(c=>`${label[c.status]}: ${c.title} — ${c.detail}`).join('\n')}\nMã tra cứu: ${report.requestId}`)}><Copy size={15}/> Sao chép báo cáo an toàn</button>
+        <button type="button" onClick={()=>navigator.clipboard?.writeText(`Amorri Studio · ${report.release}\n${checks.map(c=>`${label[c.status]}: ${c.title} — ${c.detail}`).join('\n')}\nMã tra cứu: ${report.requestId}`)}><Copy size={15}/> Sao chép báo cáo an toàn</button>
       </div>
     </>}
     <R2StorageHealth user={user}/>
-    <p className="ops30-health-disclaimer">Kết quả cấu hình “Đạt” không bảo đảm quyền truy cập từng file Google Drive, hiệu năng video 1080p, hay toàn bộ nhánh Firebase. Những bước đó vẫn phải thử trên Vercel Preview.</p>
+    <p className="ops30-health-disclaimer">Kết quả cấu hình “Đạt” không bảo đảm mọi ảnh Concept đều mở được, quyền truy cập Google Drive, hay khả năng phát video 1080p. Hãy kiểm thử các chức năng thực tế trên VPS trước khi xác nhận bản cập nhật.</p>
   </section>;
 }

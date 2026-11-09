@@ -82,7 +82,7 @@ async function handlePATCH(request:Request,{params}:{params:Promise<{id:string}>
       const allowed=new Set(staff.filter(s=>s.active!==false).map(s=>String(s?.id||'')));
       const old=Array.isArray(located.value.assignments)?located.value.assignments:Object.values(located.value.assignments||{});
       for(const record of old as {id?:unknown}[])if(record?.id!=null)allowed.add(String(record.id));
-      if(validated.value.assignments.some(s=>!allowed.has(s.id)))return json({error:'Có nhân sự không tồn tại trong Firebase.'},422);
+      if(validated.value.assignments.some(s=>!allowed.has(s.id)))return json({error:'Có nhân sự không tồn tại trong hệ thống.'},422);
     }
     // Server-side overlap checks must use the latest data while the VNext write lease is held.
     const proposed={...located.value,...validated.value};

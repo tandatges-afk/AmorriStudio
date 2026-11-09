@@ -39,12 +39,12 @@ export async function findBooking(id:string):Promise<LocatedBooking>{
       return false;
     });
     if(candidates.length>1)throw new BookingStoreError(409,'Lịch bị trùng ID trong dữ liệu cũ. Mở /migration để kiểm tra, không thể sửa an toàn.');
-    if(!candidates.length)throw new BookingStoreError(404,'Không tìm thấy lịch trên Firebase');
+    if(!candidates.length)throw new BookingStoreError(404,'Không tìm thấy lịch trong hệ thống');
     const item=candidates[0];
     return {ref:events.child(item.key),key:item.key,value:item.value,version:bookingVersion(item.value)};
   }catch(error){
     if(error instanceof BookingStoreError)throw error;
     console.error('[booking-lookup]',{code:(error as {code?:string})?.code||'unknown',name:(error as Error)?.name||'Error'});
-    throw new BookingStoreError(503,'Không đọc được lịch từ Firebase. Kiểm tra FIREBASE_DATABASE_URL và quyền service account (BOOKING_READ_FAILED).');
+    throw new BookingStoreError(503,'Không đọc được lịch từ cơ sở dữ liệu (BOOKING_READ_FAILED). Kiểm tra kết nối máy chủ.');
   }
 }

@@ -9,7 +9,7 @@ import './amorri-contrast-motion-r83.css';
 import {AmorriMicroInteractions} from '@/components/AmorriMicroInteractions';
 
 export const metadata: Metadata = {
-  title: 'Amorri Studio — Studio OS 3.2.5',
+  title: 'Amorri Studio — R10.5',
   description: 'Điều hành lịch quay chụp, đội ngũ, sản phẩm và hoạt động studio.',
 };
 export const viewport: Viewport = { width: 'device-width', initialScale: 1 };

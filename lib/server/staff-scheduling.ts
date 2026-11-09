@@ -11,7 +11,7 @@ export class ScheduleError extends Error { constructor(public status:number, mes
 export function failure(err:unknown){
   if(err instanceof ScheduleError)return json({error:err.message,code:err.code},err.status);
   console.error('[staff-scheduling]',err);
-  return json({error:'Lỗi kết nối Firebase. Kiểm tra Runtime Logs.',code:'SCHEDULE_DATABASE_ERROR'},503);
+  return json({error:'Không thể truy cập dữ liệu nhân sự. Vui lòng thử lại hoặc kiểm tra máy chủ.',code:'SCHEDULE_DATABASE_ERROR'},503);
 }
 export async function identity(request:Request,adminOnly=false):Promise<AuthenticatedActor|Response>{
   try {

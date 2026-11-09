@@ -1,0 +1,11 @@
+[Unit]
+Description=Daily Amorri offsite backup
+
+[Timer]
+OnCalendar=*-*-* 02:40:00 Asia/Ho_Chi_Minh
+Persistent=true
+RandomizedDelaySec=15m
+Unit=amorri-backup.service
+
+[Install]
+WantedBy=timers.target

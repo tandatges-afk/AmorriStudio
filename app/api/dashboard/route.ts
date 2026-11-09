@@ -63,7 +63,7 @@ export async function GET(request: Request) {
       // Static branch names and classification only. Never log raw SDK errors or data.
       console.error('[dashboard-read]',{requestId,failures:errors});
       return errorResponse({
-        error:`Không thể đọc Firebase tại: ${errors.map(x=>x.source).join(', ')} (${errors.map(x=>x.reason).join(', ')}). Kiểm tra database URL, IAM hoặc index theo loại lỗi.`,
+        error:`Không thể đọc dữ liệu tại: ${errors.map(x=>x.source).join(', ')} (${errors.map(x=>x.reason).join(', ')}). Kiểm tra kết nối, quyền truy cập hoặc cấu hình cơ sở dữ liệu.`,
         code:'DASHBOARD_READ_FAILED'
       },503,requestId);
     }
@@ -88,11 +88,11 @@ export async function GET(request: Request) {
       return NextResponse.json(payload,{headers:{...NO_CACHE,'X-Amorri-Request-Id':requestId}});
     } catch(err) {
       console.error('[dashboard-parse]',{requestId,code:'DASHBOARD_DATA_INVALID',kind:err instanceof Error?err.name:'unknown'});
-      return errorResponse({error:'Đã đọc Firebase nhưng không xử lý được dữ liệu Dashboard. Kiểm tra cấu trúc bản ghi.',code:'DASHBOARD_DATA_INVALID'},503,requestId);
+      return errorResponse({error:'Đã đọc dữ liệu nhưng không xử lý được Dashboard. Kiểm tra cấu trúc bản ghi.',code:'DASHBOARD_DATA_INVALID'},503,requestId);
     }
   } catch(err) {
     console.error('[dashboard-init]',{requestId,code:'DASHBOARD_CONNECTION_FAILED',reason:classifyFirebaseError(err)});
-    return errorResponse({error:'Không khởi tạo được kết nối Firebase Realtime Database. Kiểm tra cấu hình và quyền service account.',code:'DASHBOARD_CONNECTION_FAILED'},503,requestId);
+    return errorResponse({error:'Không kết nối được cơ sở dữ liệu. Kiểm tra cấu hình và trạng thái máy chủ.',code:'DASHBOARD_CONNECTION_FAILED'},503,requestId);
   }
 }
 

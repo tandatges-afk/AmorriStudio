@@ -1,23 +1,34 @@
-import { NextResponse } from 'next/server';
+import {readFileSync} from 'node:fs';
+import {join} from 'node:path';
+import {NextResponse} from 'next/server';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-/** Public, non-sensitive release marker: used only to distinguish an old deployment. */
+
+const RELEASE = 'amorri-r10.5-batch-20261109';
+function deployedCommit():string|null {
+  // deploy-web.sh writes this untracked marker into each immutable release.
+  // Do not trust client-provided headers for release identity.
+  try {
+    const data=JSON.parse(readFileSync(join(process.cwd(),'release-info.json'),'utf8')) as {commit?:unknown};
+    return typeof data.commit==='string' && /^[a-f0-9]{40}$/.test(data.commit) ? data.commit : null;
+  }catch {return null;}
+}
+
+/** Public health is intentionally minimal: no credentials, internal hostnames or personal data. */
 export async function GET() {
+  const storage=process.env.AMORRI_STORAGE_BACKEND==='s3'?'s3':'r2';
   return NextResponse.json({
     ok: true,
-    database:process.env.AMORRI_DATABASE_BACKEND==='postgres'?'postgresql-vps':'firebase-legacy',
-    authentication:process.env.AMORRI_AUTH_BACKEND==='local'?'vps-local':'firebase-legacy',
-    app: 'Amorri Studio VNext 3.2.5 — R2 Only + Lunar Calendar + Photo Download',
-    release: 'drive-302-pilot-20261013-r1',
-    upgradeRelease: 'availability-money-302-auto-20261013-r1',
-    authApi: 'diagnostic-codes-enabled',
-    deliveryApi: 'capability-tokens-enabled',
-    streamingApi: process.env.AMORRI_STORAGE_BACKEND === 's3' ? 'vps-s3-1080p-signed-url' : 'r2-only-1080p-signed-url-no-vercel-video',
-    privateVideoRelease: 'r2-signed-private-20261013-r1',
-    autoVideoSyncRelease: 'r2-auto-worker-20261014-r1',
-    currentRelease: 'amorri-3.2.5-r2-only',
-    privateVideoMode: process.env.AMORRI_STORAGE_BACKEND === 's3' ? 'vps-s3-only' : 'r2-only',
-    systemDiagnostics: 'admin-only',
+    app: 'Amorri Studio',
+    release: RELEASE,
+    currentRelease: RELEASE,
+    commit: deployedCommit(),
+    database: process.env.AMORRI_DATABASE_BACKEND==='postgres'?'postgresql-vps':'firebase-legacy',
+    authentication: process.env.AMORRI_AUTH_BACKEND==='local'?'vps-local':'firebase-legacy',
+    storage,
+    streamingApi: storage==='s3'?'vps-s3-1080p-signed-url':'r2-only-1080p-signed-url-no-vercel-video',
+    privateVideoMode: storage==='s3'?'vps-s3-only':'r2-only',
+    systemDiagnostics:'admin-only',
     time: new Date().toISOString()
-  }, { headers: { 'Cache-Control': 'no-store, max-age=0' } });
+  }, {headers:{'Cache-Control':'no-store, max-age=0'}});
 }
