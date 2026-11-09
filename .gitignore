@@ -37,3 +37,9 @@ tmp/
 vps/compose.env
 vps/*.env
 vps/**/*.secret
+# Generated only inside an immutable VPS release during deployment
+release-info.json
+
+# Local Python bytecode only
+__pycache__/
+*.pyc

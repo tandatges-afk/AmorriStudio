@@ -49,6 +49,6 @@ test('Legacy video endpoint has strict authorization and obsolete image endpoint
 });
 test('new admin link creation and client route ship in package',()=>{
  assert.match(source('components/Dashboard.tsx'),/<DeliveryGrantManager eventId=\{event.id\} productId=\{product.id\} user=\{user\}\/>/);
- assert.match(source('app/api/health/route.ts'),/drive-302-pilot-20261013-r1/);
+ assert.match(source('app/api/health/route.ts'),/amorri-r10\.5-batch-20261109/);
  assert.match(source('components/ClientDelivery.tsx'),/x-amorri-delivery-token/);
 });

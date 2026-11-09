@@ -19,7 +19,7 @@ export class AdminAuthFailure extends Error {
 
 export function publicAuthFailure(err: unknown): { status: 401 | 503; code: AdminAuthCode; error: string } {
   if (err instanceof AdminAuthFailure) return { status: err.status, code: err.code, error: err.message };
-  return { status: 503, code: 'AUTH_SERVICE_UNAVAILABLE', error: 'Firebase Admin tạm thời không thể xác minh đăng nhập. Kiểm tra Runtime Logs.' };
+  return { status: 503, code: 'AUTH_SERVICE_UNAVAILABLE', error: process.env.AMORRI_AUTH_BACKEND==='local'?'Không thể xác minh đăng nhập do máy chủ dữ liệu tạm thời không phản hồi.':'Firebase Admin tạm thời không thể xác minh đăng nhập. Kiểm tra Runtime Logs.' };
 }
 
 const APP_NAME = 'amorri-studio-admin';
@@ -91,13 +91,16 @@ export async function authenticatedUser(request: Request): Promise<Authenticated
   if(process.env.AMORRI_AUTH_BACKEND==='local'){
     const match=/^Bearer ([^\s]+)$/i.exec(request.headers.get('authorization')??'');
     if(!match)throw new AdminAuthFailure('AUTH_TOKEN_MISSING',401,'Chưa đăng nhập.');
-    try {
-      const session=verifySelfHostedToken(match[1]);
-      const result=await bridgePost('/user',{uid:session.uid});
-      const found=result.user as {uid:string;email:string;role:string;disabled:boolean;session_epoch:number}|null;
-      if(!found||found.disabled||Number(found.session_epoch)!==session.epoch)throw new Error('Revoked');
-      return {uid:found.uid,email:found.email,admin:found.role==='admin'};
-    }catch{throw new AdminAuthFailure('AUTH_TOKEN_INVALID',401,'Phiên đăng nhập không hợp lệ hoặc đã bị thu hồi.');}
+    let session;
+    try{session=verifySelfHostedToken(match[1]);}
+    catch{throw new AdminAuthFailure('AUTH_TOKEN_INVALID',401,'Phiên đăng nhập không hợp lệ hoặc đã bị thu hồi.');}
+    let result;
+    try{result=await bridgePost('/user',{uid:session.uid});}
+    catch{throw new AdminAuthFailure('AUTH_SERVICE_UNAVAILABLE',503,'Máy chủ dữ liệu tạm thời không phản hồi. Vui lòng thử lại sau.');}
+    const found=result.user as {uid:string;email:string;role:string;disabled:boolean;session_epoch:number}|null;
+    if(!found||found.disabled||Number(found.session_epoch)!==session.epoch)
+      throw new AdminAuthFailure('AUTH_TOKEN_INVALID',401,'Phiên đăng nhập không hợp lệ hoặc đã bị thu hồi.');
+    return {uid:found.uid,email:found.email,admin:found.role==='admin'};
   }
   const match = /^Bearer ([^\s]+)$/i.exec(request.headers.get('authorization') ?? '');
   if (!match) throw new AdminAuthFailure('AUTH_TOKEN_MISSING', 401, 'Thiếu Firebase ID token. Vui lòng đăng nhập lại.');

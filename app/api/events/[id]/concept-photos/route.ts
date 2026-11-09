@@ -16,13 +16,13 @@ async function auth(request:Request){
 function failure(e:unknown){
  const code=e instanceof Error?e.message:'CONCEPT_UNKNOWN_ERROR';
  console.error('[concept-photos]',code.startsWith('CONCEPT_')?code:'SERVER_ERROR');
- return reply({error:code==='CONCEPT_R2_NOT_CONFIGURED'?'Chưa cấu hình R2 để lưu hình trang phục.': 'Không thể xử lý hình concept. Vui lòng thử lại.',code:code.startsWith('CONCEPT_')?code:'CONCEPT_STORAGE_ERROR'},503);
+ return reply({error:['CONCEPT_R2_NOT_CONFIGURED','CONCEPT_S3_NOT_CONFIGURED'].includes(code)?'Chưa cấu hình kho ảnh Concept trên máy chủ.': 'Không thể xử lý hình concept. Vui lòng thử lại.',code:code.startsWith('CONCEPT_')?code:'CONCEPT_STORAGE_ERROR'},503);
 }
 const ref=(id:string)=>adminDatabase().ref('studioPlanner_v1/conceptPhotos').child(id);
 async function eventExists(id:string){try{await findBooking(id);return true;}catch{return false;}}
 async function photos(id:string){
  const raw=(await ref(id).once('value')).val()||{};
- return Object.values(raw as Record<string,Photo>).filter(p=>p&&PHOTO_ID.test(p.id)&&typeof p.key==='string'&&p.key.startsWith(`concepts/${id}/`))
+ return Object.values(raw as Record<string,Photo>).filter(p=>p&&PHOTO_ID.test(p.id)&&typeof p.key==='string'&&['jpg','png','webp'].some(ext=>p.key===`concepts/${id}/${p.id}.${ext}`))
   .sort((a,b)=>a.createdAt-b.createdAt);
 }
 const payload=(list:Photo[])=>list.map(p=>({id:p.id,name:p.name,size:p.size,createdAt:p.createdAt,url:signConceptRead(p.key)}));

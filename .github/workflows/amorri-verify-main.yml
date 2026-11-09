@@ -30,3 +30,8 @@ jobs:
         run: npm run test:unit
       - name: Production build
         run: npm run build
+      # Browser smoke tests use anonymous access only; no production credentials.
+      - name: Install Chromium for Playwright
+        run: npx playwright install --with-deps chromium
+      - name: Browser smoke tests (desktop and mobile)
+        run: npm run test:e2e

@@ -25,7 +25,7 @@ test('R2-only current release retains no obsolete Cloudflare Stream endpoints',(
  for(const path of ['.env.example','package.json'])assert.doesNotMatch(read(path),/CF_STREAM_[A-Z_]+|AMORRI_STREAM_TOKEN_TTL_SECONDS|hls\.js/);
  const health=read('app/api/health/route.ts');
  assert.match(health,/r2-only-1080p-signed-url-no-vercel-video/);
- assert.match(health,/currentRelease: 'amorri-3\.2\.5-r2-only'/);
+ assert.match(health,/currentRelease: RELEASE/);
 });
 test('cached 2.6 playback route remains scoped and never returns video bytes',()=>{
  const src=read('app/api/delivery/[eventId]/playback/route.ts');

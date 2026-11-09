@@ -82,6 +82,28 @@ export function localSystemChecks(env:EnvValues):HealthCheck[]{
   const mediaCache=result('delivery-cache','Cache bàn giao ảnh và video','ok',
     'Metadata Drive được cache mã hóa trên RTDB tối đa 15 phút; thumbnail riêng Admin được cache trên thiết bị tối đa 6 giờ.',
     'Nếu vừa đổi thư mục hoặc file Drive, vào Bàn giao sản phẩm và nhấn Làm mới Drive.');
+  if(env.AMORRI_DATABASE_BACKEND==='postgres' && env.AMORRI_AUTH_BACKEND==='local'){
+    const bridgeOK=Boolean((env.AMORRI_BRIDGE_SECRET||'').length>=32 &&
+      /^postgres(?:ql)?:\/\/[^\s]+$/.test(env.DATABASE_URL||''));
+    const sessionOK=Boolean((env.AMORRI_SESSION_SECRET||'').length>=48 &&
+      env.AMORRI_PUBLIC_ORIGIN==='https://amorri.io.vn');
+    const s3OK=Boolean(env.AMORRI_STORAGE_BACKEND==='s3' &&
+      env.AMORRI_S3_ENDPOINT==='https://media.amorri.io.vn' &&
+      /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(env.AMORRI_S3_CONCEPT_BUCKET||'') &&
+      /^[a-z0-9][a-z0-9-]{1,61}[a-z0-9]$/.test(env.AMORRI_S3_VIDEO_BUCKET||'') &&
+      (env.AMORRI_S3_ACCESS_KEY_ID||'').length>0 &&
+      (env.AMORRI_S3_SECRET_ACCESS_KEY||'').length>=16);
+    const bridge=result('postgres-bridge','PostgreSQL bridge',bridgeOK?'ok':'error',
+      bridgeOK?'Biến kết nối PostgreSQL và bridge có định dạng cơ bản hợp lệ. Chưa thử kết nối.':'Thiếu DATABASE_URL hoặc khóa bridge.',
+      'Kiểm tra DATABASE_URL và AMORRI_BRIDGE_SECRET trong ENV riêng trên VPS.');
+    const localAuth=result('local-auth','Đăng nhập VPS',sessionOK?'ok':'error',
+      sessionOK?'Session key và domain ứng dụng được cấu hình.':'Khóa phiên đăng nhập hoặc domain ứng dụng chưa đúng.',
+      'Kiểm tra AMORRI_SESSION_SECRET và AMORRI_PUBLIC_ORIGIN, không in khóa ra log.');
+    const media=result('s3-media','Kho ảnh và video VPS',s3OK?'ok':'error',
+      s3OK?'Hai bucket và S3 endpoint có cấu hình cơ bản. Chưa thử đọc file.':'Thiếu endpoint, bucket hoặc thông tin truy cập S3.',
+      'Kiểm tra cấu hình S3 của VPS, sau đó thử đọc một ảnh Concept thực tế.');
+    return [bridge,localAuth,media,drive,video,delivery,staff,archive,roles,mediaCache,compatibility];
+  }
   return [project,admin,database,drive,video,delivery,staff,archive,roles,mediaCache,compatibility];
 }
 

@@ -22,9 +22,11 @@ export async function GET(request:Request){
   if(!allowed)return NextResponse.json({error:'Chỉ tài khoản Admin được xem chẩn đoán.',code:'ADMIN_REQUIRED',requestId},{status:403,headers:headers(requestId)});
 
   const checks=localSystemChecks(process.env);
-  const prerequisites=checks.filter(check=>['firebase-project','firebase-credentials','database-url'].includes(check.id));
-  let databaseCheck:HealthCheck={id:'database-read',title:'Đọc Firebase Realtime Database',status:'warning',
-    detail:'Chưa thử truy vấn vì cấu hình Firebase có lỗi.',action:'Sửa các ENV Firebase phía trên và chạy kiểm tra lại.'};
+  const onVps=process.env.AMORRI_DATABASE_BACKEND==='postgres' && process.env.AMORRI_AUTH_BACKEND==='local';
+  const prerequisites=checks.filter(check=>(onVps?['postgres-bridge']:['firebase-project','firebase-credentials','database-url']).includes(check.id));
+  const dbName=onVps?'PostgreSQL VPS':'Firebase Realtime Database';
+  let databaseCheck:HealthCheck={id:'database-read',title:`Đọc ${dbName}`,status:'warning',
+    detail:'Chưa thử truy vấn vì cấu hình kết nối có lỗi.',action:'Kiểm tra cấu hình kết nối cơ sở dữ liệu trên máy chủ.'};
   if(prerequisites.every(check=>check.status==='ok')){
     let timer:ReturnType<typeof setTimeout>|undefined;
     try{
@@ -33,15 +35,15 @@ export async function GET(request:Request){
       await Promise.race([read,new Promise<never>((_,reject)=>{
         timer=setTimeout(()=>reject(new Error('DIAGNOSTIC_TIMEOUT')),7000);
       })]);
-      databaseCheck={id:'database-read',title:'Đọc Firebase Realtime Database',status:'ok',
-        detail:'Truy vấn giới hạn 1 bản ghi thành công. Không kiểm tra hay thay đổi dữ liệu khách hàng.',
-        action:'Mở Dashboard để kiểm tra đủ 6 nhánh dữ liệu và index.'};
+      databaseCheck={id:'database-read',title:`Đọc ${dbName}`,status:'ok',
+        detail:'Truy vấn đọc thành công. Không kiểm tra hay thay đổi dữ liệu khách hàng.',
+        action:'Mở Dashboard để kiểm tra các chức năng nghiệp vụ.'};
     }catch(error){
-      const reason=error instanceof Error && error.message==='DIAGNOSTIC_TIMEOUT'?'NETWORK_ERROR':classifyFirebaseError(error);
-      console.warn('[system-health]',{requestId,code:'FIREBASE_READ_CHECK_FAILED',reason});
-      databaseCheck={id:'database-read',title:'Đọc Firebase Realtime Database',status:'error',
-        detail:`Truy vấn không thành công (${reason}). Không thể kết luận toàn bộ database đang lỗi.`,
-        action:'Kiểm tra quyền IAM Realtime Database, URL instance, kết nối và index date ở events.'};
+      const reason=error instanceof Error && error.message==='DIAGNOSTIC_TIMEOUT'?'NETWORK_ERROR':onVps?'POSTGRES_BRIDGE_ERROR':classifyFirebaseError(error);
+      console.warn('[system-health]',{requestId,code:'DATABASE_READ_CHECK_FAILED',reason});
+      databaseCheck={id:'database-read',title:`Đọc ${dbName}`,status:'error',
+        detail:`Truy vấn không thành công (${reason}). Chưa thể kết luận toàn bộ cơ sở dữ liệu đang lỗi.`,
+        action:onVps?'Kiểm tra PostgreSQL bridge, quyền đọc và logs dịch vụ.':'Kiểm tra quyền IAM Firebase, URL instance và kết nối.'};
     }finally{if(timer)clearTimeout(timer);}
   }
   const all=[...checks.slice(0,3),databaseCheck,...checks.slice(3)];

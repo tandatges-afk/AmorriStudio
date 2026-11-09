@@ -1,5 +1,5 @@
 'use client';
-import {useEffect,useState, type ChangeEvent} from 'react';
+import {useEffect,useRef,useState, type ChangeEvent} from 'react';
 import {ImagePlus,Trash2,X,RefreshCw,Image as ImageIcon} from 'lucide-react';
 import type {User} from '@/lib/selfhost/auth-client';
 
@@ -51,13 +51,21 @@ export function ConceptPhotoDraft({files,onChange,disabled=false}:{files:File[];
 
 export function ConceptPhotoGallery({user,eventId,readOnly=false}:{user:User;eventId:string;readOnly?:boolean}){
  const [items,setItems]=useState<ConceptPhoto[]>([]),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[active,setActive]=useState<ConceptPhoto|null>(null),[reload,setReload]=useState(0);
+ const lastSignedAt=useRef(Date.now());
+ // Signed S3/R2 links expire after 15 minutes; renew without making users reload the whole app.
+ useEffect(()=>{
+  const refresh=()=>{if(document.visibilityState==='visible'&&Date.now()-lastSignedAt.current>12*60_000){lastSignedAt.current=Date.now();setReload(v=>v+1);}};
+  const timer=window.setInterval(refresh,60_000);
+  window.addEventListener('focus',refresh);document.addEventListener('visibilitychange',refresh);
+  return()=>{window.clearInterval(timer);window.removeEventListener('focus',refresh);document.removeEventListener('visibilitychange',refresh);};
+ },[]);
  useEffect(()=>{
   let live=true;setLoading(true);setError('');setItems([]);
   void (async()=>{try{
    const req=async(refresh:boolean)=>fetch(`/api/events/${encodeURIComponent(eventId)}/concept-photos`,{cache:'no-store',headers:{Authorization:`Bearer ${await user.getIdToken(refresh)}`}});
    let res=await req(false);if(res.status===401)res=await req(true);
    const body=await res.json();if(!res.ok)throw new Error(body.error||'Không xem được ảnh concept');
-   if(live)setItems(body.photos||[]);
+   if(live){lastSignedAt.current=Date.now();setItems(body.photos||[]);}
   }catch(e){if(live)setError(e instanceof Error?e.message:'Không tải được ảnh concept');}
   finally{if(live)setLoading(false);}})();return()=>{live=false;};
  },[user,eventId,reload]);

@@ -36,7 +36,7 @@ test('admin Drive metadata is force-refreshed only by user action',()=>{
   assert.match(dash,/setDriveRefresh\(n=>n\+1\)/);
   assert.match(read('app/api/delivery/[eventId]/admin-media/route.ts'),/listDeliveryMedia\(p,refresh\)/);
 });
-test('public document title matches current R2-only release',()=>{
-  assert.match(read('app/layout.tsx'),/Studio OS 3\.2\.5/);
-  assert.match(read('app/api/health/route.ts'),/amorri-3\.2\.5-r2-only/);
+test('public document title matches current R10.5 release',()=>{
+  assert.match(read('app/layout.tsx'),/Amorri Studio — R10\.5/);
+  assert.match(read('app/api/health/route.ts'),/amorri-r10\.5-batch-20261109/);
 });
