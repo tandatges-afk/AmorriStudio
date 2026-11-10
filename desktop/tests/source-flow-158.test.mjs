@@ -3,7 +3,7 @@ import {getCompiledSource} from './compile-desktop-source.mjs';
 const require=createRequire(import.meta.url);
 const base=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'../src');
 function load(name,mocks={}){const js=getCompiledSource(name);
- const mod={exports:{}};vm.runInNewContext(js,{module:mod,exports:mod.exports,require:n=>mocks[n]||(n==='./device-origin'?load('device-origin.ts'):require(n)),__dirname:base,process,Buffer,URL,console,Date,setTimeout,clearTimeout,fetch:async()=>{throw Error('no network')} });return mod.exports;}
+ const mod={exports:{}};vm.runInNewContext(js,{module:mod,exports:mod.exports,require:n=>mocks[n]||(n==='./device-origin'?load('device-origin.ts'):n.startsWith('./')?require('../dist/'+n.slice(2)+'.js'):require(n)),__dirname:base,process,Buffer,URL,console,Date,setTimeout,clearTimeout,fetch:async()=>{throw Error('no network')} });return mod.exports;}
 test('customer folder picks direct JPG, filters only RAW/goc, and writes loc under customer',()=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'amorri-158-source-'));
  try{const customer=path.join(root,'Lan Anh');for(const dir of ['jpg','raw','unrelated'])fs.mkdirSync(path.join(customer,dir),{recursive:true});fs.writeFileSync(path.join(customer,'jpg','DSC_01.jpg'),'jpg');fs.writeFileSync(path.join(customer,'raw','DSC_01.cr3'),'RAW');fs.writeFileSync(path.join(customer,'unrelated','DSC_01.CR3'),'wrong');
@@ -12,12 +12,12 @@ test('customer folder picks direct JPG, filters only RAW/goc, and writes loc und
  const copied=src.copySelectedRaws(report);assert.equal(copied.copied.length,1);assert.equal(fs.readFileSync(path.join(customer,'loc','DSC_01.cr3'),'utf8'),'RAW');
  }finally{fs.rmSync(root,{recursive:true,force:true})}
 });
-test('upload creates customer/jpg under chosen parent, shares customer and remembers final JPG ID',async()=>{
+test('upload wires customer folder under chosen parent and preserves Drive selection actions',async()=>{
  const temp=fs.mkdtempSync(path.join(os.tmpdir(),'amorri-158-upload-')),userData=path.join(temp,'settings');fs.mkdirSync(userData);
  const customer=path.join(temp,'Customer A');fs.mkdirSync(path.join(customer,'jpg'),{recursive:true});fs.mkdirSync(path.join(customer,'raw'));fs.writeFileSync(path.join(customer,'jpg','IMG_01.jpg'),'jpg');
  const actions=[],ipc=new Map();let mainWin;
  class Window{constructor(){this.webContents={mainFrame:{},send(){},on(){},setWindowOpenHandler(){},loadURL:async()=>{},getURL:()=> 'https://example.test/studio',executeJavaScript:async()=>{}};this.width=1000;this.height=800;this.destroyed=false;}on(){}once(){}show(){}focus(){}loadFile(){return Promise.resolve()}isDestroyed(){return this.destroyed}close(){this.destroyed=true}setSize(){} }
- const electron={app:{getPath:key=>key==='userData'?userData:temp,isPackaged:false},BrowserWindow:Window,dialog:{showOpenDialogSync:()=>[customer],showMessageBox:async()=>({response:1})},ipcMain:{handle:(name,cb)=>ipc.set(name,cb)},shell:{openPath:async()=>''}};
+ const electron={app:{getPath:key=>key==='userData'?userData:temp,isPackaged:false,on(){}},BrowserWindow:Window,dialog:{showOpenDialogSync:()=>[customer],showMessageBox:async()=>({response:1})},ipcMain:{handle:(name,cb)=>ipc.set(name,cb),removeHandler:name=>ipc.delete(name)},shell:{openPath:async()=>''}};
  const raw=load('raw-match.ts');
  const drive={configureDriveOAuth(){},connectedGoogleDrive:async()=>true,disconnectGoogleDrive:async()=>{},connectGoogleDrive:async()=>{},connectFullGoogleDrive:async()=>{},driveAccountEmail:async()=> 'owner@example.test',googleDriveScopeMode:async()=> 'full',
  verifyDriveFolder:async()=>{},getOrCreateChildFolder:async(parent,name)=>{actions.push(['folder',parent,name]);return {id:name==='jpg'?'jpg_folder_123456789':'client_folder_123456789',url:'https://drive.google.com/drive/folders/'+name}},
@@ -28,7 +28,7 @@ test('upload creates customer/jpg under chosen parent, shares customer and remem
  // Use active toolsWindow's webContents via the fake constructor's shared mainFrame event.
  const calls=[];for(const [name,fn]of ipc)calls.push(name);
  const invoke=async(name,...args)=>{const handler=ipc.get(name);assert.ok(handler,name);return handler({sender:{},senderFrame:{}},...args)};
- assert.ok(calls.includes('tools:pick-jpg'));assert.match(fs.readFileSync(path.join(base,'desktop-tools.ts'),'utf8'),/getOrCreateChildFolder\(machine.id,customer\)/);
+ assert.ok(calls.includes('tools:pick-jpg'));assert.match(fs.readFileSync(path.join(base,'desktop-tools.ts'),'utf8'),/getOrCreateChildFolder\(uploadParentId,customer\)/);
  // Full IPC trust is covered by production sender validation; assert required functions instead of bypassing it here.
  assert.ok(calls.includes('tools:create-upload'));assert.ok(calls.includes('tools:open-upload-picker'));
  }finally{fs.rmSync(temp,{recursive:true,force:true})}

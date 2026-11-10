@@ -1,4 +1,5 @@
-import {setupDesktopTools,openDesktopTools,acceptDesktopWebsiteCommand} from './desktop-tools';
+import {setupDesktopTools,openDesktopTools,acceptDesktopWebsiteCommand,hasActiveDesktopUploads} from './desktop-tools';
+import {startDesktopAutoUpdate} from './auto-update';
 import { app, BrowserWindow, dialog, Menu, shell, nativeImage, type DownloadItem } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -261,7 +262,7 @@ function createWindow(): void {
     }
   });
   setupDesktopTools(win);
-  win.webContents.setUserAgent(win.webContents.getUserAgent() + ' AmorriDesktop/1.2');
+  win.webContents.setUserAgent(win.webContents.getUserAgent() + ` AmorriDesktop/${app.getVersion()}`);
    win.once('ready-to-show', () => { if (!win.isDestroyed()) win.show(); });
    // Some macOS WebViews never emit ready-to-show on a second launch.
    win.webContents.once('did-finish-load', () => { if (!win.isDestroyed() && !win.isVisible()) win.show(); });
@@ -304,7 +305,7 @@ function createWindow(): void {
     void dialog.showMessageBox(win, {
       type: 'error',
       title: 'Không thể kết nối Amorri Studio',
-      message: 'Không thể mở website. Kiểm tra Internet, tên miền trong desktop.config.json và deployment Vercel.',
+      message: 'Không thể mở website. Kiểm tra Internet và https://amorri.io.vn/. ',
       detail: err instanceof Error ? err.message : String(err),
     });
   });
@@ -321,6 +322,8 @@ app.whenReady().then(() => {
     return;
   }
   createWindow();
+  // Only installed builds check the HTTPS update feed. Never interrupt running uploads.
+  startDesktopAutoUpdate(hasActiveDesktopUploads);
    app.on('activate', () => {
      if (quitRequested) return;
      // Other hidden tool windows must not prevent recreating the main window.

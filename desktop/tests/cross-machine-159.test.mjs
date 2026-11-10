@@ -10,7 +10,7 @@ import {getCompiledSource} from './compile-desktop-source.mjs';
 const require=createRequire(import.meta.url);
 function load(name,mocks={}){
  const exports={};const code=getCompiledSource(name);
- vm.runInNewContext(code,{exports,require:n=>mocks[n]||(n==='./device-origin'?load('device-origin.ts'):n==='./raw-match'?load('raw-match.ts'):n==='./desktop-commands'?load('desktop-commands.ts'):require(n)),
+ vm.runInNewContext(code,{exports,require:n=>mocks[n]||(n==='./device-origin'?load('device-origin.ts'):n==='./raw-match'?load('raw-match.ts'):n==='./desktop-commands'?load('desktop-commands.ts'):n.startsWith('./')?require('../dist/'+n.slice(2)+'.js'):require(n)),
   __dirname:process.cwd(),Buffer,process,URL,Date,console,setTimeout,clearTimeout});
  return exports;
 }
@@ -23,9 +23,9 @@ async function scenario(correct){
  const album='album_12345678901234567890';
  const md5Checksum=createHash('md5').update('MATCH DRIVE').digest('hex');
  const records=[{name:'DSC01.jpg',md5Checksum,deviceId:'mac_identity_123',deviceName:'MAC-01',batchId:'batch_01'}];
- const dialogs=[];const main={webContents:{getURL:()=> 'https://amorri.test/studio',executeJavaScript:async()=>{},},show(){},focus(){}};
- const electron={app:{getPath:name=>name==='userData'?path.join(root,'settings'):root,isPackaged:false},BrowserWindow:class {},
-  ipcMain:{handle(){}},shell:{openPath:async()=>''},dialog:{showOpenDialogSync:()=>[customer],showMessageBox:async (_win,options)=>{dialogs.push(options);return {response:0}}}};
+ const dialogs=[];const main={on(){},webContents:{getURL:()=> 'https://amorri.test/studio',executeJavaScript:async()=>{},},show(){},focus(){}};
+ const electron={app:{getPath:name=>name==='userData'?path.join(root,'settings'):root,isPackaged:false,on(){}},BrowserWindow:class {},
+  ipcMain:{handle(){},removeHandler(){}},shell:{openPath:async()=>''},dialog:{showOpenDialogSync:()=>[customer],showMessageBox:async (_win,options)=>{dialogs.push(options);return {response:0}}}};
  const gd={configureDriveOAuth:()=>{},listDriveJpgRecords:async()=>records};
  const tools=load('desktop-tools.ts',{'electron':electron,'./google-drive':gd});
  try{

@@ -54,8 +54,9 @@ test('upload path and cross-device preflight are anchored to Drive Folder ID',()
  const base=path.resolve(import.meta.dirname,'../src');
  const tools=fs.readFileSync(path.join(base,'desktop-tools.ts'),'utf8');
  const drive=fs.readFileSync(path.join(base,'google-drive.ts'),'utf8');
- assert.match(tools,/getOrCreateChildFolder\(uploadParentId,device\.driveFolderName\)/);
- assert.match(tools,/getOrCreateChildFolder\(machine\.id,customer\)/);
+ assert.doesNotMatch(tools,/getOrCreateChildFolder\(uploadParentId,device\.driveFolderName\)/);
+ assert.match(tools,/getOrCreateChildFolder\(uploadParentId,customer\)/);
+ assert.match(tools,/const jpgDrive=previous\?\.id\?\{id:previous\.id\}:\{id:customerFolder\.id\}/);
  assert.match(tools,/getJpgForFilter\(folderId,provenance,names\)/);
  assert.match(tools,/verifyLocalJpgSample\(folder,provenance\.records\)/);
  assert.match(tools,/report\.missing\.length\|\|report\.ambiguous\.length/);

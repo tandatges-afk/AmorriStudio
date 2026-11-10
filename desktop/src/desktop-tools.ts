@@ -45,6 +45,8 @@ function queuePublish(){
  if(toolsWindow&&!toolsWindow.isDestroyed())toolsWindow.webContents.send('amorri-upload-queue',snapshot);
 }
 function isUploadQueueActive(){return !!(uploadRunning||activeAlbum||queuedAlbums.length);}
+// Main-process updater must never stop the app in the middle of an upload.
+export function hasActiveDesktopUploads(): boolean { return isUploadQueueActive(); }
 function enqueueAlbum(parentId:string,jpgFolder:string){
  if(!jpgFolder||!isExistingJpgFolder(jpgFolder))throw new Error('Trước tiên hãy chọn thư mục khách còn tồn tại.');
  const checked=validateCustomerUpload(jpgFolder);

@@ -33,14 +33,14 @@ function boot(){
  const temp=fs.mkdtempSync(path.join(os.tmpdir(),'amorri-drive-memory-'));
  const userData=path.join(temp,'userData');fs.mkdirSync(userData);
  const jpg=path.join(temp,'Customer A','JPG');fs.mkdirSync(jpg,{recursive:true});fs.writeFileSync(path.join(jpg,'A.jpg'),'jpg');
- const id='parent_1234567890QWERTY', jpgId='jpgfolder_1234567890QWERTY', customerId='customer_1234567890QWERTY';
+ const id='parent_1234567890QWERTY', jpgId='customer_1234567890QWERTY', customerId='customer_1234567890QWERTY';
  let selectedWin,dialogPrompts=0,filteredFrom='';const ipc=new Map();
  const webContents={mainFrame:{},getURL:()=> 'https://amorri.example/studio',executeJavaScript:async()=>{},send:()=>{},on:()=>{},setWindowOpenHandler:()=>{},};
  class FakeWindow{constructor(){this.webContents=webContents;selectedWin=this;}isDestroyed(){return false;}show(){}focus(){}once(){}on(){}loadFile(){return Promise.resolve();}}
  const mocks={
-  electron:{app:{getPath:key=>key==='userData'?userData:key==='desktop'?temp:temp,isPackaged:false},BrowserWindow:FakeWindow,
+  electron:{app:{getPath:key=>key==='userData'?userData:key==='desktop'?temp:temp,isPackaged:false,on(){}},BrowserWindow:FakeWindow,
    dialog:{showOpenDialogSync:()=>[jpg],showMessageBox:async()=>{dialogPrompts++;return {response:0}}},
-   ipcMain:{handle:(name,handler)=>ipc.set(name,handler)},shell:{openPath:async()=>''}},
+   ipcMain:{handle:(name,handler)=>ipc.set(name,handler),removeHandler(name){ipc.delete(name)}},shell:{openPath:async()=>''}},
   './raw-match':{clientFolderForJpgSource:folder=>path.dirname(folder),resolveCustomerJpgFolder:folder=>({clientRoot:path.dirname(folder),jpgFolder:folder,rawFolder:null}),
    inspectRawPresence:()=>({status:'found',checked:1}),
    inspectRawMatches:(folder,names)=>{filteredFrom=folder;return {sourceJpgFolder:folder,clientRoot:path.dirname(folder),outputFolder:path.join(path.dirname(folder),'loc'),matches:[{selected:'A.jpg',source:path.join(path.dirname(folder),'raw','A.cr3'),size:1}],missing:[],ambiguous:[],requested:names.length}},
@@ -57,17 +57,29 @@ function boot(){
    googleDriveScopeMode:async()=> 'full',listDriveFolderChildren:async()=>[],searchDriveFolders:async()=>[]},
  };
  const exports={};
- vm.runInNewContext(getCompiledDesktopTools(),{exports,require(name){return mocks[name]??require(name)},__dirname:path.join(here,'../dist'),process,Buffer,URL,JSON,console,Date,setTimeout,clearTimeout});
- exports.setupDesktopTools({webContents,getURL:()=> 'https://amorri.example/studio',show(){},focus(){}});
+ vm.runInNewContext(getCompiledDesktopTools(),{exports,require(name){return mocks[name]??(name.startsWith('./')?require('../dist/'+name.slice(2)+'.js'):require(name))},__dirname:path.join(here,'../dist'),process,Buffer,URL,JSON,console,Date,setTimeout,clearTimeout,AbortController});
+ exports.setupDesktopTools({on(){},webContents,getURL:()=> 'https://amorri.example/studio',show(){},focus(){}});
  exports.openDesktopTools();
  const invoke=async(name,...args)=>ipc.get(name)({sender:webContents,senderFrame:webContents.mainFrame},...args);
  return {temp,id,jpg,jpgId,userData,invoke,exports,dialogs:()=>dialogPrompts,filtered:()=>filteredFrom};
+}
+async function waitForUpload(userData,folderId){
+ const file=path.join(userData,'desktop-tools-settings.json');
+ for(let i=0;i<100;i++){
+  if(fs.existsSync(file)){
+   const settings=JSON.parse(fs.readFileSync(file,'utf8'));
+   if(settings.driveUploads?.[folderId]?.complete)return;
+  }
+  await new Promise(r=>setTimeout(r,20));
+ }
+ throw new Error('Queued upload did not finish within test timeout');
 }
 test('upload persists Drive album ID -> local JPG origin, filter reuses source without prompting',async()=>{
  const t=boot();
  try{
   await t.invoke('tools:pick-jpg');await t.invoke('tools:select-drive-storage',t.id);
-  const result=await t.invoke('tools:create-upload','');assert.equal(result.uploaded,1);
+  const result=await t.invoke('tools:create-upload','');assert.equal(result.queued,true);
+  await waitForUpload(t.userData,t.jpgId);
   const settings=JSON.parse(fs.readFileSync(path.join(t.userData,'desktop-tools-settings.json'),'utf8'));
   assert.equal(settings.driveUploads[t.jpgId].sourceJpgFolder,t.jpg);
   assert.equal(settings.driveUploads[t.jpgId].accountEmail,'staff@example.com');
@@ -82,6 +94,7 @@ test('legacy driveFolders mapping works when new index is absent',async()=>{
  try{
   await t.invoke('tools:pick-jpg');await t.invoke('tools:select-drive-storage',t.id);
   await t.invoke('tools:create-upload','');
+  await waitForUpload(t.userData,t.jpgId);
   const settingsPath=path.join(t.userData,'desktop-tools-settings.json');
   const settings=JSON.parse(fs.readFileSync(settingsPath,'utf8'));
   delete settings.driveUploads;fs.writeFileSync(settingsPath,JSON.stringify(settings));
