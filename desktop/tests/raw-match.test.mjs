@@ -11,7 +11,7 @@ const customer=path.join(base,'khachA');const jpg=path.join(customer,'jpg');cons
 fs.mkdirSync(jpg,{recursive:true});fs.mkdirSync(raw);fs.mkdirSync(goc);
 fs.writeFileSync(path.join(raw,'C9155.CR3'),'raw1');fs.writeFileSync(path.join(goc,'DSC_100.ARW'),'raw2');fs.writeFileSync(path.join(raw,'DUP.CR2'),'raw3');fs.writeFileSync(path.join(goc,'DUP.CR3'),'raw4');
 const customerB=path.join(base,'khachB','raw');fs.mkdirSync(customerB,{recursive:true});fs.writeFileSync(path.join(customerB,'OTH.CR3'),'other');
-test('derive customer root from JPG source',()=>assert.equal(clientFolderForJpgSource(jpg),customer));
+test('derive customer root from JPG source',()=>assert.equal(clientFolderForJpgSource(jpg),fs.realpathSync(customer)));
 test('match exactly under same customer, detect missing and ambiguity',()=>{
  const report=inspectRawMatches(jpg,['C9155.jpg','dsc_100.JPG','DUP.jpeg','OTH.jpg','NOT.jpg','../escape.jpg','C9155.jpg']);
  assert.equal(report.requested,5);assert.equal(report.matches.length,2);assert.deepEqual(report.missing,['OTH.jpg','NOT.jpg']);assert.equal(report.ambiguous.length,1);assert.equal(report.skippedInvalid.length,1);
