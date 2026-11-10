@@ -1,5 +1,5 @@
 import {setupDesktopTools,openDesktopTools,acceptDesktopWebsiteCommand,hasActiveDesktopUploads} from './desktop-tools';
-import {startDesktopAutoUpdate} from './auto-update';
+import {startDesktopAutoUpdate, type UpdateNotice} from './auto-update';
 import { app, BrowserWindow, dialog, Menu, shell, nativeImage, type DownloadItem } from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -15,6 +15,44 @@ type LocalSettings = { downloadDirectory?: string };
 const APP_ID = 'vn.amorri.studio.desktop';
 let mainWindow: BrowserWindow | null = null;
 let quitRequested = false;
+// The update gate prevents a newly opened web form from being interrupted by
+// an automatic installer. Existing user sessions are never force-restarted.
+let startupGateActive = app.isPackaged && (process.platform === 'win32' || process.platform === 'darwin');
+let updateNotice: UpdateNotice = { phase: startupGateActive ? 'checking' : 'current' };
+function updateLabel(): string {
+  const version = updateNotice.version ? ` v${updateNotice.version}` : '';
+  switch (updateNotice.phase) {
+    case 'checking': return 'Đang kiểm tra cập nhật';
+    case 'available': return `Có bản cập nhật${version}`;
+    case 'downloading': return `Đang tải${version} (${Math.max(0, Math.min(100, Math.round(updateNotice.percent ?? 0)))}%)`;
+    case 'installing': return `Đang cài${version} — sẽ tự mở lại`;
+    case 'deferred': return `Đã tải${version} — cài khi thoát an toàn`;
+    case 'offline': return 'Chưa kiểm tra được cập nhật';
+    default: return 'Đã là bản mới nhất';
+  }
+}
+function desktopWindowTitle(): string {
+  const name = `Amorri Studio Desktop v${app.getVersion()}`;
+  return updateNotice.phase === 'current' ? name : `${name} — ${updateLabel()}`;
+}
+function refreshUpdateUI(): void {
+  if (mainWindow && !mainWindow.isDestroyed()) mainWindow.setTitle(desktopWindowTitle());
+  buildMenu();
+}
+function setUpdateNotice(notice: UpdateNotice): void {
+  // Avoid rebuilding a native menu on every download-progress fraction.
+  const oldLabel = updateLabel();
+  updateNotice = notice;
+  if (oldLabel !== updateLabel()) refreshUpdateUI();
+}
+function unlockWebsiteAfterStartup(): void {
+  if (!startupGateActive) return;
+  startupGateActive = false;
+  refreshUpdateUI();
+  const win = mainWindow;
+  if (win && !win.isDestroyed()) loadWebsiteIntoWindow(win);
+}
+
 function quitAppOnce(): void {
   if (quitRequested) return;
   quitRequested = true;
@@ -182,7 +220,7 @@ function configureDownloads(win: BrowserWindow): void {
 // Hotfix 161: menus belong to the application, not an individual BrowserWindow.
 // Resolve the CURRENT window on each click; macOS can close it while the app remains active.
 function showHomeWindow(): void {
-  if (quitRequested) return;
+  if (quitRequested || startupGateActive) return;
   const current = mainWindow;
   if (!current || current.isDestroyed()) {
     createWindow();
@@ -205,11 +243,19 @@ function buildMenu(): void {
         { label: 'Trang chủ', click: () => showHomeWindow() },
         { label: 'Mở website bằng trình duyệt', click: () => openApprovedExternalUrl(websiteUrl) },
         { type: 'separator' },
-        { label: 'Up Drive…', click: () => openDesktopTools() },
+        { label: 'Up Drive…', enabled: !startupGateActive, click: () => openDesktopTools() },
+        { type: 'separator' },
+        { type: 'separator' },
+        { label: `Phiên bản Desktop: v${app.getVersion()}`, enabled: false },
+        { label: `Cập nhật: ${updateLabel()}`, enabled: false },
         { type: 'separator' },
         { role: 'quit', label: 'Thoát' },
       ],
     },
+    { label: updateNotice.phase === 'current' ? `Desktop v${app.getVersion()}` : `Cập nhật: ${updateLabel()}`, submenu: [
+      { label: `Đang dùng Desktop v${app.getVersion()}`, enabled: false },
+      { label: updateLabel(), enabled: false },
+    ] },
     { label: 'Chỉnh sửa', submenu: [
       { role: 'undo', label: 'Hoàn tác' }, { role: 'redo', label: 'Làm lại' },
       { type: 'separator' }, { role: 'cut', label: 'Cắt' },
@@ -229,11 +275,33 @@ function buildMenu(): void {
   Menu.setApplicationMenu(menu);
 }
 
+function loadWebsiteIntoWindow(win: BrowserWindow): void {
+  void win.loadURL(websiteUrl).catch((err: unknown) => {
+    if (win.isDestroyed()) return;
+    win.show();
+    void dialog.showMessageBox(win, {
+      type: 'error',
+      title: 'Không thể kết nối Amorri Studio',
+      message: 'Không thể mở website. Kiểm tra Internet và https://amorri.io.vn/. ',
+      detail: err instanceof Error ? err.message : String(err),
+    });
+  });
+}
+function loadStartupScreen(win: BrowserWindow): void {
+  // Static local HTML, no preload, nodeIntegration, remote code or permissions.
+  const html = `<!doctype html><html lang="vi"><head><meta charset="UTF-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'">
+  <style>body{margin:0;background:#101322;color:#f2f2f6;font-family:system-ui,-apple-system,Segoe UI,sans-serif;display:grid;place-items:center;height:100vh;text-align:center}
+  h1{font-size:32px;margin:0 0 14px}p{font-size:17px;line-height:1.7;color:#c7cad9}small{color:#939ab0}</style>
+  </head><body><main><h1>Amorri Studio</h1><p>Đang kiểm tra và chuẩn bị bản cập nhật mới nhất…</p>
+  <small>Desktop v${app.getVersion()} · Không đóng ứng dụng khi đang cài cập nhật</small></main></body></html>`;
+  void win.loadURL('data:text/html;charset=UTF-8,' + encodeURIComponent(html)).catch(() => {});
+}
 function createWindow(): void {
   const iconPath = packagedResource('icon.ico');
   const icon = fs.existsSync(iconPath) ? nativeImage.createFromPath(iconPath) : undefined;
   const win = new BrowserWindow({
-    title: 'Amorri Studio Desktop',
+    title: desktopWindowTitle(),
     width: 1440,
     height: 900,
     minWidth: 1040,
@@ -252,6 +320,12 @@ function createWindow(): void {
     },
   });
   mainWindow = win;
+  // The website sets document.title to "Amorri Studio — R10.5". That is the
+  // WEB release, not the installed Electron version. Keep our native title.
+  win.on('page-title-updated', event => {
+    event.preventDefault();
+    if (!win.isDestroyed()) win.setTitle(desktopWindowTitle());
+  });
   // AMORRI_HOTFIX164_QUIT_ON_MAIN_CLOSE
   win.once('closed', () => {
     // Closing the main window means Quit (including macOS), not a background process.
@@ -299,16 +373,8 @@ function createWindow(): void {
 
   configureDownloads(win);
   buildMenu();
-  void win.loadURL(websiteUrl).catch((err: unknown) => {
-    if (win.isDestroyed()) return;
-    win.show();
-    void dialog.showMessageBox(win, {
-      type: 'error',
-      title: 'Không thể kết nối Amorri Studio',
-      message: 'Không thể mở website. Kiểm tra Internet và https://amorri.io.vn/. ',
-      detail: err instanceof Error ? err.message : String(err),
-    });
-  });
+  if (startupGateActive) loadStartupScreen(win);
+  else loadWebsiteIntoWindow(win);
 }
 
 app.setAppUserModelId(APP_ID);
@@ -322,8 +388,13 @@ app.whenReady().then(() => {
     return;
   }
   createWindow();
-  // Only installed builds check the HTTPS update feed. Never interrupt running uploads.
-  startDesktopAutoUpdate(hasActiveDesktopUploads);
+  // Check/update before loading the website; never restart during active work.
+  startDesktopAutoUpdate(hasActiveDesktopUploads, {
+    onStatus: setUpdateNotice,
+    onStartupComplete: unlockWebsiteAfterStartup,
+    onAboutToInstall: () => { quitRequested = true; },
+    onInstallFailed: () => { quitRequested = false; },
+  });
    app.on('activate', () => {
      if (quitRequested) return;
      // Other hidden tool windows must not prevent recreating the main window.
