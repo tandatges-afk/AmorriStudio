@@ -1,6 +1,6 @@
 {
   "name": "amorri-studio-desktop",
-  "version": "1.3.3",
+  "version": "1.3.4",
   "description": "Amorri Studio Desktop — secure Windows/macOS client for self-hosted VPS web app",
   "main": "dist/main.js",
   "scripts": {

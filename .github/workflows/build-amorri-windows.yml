@@ -41,10 +41,17 @@ jobs:
           if ($actual.webUrl -ne 'https://amorri.io.vn/') { throw 'Windows client does not point to VPS' }
           if (-not $actual.googleOAuthClientId) { throw 'Missing Desktop OAuth client ID' }
           Write-Host 'Bundled VPS config verified (credential values hidden)'
+      - name: Verify Windows QA update metadata
+        shell: pwsh
+        run: |
+          if (!(Test-Path 'release/latest.yml')) { throw 'Missing Windows latest.yml' }
       - name: Upload Windows EXE
         uses: actions/upload-artifact@v4
         with:
           name: Amorri-Studio-Windows-x64-EXE-VPS
-          path: desktop/release/*.exe
+          path: |
+            desktop/release/*.exe
+            desktop/release/latest.yml
+            desktop/release/*.blockmap
           if-no-files-found: error
           retention-days: 7
