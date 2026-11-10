@@ -97,7 +97,9 @@ export function startDesktopAutoUpdate(
     callbacks.onAboutToInstall();
     try {
       // electron-updater v6: (isSilent, isForceRunAfter).
-      autoUpdater.quitAndInstall(false, true);
+      // Silent mode avoids the NSIS installer wizard when Windows permits it;
+      // it never bypasses OS permission or security prompts.
+      autoUpdater.quitAndInstall(true, true);
     } catch (err) {
       installing = false;
       callbacks.onInstallFailed();

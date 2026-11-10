@@ -19,7 +19,7 @@ test('updater runs only in packaged builds and still guards active uploads', () 
   assert.match(updater, /autoUpdater\.autoDownload\s*=\s*true/);
   assert.match(updater, /autoUpdater\.autoInstallOnAppQuit\s*=\s*true/);
   assert.match(updater, /hasActiveUploads\(\)/);
-  assert.match(updater, /autoUpdater\.quitAndInstall\(false, true\)/);
+  assert.match(updater, /autoUpdater\.quitAndInstall\(true, true\)/);
   assert.match(updater, /if \(!startupOpen \|\| hasActiveUploads\(\)\)/);
 });
 test('startup update precedes the remote website; fallback never forces a mid-session restart', () => {
