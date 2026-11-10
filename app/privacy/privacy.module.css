@@ -1,0 +1,20 @@
+/* Isolated styling: does not change existing dashboard pages. */
+.shell{min-height:100vh;background:#f5f7fa;color:#243047;padding:0 18px 48px}
+.container{max-width:960px;margin:auto}
+.header{display:flex;gap:16px;align-items:center;justify-content:space-between;padding:28px 4px 24px;flex-wrap:wrap}
+.brand{font-weight:900;letter-spacing:1.8px;font-size:16px;color:#23314c}.brand span{font-weight:500;color:#68798f}
+.header nav{display:flex;gap:20px;flex-wrap:wrap;font-size:13px;font-weight:700;color:#586b83}
+.header a:hover,.document a:hover,.footer a:hover{text-decoration:underline}
+.document{background:white;border:1px solid #e6ebf2;border-radius:20px;padding:clamp(24px,5vw,56px);box-shadow:0 8px 32px #1e2d490b}
+.eyebrow{color:#657d9d;letter-spacing:1.3px;font-size:10px;font-weight:800}
+.document h1{font-size:clamp(30px,5vw,42px);letter-spacing:-1.2px;line-height:1.2;margin:12px 0 16px}
+.lead{font-size:15px;line-height:1.85;color:#495b74}.updated{font-size:12px;color:#8090a7;margin:15px 0 32px}
+.document section{border-top:1px solid #e9edf3;padding-top:26px;margin-top:26px}
+.document h2{font-size:19px;margin:0 0 12px;line-height:1.45}
+.document p,.document li{font-size:14px;line-height:1.85;color:#49586f}
+.document ul{padding-left:24px}.document li{margin:9px 0}.document strong{color:#243047}
+.document a{color:#2c5dba;text-decoration:underline;text-underline-offset:2px}
+.document code{background:#f0f4fa;overflow-wrap:anywhere;padding:3px 5px;border-radius:5px;font-size:12px}
+.contact{background:#f5f8fc;padding:24px!important;border:1px solid #e1e8f2!important;border-radius:13px}
+.needsSetup{color:#9b3d28!important;background:#ffefdf;padding:12px 14px;border-radius:9px}
+.footer{padding:28px 6px;text-align:center;font-size:12px;color:#718198}.footer a{color:#405d8b}
