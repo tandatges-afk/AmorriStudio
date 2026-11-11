@@ -84,6 +84,7 @@ jobs:
         shell: pwsh
         env:
           EXPECTED_VERSION: ${{ inputs.expected_version }}
+          EXPECTED_SIGNER_THUMBPRINT: ${{ vars.AMORRI_WINDOWS_SIGNER_THUMBPRINT }}
         run: |
           $ErrorActionPreference = 'Stop'
           $installer = @(Get-ChildItem release -File -Filter '*.exe')
@@ -92,8 +93,11 @@ jobs:
           if ($installer.Name -notlike "*$($env:EXPECTED_VERSION).exe") { throw 'Installer filename/version mismatch' }
           $app = Join-Path 'release/win-unpacked' 'Amorri Studio.exe'
           if (!(Test-Path $app)) { throw 'Missing unpacked application EXE' }
+          $approved = ($env:EXPECTED_SIGNER_THUMBPRINT -replace '[^0-9A-Fa-f]', '').ToUpperInvariant()
+          if ($approved -notmatch '^[0-9A-F]{40}$') { throw 'Missing approved signer thumbprint' }
           foreach ($binary in @($installer.FullName, (Resolve-Path $app).Path)) {
             $sig = Get-AuthenticodeSignature -LiteralPath $binary
+            if ($sig.SignerCertificate -and $sig.SignerCertificate.Thumbprint.ToUpperInvariant() -ne $approved) { throw "Unexpected Windows signer certificate" }
             if ($sig.Status -ne 'Valid' -or -not $sig.SignerCertificate) {
               throw "Unsigned or invalid Authenticode signature: $(Split-Path $binary -Leaf) ($($sig.Status))"
             }
