@@ -1,0 +1,140 @@
+name: Amorri Desktop - Windows Signed Release Candidate (NO DEPLOY)
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_version:
+        description: 'Desktop version to verify (e.g. 1.3.6)'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  signed-candidate:
+    name: Build and validate signed Windows candidate
+    runs-on: windows-latest
+    timeout-minutes: 60
+    environment: desktop-release-candidate
+    defaults:
+      run:
+        working-directory: desktop
+    steps:
+      - name: Confirm approved repository and QA branch
+        shell: pwsh
+        working-directory: .
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+        run: |
+          if ($env:GITHUB_REPOSITORY -ne 'tandatges-afk/AmorriStudio') { throw 'Unexpected repository' }
+          if ($env:GITHUB_REF_NAME -ne 'upgrade/desktop-autoupdate-130') { throw 'Only approved QA branch may build candidates' }
+          if ($env:EXPECTED_VERSION -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid version input' }
+
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      - name: Confirm source version and update provider
+        shell: pwsh
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+        run: |
+          $pkg = Get-Content package.json -Raw | ConvertFrom-Json
+          $lock = Get-Content package-lock.json -Raw | ConvertFrom-Json
+          if ($pkg.version -ne $env:EXPECTED_VERSION) { throw 'Package version mismatch' }
+          $rootLockVersion = $lock.packages.PSObject.Properties[''].Value.version
+          if ($lock.version -ne $env:EXPECTED_VERSION -or $rootLockVersion -ne $env:EXPECTED_VERSION) { throw 'Lockfile version mismatch' }
+          $builder = Get-Content electron-builder.yml -Raw
+          if ($builder -notmatch 'provider:\s*generic' -or $builder -notmatch 'url:\s*https://amorri\.io\.vn/desktop-updates/') { throw 'Unexpected update destination' }
+          Write-Host 'SOURCE VERSION AND UPDATE URL: PASS'
+
+      - run: npm ci
+
+      - name: Prepare Desktop runtime config
+        env:
+          AMORRI_CONFIG_JSON: ${{ secrets.AMORRI_DESKTOP_CONFIG_JSON || secrets.AMORRI_WIN_CONFIG_JSON }}
+        run: node scripts/prepare-release-config.mjs
+
+      - name: Test Desktop and verify bundled runtime config source
+        run: |
+          node scripts/prepare-release-config.mjs --verify
+          npm run typecheck
+          npm run build:main
+          npm run test:desktop
+          node --test tests/google-drive-oauth-131.test.mjs
+
+      - name: Build signed NSIS Windows x64 (FAIL CLOSED)
+        shell: pwsh
+        env:
+          WIN_CSC_LINK: ${{ secrets.WIN_CSC_LINK }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CSC_KEY_PASSWORD }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:WIN_CSC_LINK) -or [string]::IsNullOrWhiteSpace($env:WIN_CSC_KEY_PASSWORD)) {
+            throw 'NO SIGNING PROVIDER CONFIGURED: release candidate blocked; QA build is unaffected'
+          }
+          npx electron-builder --config electron-builder.yml -c.forceCodeSigning=true --win nsis --x64 --publish never
+          if ($LASTEXITCODE -ne 0) { throw 'SIGNED BUILD FAILED' }
+
+      - name: Verify signed binaries and update manifest SHA512
+        shell: pwsh
+        env:
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+          EXPECTED_SIGNER_THUMBPRINT: ${{ vars.AMORRI_WINDOWS_SIGNER_THUMBPRINT }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $installer = @(Get-ChildItem release -File -Filter '*.exe')
+          if ($installer.Count -ne 1) { throw 'Expected exactly one NSIS installer' }
+          $installer = $installer[0]
+          if ($installer.Name -notlike "*$($env:EXPECTED_VERSION).exe") { throw 'Installer filename/version mismatch' }
+          $app = Join-Path 'release/win-unpacked' 'Amorri Studio.exe'
+          if (!(Test-Path $app)) { throw 'Missing unpacked application EXE' }
+          $approved = ($env:EXPECTED_SIGNER_THUMBPRINT -replace '[^0-9A-Fa-f]', '').ToUpperInvariant()
+          if ($approved -notmatch '^[0-9A-F]{40}$') { throw 'Missing approved signer thumbprint' }
+          foreach ($binary in @($installer.FullName, (Resolve-Path $app).Path)) {
+            $sig = Get-AuthenticodeSignature -LiteralPath $binary
+            if ($sig.SignerCertificate -and $sig.SignerCertificate.Thumbprint.ToUpperInvariant() -ne $approved) { throw "Unexpected Windows signer certificate" }
+            if ($sig.Status -ne 'Valid' -or -not $sig.SignerCertificate) {
+              throw "Unsigned or invalid Authenticode signature: $(Split-Path $binary -Leaf) ($($sig.Status))"
+            }
+          }
+          $manifestPath = 'release/latest.yml'
+          if (!(Test-Path $manifestPath)) { throw 'Missing latest.yml' }
+          $manifest = Get-Content $manifestPath -Raw
+          $v = [regex]::Match($manifest, '(?m)^version:\s*(\S+)\s*$')
+          $u = [regex]::Match($manifest, '(?m)^\s*-\s*url:\s*(.+?)\s*$')
+          $s = [regex]::Match($manifest, '(?m)^\s*size:\s*(\d+)\s*$')
+          $h = [regex]::Match($manifest, '(?m)^\s*sha512:\s*([A-Za-z0-9+/=]+)\s*$')
+          if (-not ($v.Success -and $u.Success -and $s.Success -and $h.Success)) { throw 'Missing update manifest fields' }
+          if ($v.Groups[1].Value -ne $env:EXPECTED_VERSION) { throw 'Manifest version mismatch' }
+          $urlName = $u.Groups[1].Value.Trim().Trim('"', "'")
+          if ($urlName -ne $installer.Name) { throw 'Manifest installer filename mismatch' }
+          if ([int64]$s.Groups[1].Value -ne $installer.Length) { throw 'Manifest installer size mismatch' }
+          $algorithm = [System.Security.Cryptography.SHA512]::Create()
+          $stream = [System.IO.File]::OpenRead($installer.FullName)
+          try { $actualB64 = [Convert]::ToBase64String($algorithm.ComputeHash($stream)) }
+          finally { $stream.Dispose(); $algorithm.Dispose() }
+          if ($actualB64 -cne $h.Groups[1].Value) { throw 'Manifest installer SHA512 mismatch' }
+          $blockmap = "$($installer.FullName).blockmap"
+          if (!(Test-Path -LiteralPath $blockmap)) { throw 'Missing installer blockmap' }
+          $configFile = 'release/win-unpacked/resources/desktop.config.json'
+          if (!(Test-Path $configFile)) { throw 'Missing bundled desktop config' }
+          $config = Get-Content $configFile -Raw | ConvertFrom-Json
+          if ($config.webUrl -ne 'https://amorri.io.vn/' -or -not $config.googleOAuthClientId) { throw 'Bundled runtime config invalid' }
+          Write-Host 'SIGNED WINDOWS RELEASE CANDIDATE: PASS'
+          Write-Host 'NO PRODUCTION DEPLOYMENT'
+
+      - name: Upload signed candidate for manual review (NOT DEPLOYED)
+        uses: actions/upload-artifact@v4
+        with:
+          name: Amorri-Windows-Signed-Candidate-${{ inputs.expected_version }}
+          path: |
+            desktop/release/*.exe
+            desktop/release/latest.yml
+            desktop/release/*.blockmap
+          if-no-files-found: error
+          retention-days: 7
