@@ -45,9 +45,14 @@ win:
       arch:
         - x64
   icon: assets/icon.ico
+  extraResources:
+    - from: vendor/exiftool/win-x64/
+      to: bin
 mac:
   icon: assets/icon.icns
   category: public.app-category.photography
+  hardenedRuntime: true
+  notarize: true
   target:
     - target: dmg
       arch:

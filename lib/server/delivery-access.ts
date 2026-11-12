@@ -2,6 +2,7 @@ import {createHash,randomBytes,timingSafeEqual,randomUUID,createCipheriv,createD
 import {adminDatabase} from './firebase-admin';
 import {findBooking,BookingStoreError} from './event-storage';
 import {SHARE_TOKEN, validGrantToken, validId, productAllowedByGrant, type DeliveryScope} from '@/lib/domain/delivery';
+import {tokenFromOriginalDeliveryUrl} from '@/lib/domain/delivery-link';
 
 // Keep the permitted HTTP response codes explicit. Media thumbnail errors use
 // 413 (oversized), 502 (upstream response invalid) and 504 (upstream timeout).
@@ -126,6 +127,30 @@ export function assertGrantProduct(grant:GrantRecord,productId:string){
   if(!productAllowedByGrant(grant.productId,productId))
     throw new DeliveryError(403,'DELIVERY_PRODUCT_DENIED','Link này chỉ dành cho một sản phẩm bàn giao khác');
 }
+/** Preserve an existing customer link when an admin still has the original URL.
+ * Legacy hash-only tokens are one-way; restoring from a known authentic token
+ * stores an encrypted recopy copy WITHOUT rotating, replacing or revoking it.
+ */
+export async function restoreDeliveryGrantFromOriginalUrl(eventId:string,adminUid:string,originalUrl:unknown,productId=''){
+ if(!validId(eventId)||productId&&!validId(productId))
+  throw new DeliveryError(400,'DELIVERY_BAD_ID','Mã lịch hoặc sản phẩm không hợp lệ');
+ if(typeof originalUrl!=='string'||originalUrl.length>2048)
+  throw new DeliveryError(400,'DELIVERY_RESTORE_BAD_URL','Hãy dán link bàn giao gốc');
+ const token=tokenFromOriginalDeliveryUrl(originalUrl,eventId,process.env.AMORRI_PUBLIC_ORIGIN||'https://amorri.io.vn');
+ if(!token)throw new DeliveryError(400,'DELIVERY_RESTORE_BAD_TOKEN','Link cũ không hợp lệ hoặc không thuộc đúng lịch trên website Amorri');
+ const [grantId,secret]=token.split('.');
+ // Verify inside the RTDB transaction; a stale or revoked grant cannot be changed.
+ const tx=await refFor(eventId,grantId).transaction((current:GrantRecord|null)=>{
+  if(!current||current.revokedAt||current.scope!=='review'||Number(current.expiresAt)<=Date.now()||
+     String(current.productId||'')!==productId||current.hash!==digest(secret))return;
+  return {...current,encryptedToken:encryptToken(token)};
+ },undefined,false);
+ if(!tx.committed)throw new DeliveryError(409,'DELIVERY_RESTORE_NOT_MATCHED',
+   'Không khôi phục được: link đã hết hạn, thuộc sản phẩm khác hoặc không còn khớp dữ liệu lưu. Link cũ không bị thay đổi.');
+ await deliveryAudit('DELIVERY_LINK_RECOVERED',eventId,grantId,adminUid).catch(()=>{});
+ return {token,grantId};
+}
+
 export async function listDeliveryGrants(eventId:string){
   const snap=await adminDatabase().ref(`${root}/${eventId}`).once('value');
   const records=snap.val()||{};
