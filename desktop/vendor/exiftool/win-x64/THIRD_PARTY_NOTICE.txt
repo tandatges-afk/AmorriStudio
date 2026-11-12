@@ -1,0 +1,5 @@
+﻿ExifTool: Copyright (c) Phil Harvey.
+Windows launcher/packaging: Oliver Betz and third-party contributors.
+Distribution license text: exiftool_files/LICENSE (bundled with ExifTool).
+Official project: https://exiftool.org/
+Review all bundled DLL/Perl license obligations before release.

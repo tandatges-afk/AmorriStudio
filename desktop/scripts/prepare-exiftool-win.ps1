@@ -3,7 +3,29 @@ $ErrorActionPreference = 'Stop'
 $root = Split-Path (Split-Path $PSScriptRoot -Parent) -Parent
 $dest = Join-Path $root 'desktop/vendor/exiftool/win-x64'
 if (Test-Path -LiteralPath $dest) {
-    throw 'STOP: ExifTool vendor directory already exists; no overwrite'
+    $exe = Join-Path $dest 'exiftool.exe'
+    $license = Join-Path $dest 'exiftool_files/LICENSE'
+
+    if (!(Test-Path -LiteralPath $exe -PathType Leaf)) {
+        throw 'STOP: Bundled ExifTool missing'
+    }
+    if (!(Test-Path -LiteralPath $license -PathType Leaf)) {
+        throw 'STOP: Bundled license missing'
+    }
+
+    $actual = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash.ToLowerInvariant()
+
+    if ($actual -ne 'ce389bf0eff9f2e2aae21eb7d85e1f255d243bb9a2ddfed8da65f106ccba87e6') {
+        throw 'STOP: Bundled ExifTool checksum mismatch'
+    }
+
+    $v = @(& $exe -ver)
+    if ($LASTEXITCODE -ne 0 -or (($v -join '').Trim() -ne '13.61')) {
+        throw 'STOP: Bundled ExifTool version mismatch'
+    }
+
+    Write-Host 'EXIFTOOL PINNED WINDOWS STAGING: PASS (vendored)'
+    exit 0
 }
 $version = '13.61'
 $sha256 = 'ab75b37515385a753aa60a58f68ffffe1ff81e43b319df9540978fb19e0580e5'
