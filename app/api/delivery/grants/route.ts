@@ -1,5 +1,5 @@
 import {buildDeliveryShareUrl} from '@/lib/domain/delivery-link';
-import {ensureDeliveryGrant,listDeliveryGrants} from '@/lib/server/delivery-access';
+import {ensureDeliveryGrant,listDeliveryGrants,restoreDeliveryGrantFromOriginalUrl} from '@/lib/server/delivery-access';
 import {requireAdmin,payload,json,deliveryFailure} from '@/lib/server/delivery-http';
 import {validId} from '@/lib/domain/delivery';
 import {findBooking} from '@/lib/server/event-storage';
@@ -31,4 +31,20 @@ export async function POST(request:Request){
     const shareUrl=buildDeliveryShareUrl(process.env.AMORRI_PUBLIC_ORIGIN||url.origin,eventId,grant.token);
     return json({success:true,shareUrl,grantId:grant.grantId,expiresAt:grant.expiresAt,scope:grant.scope,productId:grant.productId,created:grant.created});
   }catch(err){return deliveryFailure(err);}
+}
+
+/** Explicit admin-assisted recovery of a known original link. No bulk rotations. */
+export async function PUT(request:Request){
+ try{
+  const admin=await requireAdmin(request);
+  const body=await payload(request);
+  const eventId=body.eventId,productId=body.productId===undefined?'':body.productId;
+  if(!validId(eventId)||typeof productId!=='string'||productId&&!validId(productId))
+   return json({error:'Mã lịch/sản phẩm không hợp lệ'},400);
+  const booking=await findBooking(eventId);
+  if(!isEventReleased(booking.value))return json({error:'Link chỉ mở sau khi lịch kết thúc',code:'DELIVERY_LOCKED'},403);
+  const result=await restoreDeliveryGrantFromOriginalUrl(eventId,admin.uid,body.originalUrl,productId);
+  const base=process.env.AMORRI_PUBLIC_ORIGIN||new URL(request.url).origin;
+  return json({success:true,shareUrl:buildDeliveryShareUrl(base,eventId,result.token),grantId:result.grantId});
+ }catch(err){return deliveryFailure(err);}
 }

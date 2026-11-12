@@ -74,3 +74,30 @@ export function verifyLocalJpgSample(jpgFolder:string,records:DriveJpgRecord[],m
  }
  return {verified,total:records.length};
 }
+
+/** Every selected JPG is checked, not just a four-image sample. Exact bytes
+ * are compared with the corresponding Drive md5Checksum (streamed, bounded
+ * memory). Missing checksums are *unverified*, never assumed a match.
+ */
+export async function verifyEverySelectedJpg(
+ candidates:Array<{selected:string;source:string;size:number}>,records:DriveJpgRecord[]
+):Promise<{verified:number;total:number}> {
+ if(!candidates.length)throw new Error('Không tìm thấy JPG cùng mã trong thư mục khách.');
+ const drive=new Map(records.map(r=>[r.name.toLocaleLowerCase('en-US'),r]));
+ let verified=0;
+ for(const candidate of candidates){
+  const record=drive.get(candidate.selected.toLocaleLowerCase('en-US'));
+  if(!record)throw new Error('Drive không có JPG '+candidate.selected+'.');
+  if(!record.md5Checksum||!/^[a-f0-9]{32}$/i.test(record.md5Checksum))
+   throw new Error('Drive không có checksum của '+candidate.selected+'. Không thể xác minh ảnh cũ; dừng lọc để tránh nhầm.');
+  const info=fs.lstatSync(candidate.source);
+  if(!info.isFile()||info.isSymbolicLink()||info.size!==candidate.size)
+   throw new Error('JPG trên máy đã thay đổi: '+candidate.selected+'. Hãy quét lại.');
+  const hash=createHash('md5');
+  for await(const chunk of fs.createReadStream(candidate.source,{highWaterMark:1024*1024}))hash.update(chunk);
+  if(hash.digest('hex').toLowerCase()!==record.md5Checksum.toLowerCase())
+   throw new Error('JPG khác ảnh trên Drive dù trùng mã: '+candidate.selected+'. Không tự lọc RAW mã này.');
+  verified++;
+ }
+ return {verified,total:records.length};
+}

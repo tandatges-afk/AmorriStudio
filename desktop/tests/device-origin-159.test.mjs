@@ -58,7 +58,7 @@ test('upload path and cross-device preflight are anchored to Drive Folder ID',()
  assert.match(tools,/getOrCreateChildFolder\(uploadParentId,customer\)/);
  assert.match(tools,/const jpgDrive=previous\?\.id\?\{id:previous\.id\}:\{id:customerFolder\.id\}/);
  assert.match(tools,/getJpgForFilter\(folderId,provenance,names\)/);
- assert.match(tools,/verifyLocalJpgSample\(folder,provenance\.records\)/);
+ assert.match(tools,/verifyEverySelectedJpg\(/);
  assert.match(tools,/report\.missing\.length\|\|report\.ambiguous\.length/);
  assert.match(drive,/appProperties:\{amorriDeviceId:origin\.deviceId/);
  assert.match(drive,/md5Checksum,appProperties/);
