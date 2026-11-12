@@ -7,14 +7,58 @@ if (Test-Path -LiteralPath $dest) {
 }
 $version = '13.61'
 $sha256 = 'ab75b37515385a753aa60a58f68ffffe1ff81e43b319df9540978fb19e0580e5'
-$uri = 'https://sourceforge.net/projects/exiftool/files/exiftool-13.61_64.zip/download'
+# Both endpoints serve the same official release file. Fail closed unless the
+# complete ZIP matches the pinned SHA-256 published by the ExifTool project.
+$uris = @(
+    'https://downloads.sourceforge.net/project/exiftool/exiftool-13.61_64.zip',
+    'https://sourceforge.net/projects/exiftool/files/exiftool-13.61_64.zip/download'
+)
 $tmp = Join-Path ([IO.Path]::GetTempPath()) ('amorri-exiftool-' + [guid]::NewGuid().ToString('N'))
 New-Item -ItemType Directory -Path $tmp | Out-Null
 try {
     $archive = Join-Path $tmp 'exiftool.zip'
-    Invoke-WebRequest -Uri $uri -OutFile $archive -UseBasicParsing -TimeoutSec 120
-    $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
-    if ($actual -ne $sha256) { throw 'STOP: Official distribution SHA256 mismatch. Do not use the download.' }
+    $verified = $false
+    foreach ($uri in $uris) {
+        if ($verified) { break }
+        foreach ($attempt in 1..2) {
+            Remove-Item -LiteralPath $archive -Force -ErrorAction SilentlyContinue
+            try {
+                Write-Host "Fetching pinned ExifTool 13.61 (endpoint $([array]::IndexOf($uris, $uri) + 1), attempt $attempt)"
+                Invoke-WebRequest -Uri $uri -OutFile $archive -UseBasicParsing -TimeoutSec 90 -MaximumRedirection 10 -ErrorAction Stop
+                if (!(Test-Path -LiteralPath $archive -PathType Leaf)) {
+                    throw 'Response did not create a file'
+                }
+                $bytes = (Get-Item -LiteralPath $archive).Length
+                if ($bytes -lt 1048576) {
+                    throw "Invalid download size ($bytes bytes), likely an HTML error page"
+                }
+                # SourceForge may return an HTML redirect/error body with HTTP 200.
+                # Reject such content *before* Expand-Archive.
+                $stream = [IO.File]::OpenRead($archive)
+                try {
+                    $p = $stream.ReadByte()
+                    $k = $stream.ReadByte()
+                    $a = $stream.ReadByte()
+                    $b = $stream.ReadByte()
+                } finally { $stream.Dispose() }
+                if ($p -ne 0x50 -or $k -ne 0x4b -or $a -ne 0x03 -or $b -ne 0x04) {
+                    throw 'Response is not a ZIP archive (PK header missing)'
+                }
+                $actual = (Get-FileHash -LiteralPath $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+                if ($actual -ne $sha256) {
+                    throw "SHA-256 mismatch: got $actual (expected official pinned $sha256)"
+                }
+                $verified = $true
+                Write-Host "OFFICIAL EXIFTOOL ZIP SHA256: PASS ($actual)"
+                break
+            } catch {
+                Write-Warning "ExifTool download candidate rejected: $($_.Exception.Message)"
+            }
+        }
+    }
+    if (-not $verified) {
+        throw 'STOP: No endpoint returned the expected ExifTool 13.61 ZIP with official SHA-256. Staging blocked.'
+    }
     $unpacked = Join-Path $tmp 'unpacked'
     Expand-Archive -LiteralPath $archive -DestinationPath $unpacked
     $candidate = Get-ChildItem $unpacked -Recurse -File | Where-Object { $_.Name -in @('exiftool(-k).exe','exiftool.exe') } | Select-Object -First 1
