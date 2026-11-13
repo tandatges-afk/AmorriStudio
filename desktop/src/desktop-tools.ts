@@ -11,6 +11,7 @@ import path from 'node:path';
 import {clientFolderForJpgSource,resolveCustomerJpgFolder,copySelectedRaws,inspectRawMatches,inspectPortableRawMatches,inspectRawPresence,type RawReport} from './raw-match';
 import {parseDesktopCommand,type DesktopCommand} from './desktop-commands';
 import {configureDriveOAuth,connectGoogleDrive,connectedGoogleDrive,disconnectGoogleDrive,createPhotoFolder,shareFolderForReader,listCreatedJpgs,uploadLocalJpg,getOrCreateChildFolder,ensureCustomerPublicView,isFolderPubliclyReadable,listAppDriveFolders,createDriveStorageFolder,driveAccountEmail,verifyDriveFolder,pickExistingDriveFolder,connectFullGoogleDrive,googleDriveScopeMode,listDriveFolderChildren,searchDriveFolders,listDriveJpgRecords,readDriveVisualSample,driveParentOf} from './google-drive';
+import {isGoogleDriveStorageQuotaExceeded} from './drive-errors';
 
 type Config={googleOAuthClientId?:string;googleOAuthClientSecret?:string;driveReaderEmail?:string};
 type DriveMapping={id:string;url:string;shared:boolean;sharingWarning:string;complete?:boolean;parentId?:string;customerFolderId?:string;accountEmail?:string};
@@ -498,6 +499,12 @@ async function uploadCustomerToParent(parentId:string,sourceFolder?:string){
      try{await uploadLocalJpg(file,jpgDrive.id,{deviceId:device.deviceId,deviceName:device.deviceName,batchId},uploadController!.signal);uploaded++;queueTransferred+=fs.statSync(file).size;queueDone++;queuePublish();}
      catch(error){
        if(cancelRequested)break;
+       if(isGoogleDriveStorageQuotaExceeded(error)){
+         errors.push('Google Drive đã hết dung lượng lưu trữ. Dừng upload để tránh thử lại hàng loạt. Hãy kiểm tra đúng tài khoản Google đang kết nối và dung lượng Drive/Gmail/Photos.');
+         queueDone++;queuePublish();
+         notifyProgress('DỪNG UPLOAD: Google Drive hết dung lượng. Album chưa hoàn tất; giữ nguyên ảnh đã tải lên và RAW gốc.');
+         break;
+       }
        errors.push(path.basename(file)+': '+msg(error));queueDone++;queuePublish();
        notifyProgress('Ảnh lỗi: '+path.basename(file)+' — '+msg(error));
        // Prevent repeated network/API failures from hammering Google.
@@ -612,8 +619,10 @@ export function setupDesktopTools(win:BrowserWindow){
   const folderId=parseDriveAlbumLink(rawUrl);
   const jpgFolder=state().jpgFolder||'';
   const result=existingAlbumLinkStatus(folderId,jpgFolder,state());
-  return {linked:result.linked,sameCustomer:result.sameCustomer,differentFolder:'differentFolder' in result&&result.differentFolder,
-   owners:result.owners.map(p=>path.basename(clientFolderForJpgSource(p)))};
+  return {linked:result.linked,sameCustomer:result.sameCustomer,differentFolder:result.differentFolder,
+   owners:result.owners.map(p=>path.basename(clientFolderForJpgSource(p))),
+   pending:result.pending,pendingDifferentFolder:result.pendingDifferentFolder,
+   pendingOwners:result.pendingOwners.map(p=>path.basename(clientFolderForJpgSource(p)))};
  });
  registered('tools:sync-album-preview',async(rawUrl:unknown)=>{
   if(busy)throw new Error('Ứng dụng đang xử lý. Hãy thử lại sau.');
@@ -675,7 +684,16 @@ export function setupDesktopTools(win:BrowserWindow){
    const duplicate=existingAlbumLinkStatus(plan.folderId,plan.jpgFolder,before);
    if(duplicate.linked)throw new Error('CẢNH BÁO: Album đã có liên kết trước đó, không ghi đè hoặc tạo trùng.');
    const prior=before.driveFolders?.[plan.jpgFolder];
-   if(prior?.id&&prior.id!==plan.folderId)throw new Error('Nguồn này đã liên kết Drive khác. Không thay thế tự động.');
+   if(prior?.id&&prior.id!==plan.folderId){
+    if(prior.complete||before.rawLinks?.[prior.id]?.verifiedAt)
+     throw new Error('Nguồn này đã liên kết Drive khác và có lịch sử xác minh. Không tự thay thế.');
+    // An interrupted upload may have created an empty Drive folder and saved
+    // complete:false. Only replace that provisional mapping after verifying
+    // the old Drive folder has NO JPGs. Any failure to inspect blocks remapping.
+    const oldJpgs=await listDriveJpgRecords(prior.id);
+    if(oldJpgs.length)throw new Error('Nguồn cũ còn '+oldJpgs.length+' JPG trên Drive (upload dở). Không thay liên kết tự động. Hãy kiểm tra album cũ trước.');
+    notifyProgress('Đã xác minh album Drive upload dở không có JPG. Có thể cập nhật liên kết sau khi đối chiếu album mới.');
+   }
    for(const [otherFolder,mapping] of Object.entries(before.driveFolders||{})){
     if(mapping.id===plan.folderId&&otherFolder!==plan.jpgFolder)throw new Error('Album này đã liên kết với nguồn JPG khác trên máy.');
    }

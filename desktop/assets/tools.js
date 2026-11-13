@@ -82,9 +82,15 @@ el('syncLink').addEventListener('input',()=>{
    if(sequence!==linkCheckSeq)return;
    albumAlreadyLinked=!!r.linked;el('syncCheck').disabled=busy||albumAlreadyLinked;
    if(r.linked){
-    const msg=r.differentFolder?'Khách này đã liên kết album Drive khác.':
-     `Link đã có liên kết trên máy này${r.owners?.length?' với '+r.owners.join(', '):''}.`;
-    text('syncLinkStatus','CẢNH BÁO: '+msg+' Không liên kết trùng.');
+    const msg=r.differentFolder?'Khách này đã LIÊN KẾT HOÀN TẤT với một album Drive khác.':
+     `Link đã liên kết hoàn tất trên máy này${r.owners?.length?' với '+r.owners.join(', '):''}.`;
+    text('syncLinkStatus','CẢNH BÁO: '+msg+' Không ghi đè liên kết đã xác minh.');
+    el('syncLinkStatus').hidden=false;
+   }else if(r.pending){
+    const msg=r.pendingDifferentFolder
+     ?'Nguồn khách có lịch sử UPLOAD DỞ lên Drive khác. Amorri sẽ chỉ cho liên kết mới nếu album cũ không có JPG và album mới được xác minh.'
+     :'Tìm thấy lịch sử upload chưa hoàn tất (không phải liên kết đã xác minh). Có thể bấm Kiểm tra ảnh và liên kết để xác minh.';
+    text('syncLinkStatus','CHỜ XÁC MINH: '+msg);
     el('syncLinkStatus').hidden=false;
    }
   }catch(e){if(sequence===linkCheckSeq){el('syncLinkStatus').hidden=true;}}

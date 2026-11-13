@@ -48,8 +48,8 @@ test('visual evidence >=90% can replace strict hash only for two verified sample
  assert.equal(mergeVisualAlbumEvidence({...base,missingOnDrive:['A3.jpg']},pairs).ok,false);
 });
 test('linked folder is remembered from original mapping, driveUploads and rawLinks',()=>{
- const settings={driveFolders:{'C:/clientA/jpg':{id,customerFolderId:'customerRoot123'}},driveUploads:{[id]:{sourceJpgFolder:'C:/clientA/jpg'}},rawLinks:{[id]:{sourceJpgFolder:'C:/clientA/jpg'}}};
- assert.deepEqual(existingAlbumLinkStatus(id,'C:/clientA/jpg',settings),{linked:true,sameCustomer:true,owners:['C:/clientA/jpg']});
+ const settings={driveFolders:{'C:/clientA/jpg':{id,customerFolderId:'customerRoot123',complete:true}},driveUploads:{[id]:{sourceJpgFolder:'C:/clientA/jpg',complete:true}},rawLinks:{[id]:{sourceJpgFolder:'C:/clientA/jpg',verifiedAt:'2026-11-12T00:00:00Z'}}};
+ assert.deepEqual(existingAlbumLinkStatus(id,'C:/clientA/jpg',settings),{linked:true,sameCustomer:true,differentFolder:false,owners:['C:/clientA/jpg'],pending:false,pendingDifferentFolder:false,pendingOwners:[]});
  assert.equal(existingAlbumLinkStatus(id,'C:/clientB/jpg',settings).linked,true);
  assert.equal(existingAlbumLinkStatus('customerRoot123','C:/clientB/jpg',settings).linked,true);
  assert.equal(existingAlbumLinkStatus('differentId','C:/clientA/jpg',settings).differentFolder,true);
