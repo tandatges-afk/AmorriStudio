@@ -1,4 +1,5 @@
-import {createHash,randomBytes,timingSafeEqual,randomUUID,createCipheriv,createDecipheriv} from 'node:crypto';
+import {createHash,randomBytes,timingSafeEqual,randomUUID} from 'node:crypto';
+import {encryptDeliveryToken,decryptDeliveryToken,recoverDeliveryToken} from './delivery-token-crypto';
 import {adminDatabase} from './firebase-admin';
 import {findBooking,BookingStoreError} from './event-storage';
 import {SHARE_TOKEN, validGrantToken, validId, productAllowedByGrant, type DeliveryScope} from '@/lib/domain/delivery';
@@ -20,25 +21,17 @@ const refFor=(eventId:string,grantId:string)=>adminDatabase().ref(`${root}/${eve
 // Grant tokens are still verified using their SHA-256 hash. An authenticated
 // Admin can retrieve a separate AES-GCM encrypted copy after refresh.
 // Domain-separated key: never return it (or ciphertext) to client users.
-function grantEncryptionKey(){
+function encryptToken(raw:string){
   const secret=process.env.AMORRI_DELIVERY_LINK_KEY || process.env.DRIVE_VIDEO_SIGNING_SECRET || '';
   if(secret.length<32)throw new DeliveryError(503,'DELIVERY_RECOPY_KEY_MISSING',
     'Cần DRIVE_VIDEO_SIGNING_SECRET tối thiểu 32 ký tự hoặc AMORRI_DELIVERY_LINK_KEY để lưu link có thể copy lại.');
-  return createHash('sha256').update('amorri-delivery-recopy-v1\0').update(secret).digest();
+  return encryptDeliveryToken(raw);
 }
-function encryptToken(raw:string){
-  const iv=randomBytes(12),cipher=createCipheriv('aes-256-gcm',grantEncryptionKey(),iv);
-  const encrypted=Buffer.concat([cipher.update(raw,'utf8'),cipher.final()]);
-  return [iv.toString('base64url'),cipher.getAuthTag().toString('base64url'),encrypted.toString('base64url')].join('.');
-}
-function decryptToken(encoded:string){
-  try {
-    const [nonce,tag,data]=encoded.split('.');
-    if(!nonce||!tag||!data)return null;
-    const decipher=createDecipheriv('aes-256-gcm',grantEncryptionKey(),Buffer.from(nonce,'base64url'));
-    decipher.setAuthTag(Buffer.from(tag,'base64url'));
-    return Buffer.concat([decipher.update(Buffer.from(data,'base64url')),decipher.final()]).toString('utf8');
-  }catch{return null;}
+function decryptToken(encoded:string){return decryptDeliveryToken(encoded);}
+function storedToken(id:string,record:GrantRecord){
+  if(typeof record.encryptedToken!=='string')return null;
+  // Decrypting is not enough: bind recovered capability to its record ID/hash.
+  return recoverDeliveryToken(id,record.hash,decryptToken(record.encryptedToken));
 }
 
 export type GrantRecord={hash:string;expiresAt:number;createdAt:number;createdBy:string;scope:DeliveryScope;revokedAt?:number;revokedBy?:string;lastUsedAt?:number;encryptedToken?:string;productId?:string};
@@ -77,14 +70,15 @@ export async function ensureDeliveryGrant(eventId:string,adminUid:string,days=30
   const tx=await rootRef.transaction((raw:Record<string,GrantRecord>|null)=>{
     const records={...(raw||{})};
     // If a key changed, do not silently revoke active links already sent to clients.
+    // A Firebase RTDB transaction may retry: reset flags on each attempt.
     keyMismatch=Object.entries(records).some(([id,v])=>v&&!v.revokedAt&&v.scope==='review'&&String(v.productId||'')===productId&&Number(v.expiresAt)>now&&
-      typeof v.encryptedToken==='string'&&!validGrantToken(decryptToken(v.encryptedToken)));
+      typeof v.encryptedToken==='string'&&!storedToken(id,v));
     legacyUnrecoverable=Object.entries(records).some(([,v])=>v&&!v.revokedAt&&v.scope==='review'&&String(v.productId||'')===productId&&Number(v.expiresAt)>now&&
       typeof v.encryptedToken!=='string');
     if(keyMismatch||legacyUnrecoverable)return;
     // Keep the newest recoverable link, if one exists. Do not rotate each click.
     const eligible=Object.entries(records).filter(([id,v])=>v && !v.revokedAt && v.scope==='review' && String(v.productId||'')===productId && Number(v.expiresAt)>now &&
-      typeof v.encryptedToken==='string' && validGrantToken(decryptToken(v.encryptedToken)) && /^[a-f0-9]{24}$/.test(id))
+      typeof v.encryptedToken==='string' && !!storedToken(id,v) && /^[a-f0-9]{24}$/.test(id))
       .sort((a,b)=>Number(b[1].createdAt)-Number(a[1].createdAt));
     const chosen=eligible[0]?.[0]||grantId;
     for(const [id,v] of Object.entries(records)){
@@ -103,7 +97,7 @@ export async function ensureDeliveryGrant(eventId:string,adminUid:string,days=30
   const entry=Object.entries(records).filter(([,v])=>v&&String(v.productId||'')===productId&&!v.revokedAt&&Number(v.expiresAt)>now)
     .sort((a,b)=>Number(b[1].createdAt)-Number(a[1].createdAt))[0];
   if(!entry)throw new DeliveryError(503,'DELIVERY_LINK_UNAVAILABLE','Không lấy được link bảo mật');
-  const raw=entry[0]===grantId?token:decryptToken(String(entry[1].encryptedToken||''));
+  const raw=entry[0]===grantId?token:storedToken(entry[0],entry[1]);
   if(!raw||!validGrantToken(raw))throw new DeliveryError(503,'DELIVERY_LINK_UNAVAILABLE','Không giải mã được link. Kiểm tra khóa mã hóa');
   if(entry[0]===grantId)await deliveryAudit('DELIVERY_LINK_CREATED',eventId,grantId,adminUid).catch(err=>console.error('[delivery] audit unavailable',err));
   return {grantId:entry[0],token:raw,expiresAt:entry[1].expiresAt,scope:entry[1].scope,productId:entry[1].productId||null,created:entry[0]===grantId};
@@ -157,7 +151,7 @@ export async function listDeliveryGrants(eventId:string){
   return Object.entries(records).map(([id,value])=>{
     const v=value as Partial<GrantRecord>;
     const active=!v.revokedAt && typeof v.expiresAt==='number' && v.expiresAt>Date.now();
-    const raw=active && typeof v.encryptedToken==='string'?decryptToken(v.encryptedToken):null;
+    const raw=active?storedToken(id,v as GrantRecord):null;
     return {id,scope:v.scope,expiresAt:v.expiresAt,createdAt:v.createdAt,revokedAt:v.revokedAt||null,
       token:raw && validGrantToken(raw) && raw.startsWith(id+'.') ? raw : null};
   }).sort((a,b)=>Number(b.createdAt||0)-Number(a.createdAt||0));
