@@ -71,15 +71,44 @@ export function perceptualImageScore(a:VisualPixels,b:VisualPixels){
  return Math.round((0.7*shape+0.3*colour)*1000)/10;
 }
 
-export function existingAlbumLinkStatus(folderId:string,jpgFolder:string,settings:{driveFolders?:Record<string,{id?:string;customerFolderId?:string}>;driveUploads?:Record<string,{sourceJpgFolder?:string}>;rawLinks?:Record<string,{sourceJpgFolder?:string}>}){
- const links=Object.entries(settings.driveFolders||{}).filter(([,m])=>m.id===folderId||m.customerFolderId===folderId).map(([folder])=>folder);
- const upload=settings.driveUploads?.[folderId]?.sourceJpgFolder;
- const raw=settings.rawLinks?.[folderId]?.sourceJpgFolder;
- const owners=[...new Set([...links,...(upload?[upload]:[]),...(raw?[raw]:[])])];
- if(owners.length)return {linked:true,sameCustomer:owners.length===1&&owners[0]===jpgFolder,owners};
- const current=settings.driveFolders?.[jpgFolder]?.id;
- if(current&&current!==folderId)return {linked:true,sameCustomer:false,owners:[jpgFolder],differentFolder:true};
- return {linked:false,sameCustomer:false,owners:[] as string[]};
+export function existingAlbumLinkStatus(folderId:string,jpgFolder:string,settings:{
+ driveFolders?:Record<string,{id?:string;customerFolderId?:string;complete?:boolean}>;
+ driveUploads?:Record<string,{sourceJpgFolder?:string;complete?:boolean}>;
+ rawLinks?:Record<string,{sourceJpgFolder?:string;verifiedAt?:string}>;
+}){
+ const confirmed=new Set<string>();
+ const pending=new Set<string>();
+ const add=(folder:string,verified:boolean)=>{
+  if(!folder)return;
+  (verified?confirmed:pending).add(folder);
+ };
+ for(const [folder,mapping] of Object.entries(settings.driveFolders||{})){
+  if(mapping.id===folderId||mapping.customerFolderId===folderId)add(folder,mapping.complete===true);
+ }
+ const upload=settings.driveUploads?.[folderId];
+ if(upload?.sourceJpgFolder)add(upload.sourceJpgFolder,upload.complete===true);
+ const raw=settings.rawLinks?.[folderId];
+ if(raw?.sourceJpgFolder)add(raw.sourceJpgFolder,!!raw.verifiedAt);
+ // A source folder associated with another Drive ID may also be provisional.
+ const source=settings.driveFolders?.[jpgFolder];
+ const mappedElsewhere=!!source?.id&&source.id!==folderId&&source.customerFolderId!==folderId;
+ if(mappedElsewhere){
+  const verified=source.complete===true||!!settings.rawLinks?.[source.id!]?.verifiedAt;
+  add(jpgFolder,verified);
+ }
+ // A verified owner always takes priority over an unfinished historical entry.
+ for(const folder of confirmed)pending.delete(folder);
+ const owners=[...confirmed];
+ const pendingOwners=[...pending];
+ return {
+  linked:owners.length>0,
+  sameCustomer:owners.length===1&&owners[0]===jpgFolder,
+  differentFolder:mappedElsewhere&&confirmed.has(jpgFolder),
+  owners,
+  pending:pendingOwners.length>0,
+  pendingDifferentFolder:mappedElsewhere&&!confirmed.has(jpgFolder),
+  pendingOwners
+ };
 }
 
 /** A 90% visual match may replace checksums for the TWO inspected JPGs only.
