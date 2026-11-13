@@ -28,20 +28,28 @@ jobs:
           npm run build:main
           npm run test:desktop
           node --test tests/google-drive-oauth-131.test.mjs
-      - name: Build unsigned macOS Apple Silicon and Intel DMGs
+      - name: Build UNSIGNED macOS DMG and ZIP (QA packaging only; NOT auto-update ready)
         env:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npx electron-builder --config electron-builder.yml --mac dmg --arm64 --x64 --publish never
+        run: npx electron-builder --config electron-builder.yml --mac dmg zip --arm64 --x64 --publish never
       - name: Verify bundled runtime points to VPS
         run: |
           FILE="$(find release -path '*/Contents/Resources/desktop.config.json' -type f -print -quit)"
           test -n "$FILE"
           cmp -s desktop.config.json "$FILE"
           echo 'Bundled runtime config OK (values hidden)'
-      - name: Upload macOS DMG
+      - name: Verify macOS QA update files (NOT signed)
+        run: |
+          test -f release/latest-mac.yml
+          find release -maxdepth 1 -name '*.zip' | grep -q .
+      - name: Upload macOS DMG and ZIP (UNSIGNED QA)
         uses: actions/upload-artifact@v4
         with:
-          name: Amorri-Studio-macOS-DMG-VPS
-          path: desktop/release/*.dmg
+          name: Amorri-Studio-macOS-UNSIGNED-QA-DMG-ZIP
+          path: |
+            desktop/release/*.dmg
+            desktop/release/*.zip
+            desktop/release/latest-mac.yml
+            desktop/release/*.blockmap
           if-no-files-found: error
           retention-days: 7

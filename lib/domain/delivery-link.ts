@@ -31,3 +31,17 @@ export function readDeliveryAccessUrl(href:string):string {
   const hashToken=fragment.getAll('token');
   return hashToken.length===1?hashToken[0]:'';
 }
+
+/** Only a real link on the configured Amorri origin and matching booking may
+ * be used to restore a legacy hash-only grant. Never accept arbitrary sites.
+ */
+export function tokenFromOriginalDeliveryUrl(href:unknown,eventId:string,publicOrigin:string):string|null {
+ if(typeof href!=='string'||href.length>2048||!eventId)return null;
+ let u:URL,origin:URL;
+ try{u=new URL(href);origin=new URL(publicOrigin);}catch{return null;}
+ if(u.protocol!=='https:'||u.hostname!==origin.hostname||u.port!==origin.port||u.username||u.password)return null;
+ const base=`/delivery/${encodeURIComponent(eventId)}`;
+ if(u.pathname!==base && !u.pathname.startsWith(base+'/s/'))return null;
+ const token=readDeliveryAccessUrl(u.href);
+ return /^[a-f0-9]{24}\.[A-Za-z0-9_-]{43}$/.test(token)?token:null;
+}

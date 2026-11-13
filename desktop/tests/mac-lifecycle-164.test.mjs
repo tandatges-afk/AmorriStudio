@@ -20,7 +20,7 @@ test('on Mac, closing main window quits, unless upload close guard prevents it',
   assert.match(mainSource,/app\.on\('window-all-closed',\s*\(\)\s*=>\s*\{\s*quitAppOnce\(\);\s*\}\)/);
   assert.match(mainSource,/win\.on\('closed',[\s\S]*?quitAppOnce\(\)/);
   assert.match(toolsSource,/preventCloseDuringUpload\(win\)/);
-  assert.match(toolsSource,/if\s*\(uploadRunning\)\s*\{?\s*event\.preventDefault\(\)/);
+  assert.match(toolsSource,/if\s*\(isUploadQueueActive\(\)\)\s*\{?\s*event\.preventDefault\(\)/);
 });
 
 test('runtime: two setup calls cannot register any IPC channel twice',()=>{

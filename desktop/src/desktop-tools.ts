@@ -1,13 +1,17 @@
 import {app,BrowserWindow,dialog,ipcMain,shell,nativeImage} from 'electron';
 import fs from 'node:fs';
+import os from 'node:os';
 import {randomUUID} from 'node:crypto';
+import {execFile} from 'node:child_process';
+import {quickRawInventory,requireCompleteQuickInventory,twoRandomPairs} from './raw-quick-audit';
 import {compareExistingAlbum,parseDriveAlbumLink} from './album-sync';
 import {firstTwoMatchingImageCodes,perceptualImageScore,mergeVisualAlbumEvidence,existingAlbumLinkStatus} from './album-visual';
-import {loadDeviceIdentity,renameDevice,originFromRecords,verifyLocalJpgSample,type OriginSummary} from './device-origin';
+import {loadDeviceIdentity,renameDevice,originFromRecords,verifyLocalJpgSample,verifyEverySelectedJpg,type OriginSummary} from './device-origin';
 import path from 'node:path';
-import {clientFolderForJpgSource,resolveCustomerJpgFolder,copySelectedRaws,inspectRawMatches,inspectRawPresence,type RawReport} from './raw-match';
+import {clientFolderForJpgSource,resolveCustomerJpgFolder,copySelectedRaws,inspectRawMatches,inspectPortableRawMatches,inspectRawPresence,type RawReport} from './raw-match';
 import {parseDesktopCommand,type DesktopCommand} from './desktop-commands';
 import {configureDriveOAuth,connectGoogleDrive,connectedGoogleDrive,disconnectGoogleDrive,createPhotoFolder,shareFolderForReader,listCreatedJpgs,uploadLocalJpg,getOrCreateChildFolder,ensureCustomerPublicView,isFolderPubliclyReadable,listAppDriveFolders,createDriveStorageFolder,driveAccountEmail,verifyDriveFolder,pickExistingDriveFolder,connectFullGoogleDrive,googleDriveScopeMode,listDriveFolderChildren,searchDriveFolders,listDriveJpgRecords,readDriveVisualSample,driveParentOf} from './google-drive';
+import {isGoogleDriveStorageQuotaExceeded} from './drive-errors';
 
 type Config={googleOAuthClientId?:string;googleOAuthClientSecret?:string;driveReaderEmail?:string};
 type DriveMapping={id:string;url:string;shared:boolean;sharingWarning:string;complete?:boolean;parentId?:string;customerFolderId?:string;accountEmail?:string};
@@ -45,6 +49,8 @@ function queuePublish(){
  if(toolsWindow&&!toolsWindow.isDestroyed())toolsWindow.webContents.send('amorri-upload-queue',snapshot);
 }
 function isUploadQueueActive(){return !!(uploadRunning||activeAlbum||queuedAlbums.length);}
+// Main-process updater must never stop the app in the middle of an upload.
+export function hasActiveDesktopUploads(): boolean { return isUploadQueueActive(); }
 function enqueueAlbum(parentId:string,jpgFolder:string){
  if(!jpgFolder||!isExistingJpgFolder(jpgFolder))throw new Error('Trước tiên hãy chọn thư mục khách còn tồn tại.');
  const checked=validateCustomerUpload(jpgFolder);
@@ -200,17 +206,35 @@ function findJpgForDriveId(folderId:string):string|null{
  if(path.parse(clientRoot).root===clientRoot)throw new Error('Không được lọc RAW từ ổ đĩa gốc.');
  return folder;
 }
-async function getJpgForFilter(folderId:string,provenance:OriginSummary,names:string[]):Promise<string|null>{
+/** Small, offline image-similarity diagnostic for duplicate local JPG codes.
+ * We NEVER auto-approve based on a heuristic score; user must narrow source.
+ * RAW preview decode is not guaranteed for CR3/ARW and is not claimed here.
+ */
+function duplicateJpgVisualWarning(report:RawReport):string {
+ const groups=report.jpgAmbiguous||[];
+ if(!groups.length)return '';
+ const pixels=(image:Electron.NativeImage)=>{
+  const scaled=image.resize({width:32,height:32,quality:'best'});
+  const size=scaled.getSize();return {width:size.width,height:size.height,data:scaled.toBitmap()};
+ };
+ return groups.slice(0,5).map(group=>{
+  try{
+   const images=group.candidates.slice(0,3).map(rel=>nativeImage.createFromPath(path.join(report.clientRoot,rel)));
+   if(images.length<2||images.some(i=>i.isEmpty()))return group.selected+': chưa đọc được JPG để đối chiếu';
+   const score=perceptualImageScore(pixels(images[0]),pixels(images[1]));
+   return `${group.selected}: tương đồng thị giác ${score.toFixed(1)}% (${score<90?'có thể là HAI ảnh khác nhau':'có thể là bản xuất khác của cùng ảnh'}). Cần chọn đúng thư mục.`;
+  }catch{return group.selected+': không thể đối chiếu thị giác, cần chọn thư mục đúng.';}
+ }).join('\n');
+}
+
+async function getJpgForFilter(folderId:string,provenance:OriginSummary,names:string[]):Promise<{folder:string;quickChecked:boolean}|null>{
  const device=loadDeviceIdentity(rootFolder());
  const existing=findJpgForDriveId(folderId);
  const past=state().rawLinks?.[folderId];
  // Uploading from this same machine has its own trusted local map. Cross-machine
  // mappings require verification of JPG content, not only identical filenames.
- if(existing && provenance.kind==='self')return existing;
- if(existing && past?.sourceJpgFolder===existing && past.deviceId===device.deviceId){
-   verifyLocalJpgSample(existing,provenance.records);
-   return existing;
- }
+ if(existing && provenance.kind==='self')return {folder:existing,quickChecked:false};
+ if(existing && past?.sourceJpgFolder===existing && past.deviceId===device.deviceId)return {folder:existing,quickChecked:false};
  const where=provenance.labels.join(', ')||'Không rõ nguồn (album cũ)';
  const intro=provenance.kind==='self'?'Album này chưa được liên kết với máy hiện tại.':
   provenance.kind==='mixed'?'Album có ảnh được upload từ nhiều máy.':
@@ -221,28 +245,34 @@ async function getJpgForFilter(folderId:string,provenance:OriginSummary,names:st
   detail:`Máy upload: ${where}\nMáy đang lọc: ${device.deviceName}\nJPG đã chọn: ${names.length}\n\nAmorri sẽ so checksum JPG trên Drive và trên máy trước khi cho phép lọc RAW.`});
  if(confirm.response!==0)return null;
  if(existing){
-   const report=inspectRawMatches(existing,names);
+   const report=inspectPortableRawMatches(existing,names);
+   if(report.requested!==names.length)throw new Error('Danh sách khách chọn có ảnh trùng mã, không thể liên kết tự động.');
    if(!report.matches.length)throw new Error('Không tìm thấy RAW nào khớp trên máy này. Hãy chuyển đúng bộ RAW trước.');
-   const verified=verifyLocalJpgSample(existing,provenance.records);
+   if(report.jpgMissing?.length||report.jpgAmbiguous?.length)throw new Error('JPG cùng mã bị thiếu hoặc trùng nội dung. '+duplicateJpgVisualWarning(report));
+   const verified=await verifyEverySelectedJpg(report.jpgMatches||[],provenance.records);
+   await quickRawVisualGate(report);
    const approval=await dialog.showMessageBox(main,{type:'question',buttons:['Xác nhận nguồn RAW','Hủy'],defaultId:1,cancelId:1,
      title:'Xác minh RAW trên máy này',message:`Đã kiểm tra ${verified.verified} JPG bằng checksum Drive`,
      detail:`Có RAW: ${report.matches.length}/${report.requested}\nThiếu: ${report.missing.length} · Trùng tên RAW: ${report.ambiguous.length}\nNguồn: ${report.clientRoot}`});
    if(approval.response!==0)return null;
    persist({...state(),rawLinks:{...state().rawLinks,[folderId]:{sourceJpgFolder:existing,deviceId:device.deviceId,verifiedAt:new Date().toISOString()}}});
-   return existing;
+   return {folder:existing,quickChecked:true};
  }
- const chosen=dialog.showOpenDialogSync(main,{title:'Chọn thư mục JPG của đúng khách để lọc RAW',properties:['openDirectory'],
+ const chosen=dialog.showOpenDialogSync(main,{title:'Chọn thư mục khách có JPG và RAW (Amorri sẽ quét thư mục con)',properties:['openDirectory'],
   defaultPath:state().jpgFolder||app.getPath('desktop')});
  if(!chosen?.[0])return null;
- const selection=resolveCustomerJpgFolder(chosen[0]);
- const folder=selection.jpgFolder;
- const root=selection.clientRoot;
- if(path.parse(root).root===root)throw new Error('Không thể chọn ổ đĩa gốc.');
+ const checked=inspectPortableRawMatches(chosen[0],names);
+ if(checked.requested!==names.length)throw new Error('Danh sách khách chọn có ảnh trùng mã, hãy kiểm tra lại.');
+ const folder=checked.clientRoot;
+ const root=checked.clientRoot;
+ if(checked.jpgMissing?.length||checked.jpgAmbiguous?.length)
+  throw new Error(`Phát hiện JPG thiếu: ${checked.jpgMissing?.slice(0,5).join(', ')||'0'}; JPG trùng mã cần kiểm tra. ${duplicateJpgVisualWarning(checked)}`);
  const conflict=state().driveFolders?.[folder];
  if(conflict?.id&&conflict.id!==folderId)throw new Error('Thư mục khách này đã gắn một album Drive khác. Không tự ý thay thế.');
- const verify=verifyLocalJpgSample(folder,provenance.records);
- const report=inspectRawMatches(folder,names);
- if(!report.matches.length)throw new Error('Không tìm được RAW tương ứng trong raw/goc. Hãy chọn đúng thư mục khách có RAW.');
+ const verify=await verifyEverySelectedJpg(checked.jpgMatches||[],provenance.records);
+ const report=checked;
+ if(!report.matches.length)throw new Error('Không tìm được RAW tương ứng trong thư mục khách.');
+ await quickRawVisualGate(report);
  const approval=await dialog.showMessageBox(main,{type:'question',buttons:['Đúng khách — Liên kết','Hủy'],defaultId:1,cancelId:1,
   title:'Xác nhận liên kết RAW',message:`Đã đối chiếu ${verify.verified} JPG theo checksum`,
   detail:`Máy upload: ${where}\nKhách: ${path.basename(root)}\nDrive folder: ${folderId}\nRAW khớp: ${report.matches.length}/${report.requested}\nThiếu: ${report.missing.length} · Trùng: ${report.ambiguous.length}\nThư mục JPG: ${folder}\n\nChỉ liên kết khi đúng bộ ảnh.`});
@@ -255,8 +285,104 @@ async function getJpgForFilter(folderId:string,provenance:OriginSummary,names:st
   sourceJpgFolder:folder,url:`https://drive.google.com/drive/folders/${folderId}`,
   accountEmail:conflict?.accountEmail||'',updatedAt:new Date().toISOString(),complete:!!conflict?.complete
  }},rawLinks:{...snapshot.rawLinks,[folderId]:{sourceJpgFolder:folder,deviceId:device.deviceId,verifiedAt:new Date().toISOString()}}});
- return folder;
+ return {folder,quickChecked:true};
 }
+/** Only two RAW previews are decoded. The inventory scans names/metadata,
+ * never renders all RAWs. This is sampling, NOT a 100% identity guarantee.
+ * Missing preview tooling blocks automation (does not silently bypass checks).
+ */
+function windowsRawPreviewTool(): string {
+ if(process.platform!=='win32')throw new Error('ExifTool Windows chỉ chạy trên Windows.');
+ const options=[path.join(process.resourcesPath,'bin','exiftool.exe')];
+ if(!app.isPackaged)options.push(path.join(process.env.LOCALAPPDATA||'','Programs','ExifTool','exiftool.exe'));
+ const found=options.find(file=>fs.existsSync(file)&&fs.statSync(file).isFile());
+ if(!found)throw new Error('Bộ cài thiếu ExifTool Windows. Dừng lọc RAW để tránh kết quả sai.');
+ return found;
+}
+function edgeHash1024(image:Electron.NativeImage):string {
+ if(image.isEmpty())throw new Error('JPG/RAW preview không giải mã được.');
+ const resized=image.resize({width:33,height:32,quality:'best'});
+ const bitmap=resized.toBitmap();
+ if(resized.getSize().width!==33||resized.getSize().height!==32||bitmap.length<33*32*4)
+  throw new Error('Không giải mã được preview RAW.');
+ const brightness=(x:number,y:number)=>{
+  const i=(y*33+x)*4;
+  return 0.2126*bitmap[i+2]+0.7152*bitmap[i+1]+0.0722*bitmap[i];
+ };
+ let bits='';
+ for(let y=0;y<32;y++)for(let x=0;x<32;x++)bits+=brightness(x,y)>brightness(x+1,y)?'1':'0';
+ return bits;
+}
+function visualScore1024(localJpg:string,preview:Buffer):number{
+ const a=edgeHash1024(nativeImage.createFromPath(localJpg));
+ const b=edgeHash1024(nativeImage.createFromBuffer(preview));
+ let same=0;for(let i=0;i<a.length;i++)if(a[i]===b[i])same++;
+ return Math.round(same*1000/a.length)/10;
+}
+/** Read exactly two RAW samples. Windows uses bundled ExifTool; macOS uses
+ * native ImageIO through /usr/bin/sips. An unsupported format fails closed.
+ * All temporary JPEGs are created under OS temp, never beside customer RAW.
+ */
+function readRawPreview(rawFile:string):Promise<Buffer>{
+ if(process.platform==='win32'){
+  const exiftool=windowsRawPreviewTool();
+  return new Promise((resolve,reject)=>{
+   execFile(exiftool,['-q','-b','-JpgFromRaw',rawFile],
+    {encoding:'buffer',maxBuffer:32*1024*1024,timeout:30000,windowsHide:true},(error,stdout)=>{
+     if(error)return reject(error);
+     const content=Buffer.isBuffer(stdout)?stdout:Buffer.from(stdout);
+     if(content.length<50000||content[0]!==0xff||content[1]!==0xd8)
+      return reject(new Error('RAW không có JPEG preview đọc được.'));
+     resolve(content);
+    });
+  });
+ }
+ if(process.platform==='darwin'){
+  const dir=fs.mkdtempSync(path.join(os.tmpdir(),'amorri-raw-verify-'));
+  const output=path.join(dir,'preview.jpg');
+  return new Promise((resolve,reject)=>{
+   execFile('/usr/bin/sips',['-s','format','jpeg','-s','formatOptions','90',rawFile,'--out',output],
+    {encoding:'utf8',maxBuffer:1024*1024,timeout:45000,windowsHide:true},(error)=>{
+     try{
+      if(error)throw new Error('macOS không đọc được RAW của máy ảnh này bằng sips.');
+      const content=fs.readFileSync(output);
+      if(content.length<50000||content.length>32*1024*1024||content[0]!==0xff||content[1]!==0xd8)
+       throw new Error('macOS tạo preview không hợp lệ.');
+      resolve(content);
+     }catch(e){reject(e);}finally{fs.rmSync(dir,{recursive:true,force:true});}
+    });
+  });
+ }
+ return Promise.reject(new Error('Hệ điều hành chưa hỗ trợ đối chiếu RAW.'));
+}
+async function quickRawVisualGate(report:RawReport):Promise<void>{
+ const inventory=quickRawInventory(report.clientRoot);
+ try{requireCompleteQuickInventory(inventory);}
+ catch(error){
+  await dialog.showMessageBox(main,{type:'warning',title:'Amorri — Số lượng hoặc mã JPG/RAW không khớp',
+    message:'Không tự động lọc RAW vì nguồn ảnh chưa đồng nhất.',detail:msg(error)});
+  throw error;
+ }
+ const samples=twoRandomPairs(inventory.pairs);
+ const results: Array<{code:string;score:number}>=[];
+ for(const pair of samples){
+  try{
+   const image=await readRawPreview(pair.raw);
+   results.push({code:pair.code,score:visualScore1024(pair.jpg,image)});
+  }catch(error){throw new Error(`Không xác minh được RAW ${pair.code}: ${msg(error)}. Không tự lọc.`);}
+ }
+ const summary=results.map(x=>`${x.code}: ${x.score}%`).join(' · ');
+ if(results.some(x=>x.score<90)){
+  await dialog.showMessageBox(main,{type:'warning',title:'Amorri — JPG và RAW không khớp',
+   message:'Phát hiện ảnh nghi khác nội dung dù cùng mã.',
+   detail:`${summary}\nĐã kiểm tra ${inventory.jpgCount} JPG và ${inventory.rawCount} RAW bằng tên. Không lọc tự động; hãy chọn lại đúng thư mục khách.`});
+  throw new Error('Hai ảnh mẫu không đạt đối chiếu, RAW chưa được lọc.');
+ }
+ notifyProgress(`Kiểm tra nhanh: ${inventory.jpgCount} JPG / ${inventory.rawCount} RAW, 2 ảnh mẫu: ${summary}.`);
+ // A first-time cross-device link is separately confirmed by the user.
+ // Random spot checks cannot prove all RAWs are identical: display that limitation.
+}
+
 async function runOneClickFilter(folderId:string,names:string[]){
  if(busy)throw new Error('Desktop đang upload hoặc đang lọc. Hãy thử lại sau.');
  busy=true;
@@ -265,20 +391,31 @@ async function runOneClickFilter(folderId:string,names:string[]){
   const records=await listDriveJpgRecords(folderId);
   const provenance=originFromRecords(records,names,device.deviceId);
   if(provenance.missing.length)throw new Error('Drive không có '+provenance.missing.length+' JPG được chọn (ví dụ '+provenance.missing[0]+'). Hãy tải lại sản phẩm.');
-  const folder=await getJpgForFilter(folderId,provenance,names);
-  if(!folder)return;
-  const report=inspectRawMatches(folder,names);
+  const sourceChoice=await getJpgForFilter(folderId,provenance,names);
+  if(!sourceChoice)return;
+  const {folder}=sourceChoice;
+  const report=inspectPortableRawMatches(folder,names);
+  if(report.requested!==names.length)throw new Error('JPG khách chọn bị trùng mã; hãy kiểm tra lại trước khi lọc RAW.');
+  if(report.jpgMissing?.length || report.jpgAmbiguous?.length){
+   const codes=[...(report.jpgMissing||[]),...(report.jpgAmbiguous||[]).map(x=>x.selected)];
+   throw new Error('JPG cùng mã không khớp hoặc bị trùng: '+codes.slice(0,10).join(', ')+'. '+duplicateJpgVisualWarning(report)+' RAW chưa được sao chép.');
+  }
+  // Even when uploaded on this same computer, a reused camera number is not
+  // proof of matching image content. Verify ALL selected JPGs against Drive.
+  const verification=await verifyEverySelectedJpg(report.jpgMatches||[],provenance.records);
+  notifyProgress(`Đã đối chiếu ${verification.verified} JPG được chọn với Drive; chỉ lọc RAW khớp nguồn.`);
   if(!report.matches.length)throw new Error('Không tìm được RAW phù hợp trên máy này. Không tạo folder loc.');
+  if(!sourceChoice.quickChecked)await quickRawVisualGate(report);
   if(report.missing.length||report.ambiguous.length||report.skippedInvalid.length){
     const warning=await dialog.showMessageBox(main,{type:'warning',buttons:['Chỉ lọc RAW tìm thấy','Hủy'],defaultId:1,cancelId:1,
       title:'RAW chưa đủ hoặc bị trùng',message:`Có ${report.matches.length}/${report.requested} RAW phù hợp`,
-      detail:`Thiếu ${report.missing.length} RAW: ${report.missing.slice(0,8).join(', ')}\nTrùng ${report.ambiguous.length} mã ảnh. Chỉ sao chép các RAW xác định duy nhất.`});
+      detail:`Thiếu ${report.missing.length} RAW: ${report.missing.slice(0,8).join(', ')}\nTrùng ${report.ambiguous.length} mã ảnh (RAW khác nội dung). Các mã này không được lọc tự động.\nRAW cùng mã được chọn theo tên, vì không phải định dạng RAW nào cũng đọc được preview để so thị giác.`});
     if(warning.response!==0)return;
   }
   const result=copySelectedRaws(report);
   const counts=`Đã lọc ${result.copied.length} RAW mới; ${result.alreadyPresent.length} file đã có.\nThiếu RAW: ${report.missing.length}; mã trùng: ${report.ambiguous.length}; lỗi: ${result.errors.length}.`;
   const notes=[...report.missing.slice(0,15).map(x=>'Không có RAW: '+x),
-   ...report.ambiguous.slice(0,10).map(x=>'Trùng RAW: '+x.selected),...result.errors.slice(0,10)];
+   ...report.ambiguous.slice(0,10).map(x=>'Trùng RAW khác nội dung: '+x.selected),...result.errors.slice(0,10)];
   // Do not open Explorer unexpectedly. Reveal 'Mở folder lọc' beside the button on the website.
   if(fs.existsSync(report.outputFolder)){
     if(main.webContents.getURL().startsWith('https://')){
@@ -362,6 +499,12 @@ async function uploadCustomerToParent(parentId:string,sourceFolder?:string){
      try{await uploadLocalJpg(file,jpgDrive.id,{deviceId:device.deviceId,deviceName:device.deviceName,batchId},uploadController!.signal);uploaded++;queueTransferred+=fs.statSync(file).size;queueDone++;queuePublish();}
      catch(error){
        if(cancelRequested)break;
+       if(isGoogleDriveStorageQuotaExceeded(error)){
+         errors.push('Google Drive đã hết dung lượng lưu trữ. Dừng upload để tránh thử lại hàng loạt. Hãy kiểm tra đúng tài khoản Google đang kết nối và dung lượng Drive/Gmail/Photos.');
+         queueDone++;queuePublish();
+         notifyProgress('DỪNG UPLOAD: Google Drive hết dung lượng. Album chưa hoàn tất; giữ nguyên ảnh đã tải lên và RAW gốc.');
+         break;
+       }
        errors.push(path.basename(file)+': '+msg(error));queueDone++;queuePublish();
        notifyProgress('Ảnh lỗi: '+path.basename(file)+' — '+msg(error));
        // Prevent repeated network/API failures from hammering Google.
@@ -476,8 +619,10 @@ export function setupDesktopTools(win:BrowserWindow){
   const folderId=parseDriveAlbumLink(rawUrl);
   const jpgFolder=state().jpgFolder||'';
   const result=existingAlbumLinkStatus(folderId,jpgFolder,state());
-  return {linked:result.linked,sameCustomer:result.sameCustomer,differentFolder:'differentFolder' in result&&result.differentFolder,
-   owners:result.owners.map(p=>path.basename(clientFolderForJpgSource(p)))};
+  return {linked:result.linked,sameCustomer:result.sameCustomer,differentFolder:result.differentFolder,
+   owners:result.owners.map(p=>path.basename(clientFolderForJpgSource(p))),
+   pending:result.pending,pendingDifferentFolder:result.pendingDifferentFolder,
+   pendingOwners:result.pendingOwners.map(p=>path.basename(clientFolderForJpgSource(p)))};
  });
  registered('tools:sync-album-preview',async(rawUrl:unknown)=>{
   if(busy)throw new Error('Ứng dụng đang xử lý. Hãy thử lại sau.');
@@ -539,7 +684,16 @@ export function setupDesktopTools(win:BrowserWindow){
    const duplicate=existingAlbumLinkStatus(plan.folderId,plan.jpgFolder,before);
    if(duplicate.linked)throw new Error('CẢNH BÁO: Album đã có liên kết trước đó, không ghi đè hoặc tạo trùng.');
    const prior=before.driveFolders?.[plan.jpgFolder];
-   if(prior?.id&&prior.id!==plan.folderId)throw new Error('Nguồn này đã liên kết Drive khác. Không thay thế tự động.');
+   if(prior?.id&&prior.id!==plan.folderId){
+    if(prior.complete||before.rawLinks?.[prior.id]?.verifiedAt)
+     throw new Error('Nguồn này đã liên kết Drive khác và có lịch sử xác minh. Không tự thay thế.');
+    // An interrupted upload may have created an empty Drive folder and saved
+    // complete:false. Only replace that provisional mapping after verifying
+    // the old Drive folder has NO JPGs. Any failure to inspect blocks remapping.
+    const oldJpgs=await listDriveJpgRecords(prior.id);
+    if(oldJpgs.length)throw new Error('Nguồn cũ còn '+oldJpgs.length+' JPG trên Drive (upload dở). Không thay liên kết tự động. Hãy kiểm tra album cũ trước.');
+    notifyProgress('Đã xác minh album Drive upload dở không có JPG. Có thể cập nhật liên kết sau khi đối chiếu album mới.');
+   }
    for(const [otherFolder,mapping] of Object.entries(before.driveFolders||{})){
     if(mapping.id===plan.folderId&&otherFolder!==plan.jpgFolder)throw new Error('Album này đã liên kết với nguồn JPG khác trên máy.');
    }

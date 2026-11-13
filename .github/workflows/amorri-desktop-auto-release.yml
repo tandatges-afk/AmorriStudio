@@ -1,0 +1,133 @@
+name: Amorri Desktop - Manual Release Candidate (BUILD ONLY)
+
+# SAFETY: No push/tag trigger and NO production publishing jobs.
+# This workflow only creates downloadable QA artifacts in GitHub Actions.
+on:
+  workflow_dispatch:
+    inputs:
+      build_macos:
+        description: 'Also build signed and notarized macOS DMG/ZIP (requires Apple credentials)'
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: amorri-desktop-qa-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  windows_qa:
+    name: Windows x64 QA artifact - NOT a production release
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: bash
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+      - name: Verify source and lockfile version
+        run: |
+          node -e 'const p=require("./package.json"), l=require("./package-lock.json"); if (p.version !== l.version || p.version !== l.packages[""].version) throw Error("Desktop package/lock versions mismatch"); console.log("Desktop source version:", p.version)'
+      - name: Prepare Desktop runtime config without printing credentials
+        env:
+          AMORRI_CONFIG_JSON: ${{ secrets.AMORRI_DESKTOP_CONFIG_JSON || secrets.AMORRI_WIN_CONFIG_JSON }}
+        run: |
+          node scripts/prepare-release-config.mjs
+          node scripts/prepare-release-config.mjs --verify
+      - run: npm run typecheck
+      - run: npm run build:main
+      - name: Run FULL desktop regression suite
+        run: node --test tests/*.test.mjs
+      - name: Build QA Windows installer and metadata (never publish)
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: npx electron-builder --config electron-builder.yml --win nsis --x64 --publish never
+      - name: Verify QA artifacts
+        run: |
+          test -f release/latest.yml
+          ls release/*.exe >/dev/null
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Amorri-Windows-x64-QA-BUILD-ONLY
+          path: |
+            desktop/release/*.exe
+            desktop/release/*.blockmap
+            desktop/release/latest.yml
+          if-no-files-found: error
+          retention-days: 7
+
+  macos_signed_qa:
+    name: macOS signed/notarized QA artifact - NOT a production release
+    if: ${{ inputs.build_macos == true }}
+    runs-on: macos-15
+    defaults:
+      run:
+        shell: bash
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - run: npm ci
+      - name: Require Apple Developer ID signing AND notarization credentials
+        env:
+          CSC_LINK: ${{ secrets.AMORRI_MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.AMORRI_MAC_CSC_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.AMORRI_APPLE_API_KEY_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.AMORRI_APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.AMORRI_APPLE_API_ISSUER }}
+        run: |
+          test -n "$CSC_LINK" && test -n "$CSC_KEY_PASSWORD" || { echo 'STOP: Apple signing certificate not configured'; exit 1; }
+          test -n "$APPLE_API_KEY" && test -n "$APPLE_API_KEY_ID" && test -n "$APPLE_API_ISSUER" || { echo 'STOP: Apple notarization credentials not configured'; exit 1; }
+      - name: Prepare Desktop runtime config without printing credentials
+        env:
+          AMORRI_CONFIG_JSON: ${{ secrets.AMORRI_DESKTOP_CONFIG_JSON || secrets.AMORRI_MAC_CONFIG_JSON }}
+        run: |
+          node scripts/prepare-release-config.mjs
+          node scripts/prepare-release-config.mjs --verify
+      - run: npm run typecheck
+      - run: npm run build:main
+      - name: Run FULL desktop regression suite
+        run: node --test tests/*.test.mjs
+      - name: Build signed/notarized macOS DMG + ZIP for Intel and Apple Silicon
+        env:
+          CSC_LINK: ${{ secrets.AMORRI_MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.AMORRI_MAC_CSC_PASSWORD }}
+          APPLE_API_KEY: ${{ secrets.AMORRI_APPLE_API_KEY_BASE64 }}
+          APPLE_API_KEY_ID: ${{ secrets.AMORRI_APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.AMORRI_APPLE_API_ISSUER }}
+        run: npx electron-builder --config electron-builder.yml --mac dmg zip --arm64 --x64 --publish never
+      - name: Verify signature, notarization tickets, update manifest and archives
+        run: |
+          set -euo pipefail
+          test -f release/latest-mac.yml
+          ls release/*.dmg release/*.zip >/dev/null
+          count=0
+          while IFS= read -r -d '' bundle; do
+            codesign --verify --deep --strict "$bundle"
+            xcrun stapler validate "$bundle"
+            count=$((count + 1))
+          done < <(find release -type d -name '*.app' -prune -print0)
+          test "$count" -ge 2 || { echo 'STOP: expected signed ARM64 and x64 app bundles'; exit 1; }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Amorri-macOS-SIGNED-QA-BUILD-ONLY
+          path: |
+            desktop/release/*.dmg
+            desktop/release/*.zip
+            desktop/release/*.blockmap
+            desktop/release/latest-mac.yml
+          if-no-files-found: error
+          retention-days: 7

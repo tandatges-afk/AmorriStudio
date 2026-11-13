@@ -5,10 +5,11 @@ const r=f=>readFileSync(new URL('../'+f,import.meta.url),'utf8');
 const has=f=>existsSync(new URL('../'+f,import.meta.url));
 test('admin may recopy encrypted link, never replace hash validation',()=>{
  const backend=r('lib/server/delivery-access.ts');
+ const crypto=r('lib/server/delivery-token-crypto.ts');
  const route=r('app/api/delivery/grants/route.ts');
  const ui=r('components/DeliveryGrantManager.tsx');
- assert.match(backend,/createCipheriv\('aes-256-gcm'/);
- assert.match(backend,/createDecipheriv\('aes-256-gcm'/);
+ assert.match(crypto,/createCipheriv\('aes-256-gcm'/);
+ assert.match(crypto,/createDecipheriv\('aes-256-gcm'/);
  assert.match(backend,/hash:digest\(secret\)/);
  assert.match(route,/await requireAdmin\(request\)/);
  assert.match(route,/shareUrl:token/);

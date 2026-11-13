@@ -1,6 +1,6 @@
 {
   "name": "amorri-studio-desktop",
-  "version": "1.2.0",
+  "version": "1.3.8",
   "description": "Amorri Studio Desktop — secure Windows/macOS client for self-hosted VPS web app",
   "main": "dist/main.js",
   "scripts": {
@@ -9,9 +9,10 @@
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "dev": "npm run build:main && electron .",
     "start": "npm run build:main && electron .",
-    "dist:win": "npm run build:main && electron-builder --config electron-builder.yml --win nsis --x64",
+    "dist:win": "npm run build:main && electron-builder --config electron-builder.yml --win nsis --x64 --publish never",
     "test:raw": "npm run build:main && node --test tests/raw-match.test.mjs",
-    "test:desktop": "npm run build:main && node --test tests/raw-match.test.mjs tests/desktop-commands.test.mjs tests/hotfix-166-existing-album.test.mjs tests/album-visual-r84.test.mjs"
+    "test:desktop": "npm run build:main && node --test tests/raw-match.test.mjs tests/portable-raw-138.test.mjs tests/quick-raw-two-sample-138.test.mjs tests/cross-machine-159.test.mjs tests/drive-source-memory.test.mjs tests/desktop-commands.test.mjs tests/hotfix-166-existing-album.test.mjs tests/album-visual-r84.test.mjs tests/album-link-quota-138.test.mjs",
+    "test:auto-update": "node --test tests/auto-update.test.mjs"
   },
   "keywords": [],
   "author": "",
@@ -23,5 +24,8 @@
     "typescript": "^7.0.2"
   },
   "productName": "Amorri Studio",
-  "private": true
+  "private": true,
+  "dependencies": {
+    "electron-updater": "6.8.11"
+  }
 }

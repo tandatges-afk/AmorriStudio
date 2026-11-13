@@ -23,10 +23,10 @@ test('picker lazily loads one folder level and searches only when requested',()=
  const script=read('assets/picker.js');assert.match(script,/api\.driveChildren\(target\.id\)/);
  assert.match(script,/api\.driveSearch\(term\)/);assert.match(script,/api\.pickerConfirm\(chosen\.id,chosen\.name\)/);
 });
-test('upload creates customer/jpg, never uploads RAW',()=>{
+test('upload stores JPG under customer folder, never uploads RAW',()=>{
  const source=read('src/desktop-tools.ts');
- assert.match(source,/getOrCreateChildFolder\(machine.id,customer\)/);
- assert.match(source,/getOrCreateChildFolder\(customerFolder\.id,'jpg'\)/);
+ assert.match(source,/getOrCreateChildFolder\(uploadParentId,customer\)/);
+ assert.match(source,/const jpgDrive=previous\?\.id\?\{id:previous\.id\}:\{id:customerFolder\.id\}/);
  assert.match(source,/\.jpe\?g\$/);assert.match(source,/driveUploads:uploaded\+skipped>0/);
 });
 test('public sharing checks parent before setting customer anyone reader',()=>{

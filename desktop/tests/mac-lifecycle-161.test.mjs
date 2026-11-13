@@ -44,7 +44,7 @@ function harness(platform) {
   close(){this.destroyed=true;for(const f of this.handlers.get('closed')||[])f();}
  }
  const app={isPackaged:false,setAppUserModelId(){},whenReady(){return Promise.resolve()},
-    on(k,fn){events.set(k,fn)},getPath(){return '/tmp'},quit(){quit++}};
+    on(k,fn){events.set(k,fn)},getPath(){return '/tmp'},getVersion(){return '1.3.0'},quit(){quit++}};
  const electron={app,BrowserWindow,dialog:{showErrorBox(){},showMessageBox(){return Promise.resolve()},showOpenDialogSync(){return null}},
   Menu:{buildFromTemplate(t){template=t;return t},setApplicationMenu(){}},shell:{openExternal(){return Promise.resolve()},openPath(){return Promise.resolve()}},nativeImage:{createFromPath(){return {}}}};
  const actualRequire=(name)=>name==='electron'?electron:name==='node:fs'?{

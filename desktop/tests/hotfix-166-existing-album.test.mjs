@@ -29,6 +29,18 @@ test('existing album: same count + same JPG MD5 + nonempty RAW links successfull
   assert.equal(result.ok,true);assert.equal(result.localJpg,2);assert.equal(result.driveJpg,2);assert.equal(result.rawCount,1);
  }finally{f.cleanup();}
 });
+test('album accepts JPG through an aliased parent directory (macOS /var paths)',(t)=>{
+ if(process.platform==='win32'){t.skip('POSIX parent directory alias regression');return;}
+ const f=fixture();
+ const holder=fs.mkdtempSync(path.join(os.tmpdir(),'amorri-jpg-alias-'));
+ try{
+  const alias=path.join(holder,'customer-alias');
+  fs.symlinkSync(f.root,alias,'dir');
+  const inventory=inspectLocalAlbum(path.join(alias,'jpg'));
+  assert.equal(inventory.rawCount,1);
+  assert.equal(inventory.items.size,2);
+ }finally{fs.rmSync(holder,{force:true,recursive:true});f.cleanup();}
+});
 test('image code matches JPG and JPEG extensions when bytes correspond',async()=>{
  const f=fixture();try{
   const result=await compareExistingAlbum(f.jpg,[{name:'IMG_001.jpeg',md5Checksum:matching[0].md5Checksum},matching[1]]);

@@ -27,11 +27,13 @@ export function parseDriveAlbumLink(input:unknown):string{
 export function inspectLocalAlbum(jpgFolder:string){
  if(!fs.existsSync(jpgFolder)||!fs.statSync(jpgFolder).isDirectory()||fs.lstatSync(jpgFolder).isSymbolicLink())
   throw new Error('Thư mục JPG không còn tồn tại trên máy. Hãy chọn lại thư mục khách.');
- const root=clientFolderForJpgSource(jpgFolder);
+ // macOS /var is an alias of /private/var; compare canonical paths only.
+ const canonicalJpgFolder=fs.realpathSync(jpgFolder);
+ const root=clientFolderForJpgSource(canonicalJpgFolder);
  if(path.parse(root).root===root)throw new Error('Không thể đồng bộ từ thư mục gốc của ổ đĩa.');
  const rootItems=fs.readdirSync(root,{withFileTypes:true});
  const jpgDirs=rootItems.filter(d=>d.isDirectory()&&!d.isSymbolicLink()&&key(d.name)==='jpg');
- if(jpgFolder===root ? jpgDirs.length>0 : jpgDirs.length!==1||path.resolve(root,jpgDirs[0].name)!==path.resolve(jpgFolder))
+ if(canonicalJpgFolder===root ? jpgDirs.length>0 : jpgDirs.length!==1||path.resolve(root,jpgDirs[0].name)!==canonicalJpgFolder)
    throw new Error('Thư mục JPG không nhất quán: chọn folder khách có ảnh trực tiếp hoặc đúng một folder jpg.');
  const rawDirs=rootItems.filter(d=>d.isDirectory()&&!d.isSymbolicLink()&&['raw','goc','gốc'].includes(key(d.name)));
  if(rawDirs.length!==1)throw new Error(rawDirs.length?'Có nhiều thư mục raw/goc: hãy chọn lại nguồn RAW rõ ràng.':'Thiếu thư mục raw hoặc goc trong thư mục khách.');

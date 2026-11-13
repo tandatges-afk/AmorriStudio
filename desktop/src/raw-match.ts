@@ -1,14 +1,19 @@
 import fs from 'node:fs';
 import path from 'node:path';
+import {createHash} from 'node:crypto';
 
 export const RAW_EXTENSIONS = new Set(['.raw', '.arw', '.cr2', '.cr3', '.nef', '.dng', '.raf', '.rw2', '.orf']);
 const JPG_EXTENSIONS = new Set(['.jpg', '.jpeg']);
 export type RawMatch = { selected: string; source: string; size: number };
+export type LocalJpgCandidate = {selected:string;source:string;size:number};
 export type RawReport = {
   clientRoot: string; sourceJpgFolder: string; outputFolder: string;
   requested: number; matches: RawMatch[]; missing: string[];
   ambiguous: Array<{selected:string; candidates:string[]}>;
   skippedInvalid: string[]; scanned: number;
+  jpgMatches?: LocalJpgCandidate[]; jpgMissing?: string[];
+  jpgAmbiguous?: Array<{selected:string;candidates:string[]}>;
+  jpgDuplicateCopies?: string[]; rawDuplicateCopies?: string[];
 };
 
 function isRealDirectory(name:string):boolean {
@@ -97,10 +102,90 @@ export function inspectRawMatches(sourceJpgFolder:string, selectedNames:unknown,
   }
   return {clientRoot:root,sourceJpgFolder:source,outputFolder:target,requested:unique.size,matches,missing,ambiguous,skippedInvalid,scanned};
 }
+
+/** Scan ONE explicitly selected customer folder (JPG and RAW can be nested).
+ * The folder tree is the trust boundary: never scan siblings, symlinks, junctions,
+ * output folders or entire drive roots. Matching a filename is not proof of
+ * image identity; callers MUST verify each selected JPG against Drive first.
+ */
+export function inspectPortableRawMatches(chosenPath:string,selectedNames:unknown,limit=40_000):RawReport {
+ if(!Array.isArray(selectedNames)||!selectedNames.length||selectedNames.length>2500)
+   throw new Error('Danh sách JPG phải có 1–2.500 ảnh.');
+ if(!isRealDirectory(chosenPath))throw new Error('Thư mục khách không tồn tại hoặc không an toàn.');
+ const chosen=fs.realpathSync(chosenPath);
+ const root=clientFolderForJpgSource(chosen);
+ if(!isRealDirectory(root)||path.parse(root).root===root)throw new Error('Không quét toàn bộ ổ đĩa. Hãy chọn folder đúng khách.');
+ const unique=new Map<string,string>(),skippedInvalid:string[]=[];
+ for(const name of selectedNames){
+  const valid=validName(name);
+  if(!valid){skippedInvalid.push(String(name).slice(0,180));continue;}
+  const code=path.parse(valid).name.normalize('NFC').toLowerCase();
+  if(!unique.has(code))unique.set(code,valid);
+ }
+ const localJpgs=new Map<string,Array<{file:string;size:number}>>();
+ const localRaws=new Map<string,Array<{file:string;size:number}>>();
+ const stack=[{folder:root,depth:0}];let scanned=0;
+ while(stack.length){
+  const {folder,depth}=stack.pop()!;
+  for(const item of fs.readdirSync(folder,{withFileTypes:true})){
+   if(++scanned>limit)throw new Error(`Có quá nhiều mục (> ${limit}) trong folder khách. Hãy chọn thư mục nhỏ hơn.`);
+   const full=path.join(folder,item.name),lst=fs.lstatSync(full);
+   if(lst.isSymbolicLink()||!realSubpath(root,fs.realpathSync(full)))continue;
+   if(lst.isDirectory()){
+    if(['loc','lọc','raw_da_chon','.git','node_modules'].includes(item.name.normalize('NFC').toLowerCase()))continue;
+    if(depth>=12)throw new Error('Cấu trúc thư mục khách quá sâu (giới hạn 12 cấp).');
+    stack.push({folder:full,depth:depth+1});continue;
+   }
+   if(!lst.isFile())continue;
+   const ext=path.extname(item.name).toLowerCase();
+   if(!RAW_EXTENSIONS.has(ext)&&!JPG_EXTENSIONS.has(ext))continue;
+   const code=path.parse(item.name).name.normalize('NFC').toLowerCase();
+   if(!unique.has(code))continue;
+   const target=JPG_EXTENSIONS.has(ext)?localJpgs:localRaws;
+   const list=target.get(code)||[];list.push({file:full,size:lst.size});target.set(code,list);
+  }
+ }
+ // If two candidates are binary-identical they are harmless duplicate copies;
+ // otherwise their shared camera code is ambiguous and MUST NOT be filtered.
+ const sameContent=(a:{file:string;size:number},b:{file:string;size:number})=>{
+  if(a.size!==b.size)return false;
+  const hash=(file:string)=>{
+   const h=createHash('sha256'),fd=fs.openSync(file,'r'),buf=Buffer.allocUnsafe(1024*1024);
+   try{let n=0;while((n=fs.readSync(fd,buf,0,buf.length,null))>0)h.update(buf.subarray(0,n));}
+   finally{fs.closeSync(fd);}return h.digest('hex');
+  };
+  return hash(a.file)===hash(b.file);
+ };
+ const matches:RawMatch[]=[],missing:string[]=[],ambiguous:RawReport['ambiguous']=[];
+ const jpgMatches:LocalJpgCandidate[]=[],jpgMissing:string[]=[],jpgAmbiguous:NonNullable<RawReport['jpgAmbiguous']>=[];
+ const jpgDuplicateCopies:string[]=[],rawDuplicateCopies:string[]=[];
+ for(const [code,selected] of unique){
+  const jpgs=localJpgs.get(code)||[],raws=localRaws.get(code)||[];
+  if(!jpgs.length){jpgMissing.push(selected);continue;}
+  if(jpgs.length>1&&!jpgs.slice(1).every(x=>sameContent(jpgs[0],x))){
+   jpgAmbiguous.push({selected,candidates:jpgs.map(x=>path.relative(root,x.file))});continue;
+  }
+  if(jpgs.length>1)jpgDuplicateCopies.push(selected);
+  const jpg=jpgs.slice().sort((a,b)=>a.file.localeCompare(b.file))[0];
+  jpgMatches.push({selected,source:jpg.file,size:jpg.size});
+  if(!raws.length){missing.push(selected);continue;}
+  if(raws.length>1&&!raws.slice(1).every(x=>sameContent(raws[0],x))){
+   ambiguous.push({selected,candidates:raws.map(x=>path.relative(root,x.file))});continue;
+  }
+  if(raws.length>1)rawDuplicateCopies.push(selected);
+  const raw=raws.slice().sort((a,b)=>a.file.localeCompare(b.file))[0];
+  matches.push({selected,source:raw.file,size:raw.size});
+ }
+ return {clientRoot:root,sourceJpgFolder:root,outputFolder:path.join(root,'loc'),requested:unique.size,
+   matches,missing,ambiguous,skippedInvalid,scanned,jpgMatches,jpgMissing,jpgAmbiguous,jpgDuplicateCopies,rawDuplicateCopies};
+}
+
 export function copySelectedRaws(report:RawReport):{copied:string[];alreadyPresent:string[];errors:string[]} {
   // Re-check against path-jump and changed roots before writing.
   const root=fs.realpathSync(report.clientRoot);
-  if(root!==report.clientRoot||!realSubpath(root,report.sourceJpgFolder))throw new Error('Thư mục nguồn đã thay đổi. Quét lại.');
+  if(root!==report.clientRoot||!realSubpath(root,fs.realpathSync(report.sourceJpgFolder)) ||
+    (report.jpgMatches?fs.realpathSync(report.sourceJpgFolder)!==root:clientFolderForJpgSource(report.sourceJpgFolder)!==root))
+   throw new Error('Thư mục nguồn đã thay đổi. Quét lại.');
   if(path.join(root,'loc')!==report.outputFolder)throw new Error('Đường dẫn đích không hợp lệ.');
   fs.mkdirSync(report.outputFolder,{recursive:true});
   const outputStat=fs.lstatSync(report.outputFolder);
@@ -113,7 +198,20 @@ export function copySelectedRaws(report:RawReport):{copied:string[];alreadyPrese
       if(!realSubpath(root,resolved)||!RAW_EXTENSIONS.has(path.extname(resolved).toLowerCase()))throw new Error('File đã chuyển ra ngoài thư mục khách');
       if(fs.statSync(resolved).size!==m.size)throw new Error('File RAW thay đổi trong lúc quét. Hãy quét lại.');
       const destination=path.join(report.outputFolder,path.basename(resolved));
-      if(fs.existsSync(destination)){alreadyPresent.push(path.basename(resolved));continue;}
+      if(fs.existsSync(destination)){
+        const target=fs.lstatSync(destination);
+        if(!target.isFile()||target.isSymbolicLink()||target.size!==m.size)
+         throw new Error('File đã có trong loc nhưng khác kích thước hoặc không an toàn; không ghi đè.');
+        // Never silently accept an unrelated RAW that happens to share a filename.
+        const hashFile=(file:string)=>{
+         const hash=createHash('sha256'),fd=fs.openSync(file,'r'),buf=Buffer.allocUnsafe(1024*1024);
+         try{let n=0;while((n=fs.readSync(fd,buf,0,buf.length,null))>0)hash.update(buf.subarray(0,n));}
+         finally{fs.closeSync(fd);}return hash.digest('hex');
+        };
+        if(hashFile(resolved)!==hashFile(destination))
+         throw new Error('File đã có trong loc nhưng khác nội dung. Không ghi đè hoặc bỏ qua nhầm.');
+        alreadyPresent.push(path.basename(resolved));continue;
+      }
       fs.copyFileSync(resolved,destination,fs.constants.COPYFILE_EXCL);
       copied.push(path.basename(resolved));
     }catch(e){errors.push(`${path.basename(m.source)}: ${e instanceof Error?e.message:String(e)}`);}
