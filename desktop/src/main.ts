@@ -14,6 +14,9 @@ type LocalSettings = { downloadDirectory?: string };
 
 const APP_ID = 'vn.amorri.studio.desktop';
 let mainWindow: BrowserWindow | null = null;
+// Wait for the local startup screen to finish before navigating to HTTPS.
+// Overlapping loadURL calls can report ERR_ABORTED (-3) for the old data: URL.
+const startupScreenLoads = new WeakMap<BrowserWindow, Promise<void>>();
 let quitRequested = false;
 // The update gate prevents a newly opened web form from being interrupted by
 // an automatic installer. Existing user sessions are never force-restarted.
@@ -276,16 +279,27 @@ function buildMenu(): void {
 }
 
 function loadWebsiteIntoWindow(win: BrowserWindow): void {
-  void win.loadURL(websiteUrl).catch((err: unknown) => {
-    if (win.isDestroyed()) return;
-    win.show();
-    void dialog.showMessageBox(win, {
-      type: 'error',
-      title: 'Không thể kết nối Amorri Studio',
-      message: 'Không thể mở website. Kiểm tra Internet và https://amorri.io.vn/. ',
-      detail: err instanceof Error ? err.message : String(err),
-    });
-  });
+  const splash = startupScreenLoads.get(win);
+  startupScreenLoads.delete(win);
+  void (async () => {
+    // The updater may finish before the data: startup page has loaded.
+    // Serializing these navigations prevents a false ERR_ABORTED (-3) dialog.
+    if (splash) await splash;
+    if (win.isDestroyed() || quitRequested) return;
+    try {
+      await win.loadURL(websiteUrl);
+    } catch (err) {
+      if (win.isDestroyed() || quitRequested) return;
+      // Only genuine HTTPS navigation failures are shown; no blanket silencing.
+      win.show();
+      void dialog.showMessageBox(win, {
+        type: 'error',
+        title: 'Không thể kết nối Amorri Studio',
+        message: 'Không thể mở website. Kiểm tra Internet và https://amorri.io.vn/. ',
+        detail: err instanceof Error ? err.message : String(err),
+      });
+    }
+  })();
 }
 function loadStartupScreen(win: BrowserWindow): void {
   // Static local HTML, no preload, nodeIntegration, remote code or permissions.
@@ -295,7 +309,11 @@ function loadStartupScreen(win: BrowserWindow): void {
   h1{font-size:32px;margin:0 0 14px}p{font-size:17px;line-height:1.7;color:#c7cad9}small{color:#939ab0}</style>
   </head><body><main><h1>Amorri Studio</h1><p>Đang kiểm tra và chuẩn bị bản cập nhật mới nhất…</p>
   <small>Desktop v${app.getVersion()} · Không đóng ứng dụng khi đang cài cập nhật</small></main></body></html>`;
-  void win.loadURL('data:text/html;charset=UTF-8,' + encodeURIComponent(html)).catch(() => {});
+  const pending = win.loadURL('data:text/html;charset=UTF-8,' + encodeURIComponent(html))
+    .catch((err: unknown) => {
+      if (!win.isDestroyed()) console.warn('[amorri-startup] Local startup screen:', err instanceof Error ? err.message : String(err));
+    });
+  startupScreenLoads.set(win, pending);
 }
 function createWindow(): void {
   const iconPath = packagedResource('icon.ico');
