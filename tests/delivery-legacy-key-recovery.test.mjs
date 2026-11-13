@@ -55,9 +55,9 @@ test('recovered capability must match the record ID and its token hash',()=>{
 
 test('transaction code refuses to revoke active encrypted links on key mismatch',()=>{
   const access=readFileSync(new URL('../lib/server/delivery-access.ts',import.meta.url),'utf8');
-  assert.match(access,/if\(keyMismatch\|\|legacyUnrecoverable\)return;/);
-  assert.match(access,/!storedToken\(id,v\)/);
-  assert.match(access,/entry\[0\]===grantId\?token:storedToken\(entry\[0\],entry\[1\]\)/);
+  assert.match(access,/if\(blocked\)return;/);
+  assert.match(access,/selectDeliveryGrantForCopy\(records,productId,now,storedToken,explicitlyReissue\)/);
+  assert.match(access,/chosen===grantId\?token:storedToken\(chosen,entry\)/);
   assert.match(access,/token:raw && validGrantToken\(raw\) && raw\.startsWith\(id\+'\.'\)/);
   assert.match(access,/if\(record\.revokedAt\)/);
   assert.match(access,/Date\.now\(\)>=record\.expiresAt/);

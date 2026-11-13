@@ -26,7 +26,12 @@ export async function POST(request:Request){
     if(typeof productId!=='string'||productId && !validId(productId))return json({error:'Mã sản phẩm không hợp lệ'},400);
     const booking=await findBooking(eventId);
     if(!isEventReleased(booking.value))return json({error:'Link bàn giao chỉ mở sau giờ kết thúc lịch',code:'DELIVERY_LOCKED'},403);
-    const grant=await ensureDeliveryGrant(eventId,user.uid,30,productId);
+    if(body.reissueUnrecoverable!==undefined && typeof body.reissueUnrecoverable!=='boolean')
+      return json({error:'Yêu cầu cấp lại link không hợp lệ'},400);
+    // Reissue must be an explicit Admin choice, never an automatic fallback.
+    const grant=body.reissueUnrecoverable===true
+      ? await ensureDeliveryGrant(eventId,user.uid,30,productId,true)
+      : await ensureDeliveryGrant(eventId,user.uid,30,productId);
     const url=new URL(request.url);
     const shareUrl=buildDeliveryShareUrl(process.env.AMORRI_PUBLIC_ORIGIN||url.origin,eventId,grant.token);
     return json({success:true,shareUrl,grantId:grant.grantId,expiresAt:grant.expiresAt,scope:grant.scope,productId:grant.productId,created:grant.created});

@@ -21,7 +21,8 @@ test('sharing one link is idempotent and can recopy after page refresh',()=>{
   assert.match(api,/ensureDeliveryGrant\(eventId,user.uid,30,productId\)/);
   assert.match(store,/rootRef\.transaction/);
   assert.match(store,/chosen===grantId/);
-  assert.match(store,/revokedAt:now/);
+  assert.match(store,/No existing grant is modified, revoked, or deleted/);
+  assert.doesNotMatch(store,/records\[id\]=\{\.\.\.v,revokedAt:now/);
   assert.match(store,/encryptedToken:encryptToken\(token\)/);
   assert.match(ui,/Copy link sản phẩm/);
   assert.doesNotMatch(ui,/Hiệu lực \(ngày\)/);

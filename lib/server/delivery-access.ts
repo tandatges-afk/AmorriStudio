@@ -1,5 +1,6 @@
 import {createHash,randomBytes,timingSafeEqual,randomUUID} from 'node:crypto';
 import {encryptDeliveryToken,decryptDeliveryToken,recoverDeliveryToken} from './delivery-token-crypto';
+import {selectDeliveryGrantForCopy} from './delivery-reissue-policy';
 import {adminDatabase} from './firebase-admin';
 import {findBooking,BookingStoreError} from './event-storage';
 import {SHARE_TOKEN, validGrantToken, validId, productAllowedByGrant, type DeliveryScope} from '@/lib/domain/delivery';
@@ -49,58 +50,52 @@ export async function issueDeliveryGrant(eventId:string,adminUid:string,days:num
   return {grantId,token,expiresAt,scope};
 }
 /**
- * One reusable share link per event. Concurrent clicks are serialized by an
- * RTDB transaction. Older hash-only grants cannot be reconstructed. For
- * safety, they must be manually revoked before a new share link is issued.
+ * Copy a currently recoverable product-scoped link without rotating it.
+ * If no such link can be recovered, only a deliberate Admin reissue can
+ * create a new scoped link alongside the old one. NEVER revoke old grants.
+ * Firebase retries the transaction if another admin writes concurrently.
  */
-export async function ensureDeliveryGrant(eventId:string,adminUid:string,days=30,productId=''){
+export async function ensureDeliveryGrant(eventId:string,adminUid:string,days=30,productId='',explicitlyReissue=false){
   if(!validId(eventId))throw new DeliveryError(400,'DELIVERY_BAD_ID','Mã lịch không hợp lệ');
+  if(explicitlyReissue&&!productId)throw new DeliveryError(400,'DELIVERY_PRODUCT_REQUIRED','Chỉ cấp lại link riêng cho sản phẩm được chọn');
   const booking=await findBooking(eventId);
   if(productId && (!validId(productId)||!Array.isArray(booking.value.products)&&!(booking.value.products&&typeof booking.value.products==='object')))throw new DeliveryError(404,'DELIVERY_PRODUCT_NOT_FOUND','Không tìm thấy sản phẩm');
   if(productId && !(Array.isArray(booking.value.products)?booking.value.products:Object.values(booking.value.products||{})).some(p=>p&&typeof p==='object'&&String((p as {id?:unknown}).id)===productId))throw new DeliveryError(404,'DELIVERY_PRODUCT_NOT_FOUND','Sản phẩm không còn trong lịch');
-  // Prepare candidate OUTSIDE RTDB transaction callback (Firebase may retry it).
+  // Generate outside RTDB transaction callback; the callback may run more than once.
   const grantId=randomBytes(12).toString('hex');
   const secret=randomBytes(32).toString('base64url');
   const token=`${grantId}.${secret}`;
   const now=Date.now(),expiresAt=now+days*86_400_000;
   const candidate:GrantRecord={hash:digest(secret),encryptedToken:encryptToken(token),scope:'review',expiresAt,createdAt:now,createdBy:adminUid,...(productId?{productId}:{})};
   const rootRef=adminDatabase().ref(`${root}/${eventId}`);
-  let keyMismatch=false;
-  let legacyUnrecoverable=false;
+  let blocked:'key'|'legacy'|'not-needed'|null=null;
+  let selectedId:string|null=null;
   const tx=await rootRef.transaction((raw:Record<string,GrantRecord>|null)=>{
     const records={...(raw||{})};
-    // If a key changed, do not silently revoke active links already sent to clients.
-    // A Firebase RTDB transaction may retry: reset flags on each attempt.
-    keyMismatch=Object.entries(records).some(([id,v])=>v&&!v.revokedAt&&v.scope==='review'&&String(v.productId||'')===productId&&Number(v.expiresAt)>now&&
-      typeof v.encryptedToken==='string'&&!storedToken(id,v));
-    legacyUnrecoverable=Object.entries(records).some(([,v])=>v&&!v.revokedAt&&v.scope==='review'&&String(v.productId||'')===productId&&Number(v.expiresAt)>now&&
-      typeof v.encryptedToken!=='string');
-    if(keyMismatch||legacyUnrecoverable)return;
-    // Keep the newest recoverable link, if one exists. Do not rotate each click.
-    const eligible=Object.entries(records).filter(([id,v])=>v && !v.revokedAt && v.scope==='review' && String(v.productId||'')===productId && Number(v.expiresAt)>now &&
-      typeof v.encryptedToken==='string' && !!storedToken(id,v) && /^[a-f0-9]{24}$/.test(id))
-      .sort((a,b)=>Number(b[1].createdAt)-Number(a[1].createdAt));
-    const chosen=eligible[0]?.[0]||grantId;
-    for(const [id,v] of Object.entries(records)){
-      if(id!==chosen && v && String(v.productId||'')===productId && !v.revokedAt && Number(v.expiresAt)>now)
-        records[id]={...v,revokedAt:now,revokedBy:adminUid};
-    }
-    if(chosen===grantId)records[grantId]=candidate;
+    // Re-evaluate the choice on every transaction retry; do not use stale flags.
+    const decision=selectDeliveryGrantForCopy(records,productId,now,storedToken,explicitlyReissue);
+    blocked=decision.blocked;
+    selectedId=decision.existingId;
+    if(blocked)return;
+    if(decision.createNew)records[grantId]=candidate;
+    // No existing grant is modified, revoked, or deleted.
     return records;
   },undefined,false);
   if(!tx.committed){
-    if(keyMismatch)throw new DeliveryError(409,'DELIVERY_RECOPY_KEY_MISMATCH','Không giải mã được link đang hoạt động. Hãy khôi phục khóa mã hóa link cũ; hệ thống chưa thu hồi link khách hàng.');
-    if(legacyUnrecoverable)throw new DeliveryError(409,'DELIVERY_LEGACY_LINK_ACTIVE','Có link cũ vẫn đang hoạt động nhưng không lưu khóa có thể copy lại. Hãy giữ link khách hoặc chủ động thu hồi link cũ rồi cấp link mới.');
+    if(blocked==='key')throw new DeliveryError(409,'DELIVERY_RECOPY_KEY_MISMATCH','Không giải mã được bản sao link cũ. Link khách đang giữ có thể vẫn hoạt động; chỉ tạo link mới nếu cần gửi lại.');
+    if(blocked==='legacy')throw new DeliveryError(409,'DELIVERY_LEGACY_LINK_ACTIVE','Không sao chép được link cũ. Link khách đang giữ có thể vẫn hoạt động; chỉ tạo link mới nếu cần gửi lại.');
+    if(blocked==='not-needed')throw new DeliveryError(409,'DELIVERY_REISSUE_NOT_NEEDED','Không có link cũ cần cấp lại. Hãy sử dụng Copy link sản phẩm.');
     throw new DeliveryError(409,'DELIVERY_GRANT_CONFLICT','Không thể thiết lập link dùng chung');
   }
   const records=tx.snapshot.val() as Record<string,GrantRecord>;
-  const entry=Object.entries(records).filter(([,v])=>v&&String(v.productId||'')===productId&&!v.revokedAt&&Number(v.expiresAt)>now)
-    .sort((a,b)=>Number(b[1].createdAt)-Number(a[1].createdAt))[0];
-  if(!entry)throw new DeliveryError(503,'DELIVERY_LINK_UNAVAILABLE','Không lấy được link bảo mật');
-  const raw=entry[0]===grantId?token:storedToken(entry[0],entry[1]);
+  const chosen=selectedId||grantId;
+  const entry=records?.[chosen];
+  if(!entry||entry.revokedAt||entry.scope!=='review'||Number(entry.expiresAt)<=Date.now()||String(entry.productId||'')!==productId)
+    throw new DeliveryError(503,'DELIVERY_LINK_UNAVAILABLE','Không lấy được link bảo mật');
+  const raw=chosen===grantId?token:storedToken(chosen,entry);
   if(!raw||!validGrantToken(raw))throw new DeliveryError(503,'DELIVERY_LINK_UNAVAILABLE','Không giải mã được link. Kiểm tra khóa mã hóa');
-  if(entry[0]===grantId)await deliveryAudit('DELIVERY_LINK_CREATED',eventId,grantId,adminUid).catch(err=>console.error('[delivery] audit unavailable',err));
-  return {grantId:entry[0],token:raw,expiresAt:entry[1].expiresAt,scope:entry[1].scope,productId:entry[1].productId||null,created:entry[0]===grantId};
+  if(chosen===grantId)await deliveryAudit('DELIVERY_LINK_CREATED',eventId,grantId,adminUid).catch(err=>console.error('[delivery] audit unavailable',err));
+  return {grantId:chosen,token:raw,expiresAt:entry.expiresAt,scope:entry.scope,productId:entry.productId||null,created:chosen===grantId};
 }
 export async function verifyDeliveryGrant(eventId:string,token:unknown,needsReview=false):Promise<GrantRecord>{
   if(!validId(eventId)||!validGrantToken(token))throw new DeliveryError(401,'DELIVERY_TOKEN_INVALID','Liên kết bàn giao không hợp lệ');

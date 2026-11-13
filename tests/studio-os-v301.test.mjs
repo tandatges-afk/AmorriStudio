@@ -60,7 +60,8 @@ test('3.0.1 one System navigation button contains health, activity, data tabs',(
 test('3.0.1 protects active grants from accidental revocation on encryption key change',()=>{
  const src=read('lib/server/delivery-access.ts');
  assert.match(src,/DELIVERY_RECOPY_KEY_MISMATCH/);
- assert.match(src,/if\(keyMismatch\|\|legacyUnrecoverable\)return/);
+ assert.match(src,/if\(blocked\)return/);
+ assert.doesNotMatch(src,/records\[id\]=\{\.\.\.v,revokedAt:now/);
  assert.match(src,/DELIVERY_LEGACY_LINK_ACTIVE/);
 });
 
