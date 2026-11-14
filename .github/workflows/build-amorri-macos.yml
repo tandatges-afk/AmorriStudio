@@ -1,55 +1,174 @@
-name: Amorri Desktop - Build macOS ARM64 and Intel DMG (VPS)
+name: Amorri Studio 1.3.9 - macOS arm64 x64 (PINNED, NO DEPLOY)
+
 on:
   workflow_dispatch:
+    inputs:
+      release_mode:
+        description: 'signed_release = valid Developer ID + notarization; unsigned_preview = manual install only'
+        required: true
+        type: choice
+        default: unsigned_preview
+        options:
+          - unsigned_preview
+          - signed_release
+
 permissions:
   contents: read
+
+concurrency:
+  group: amorri-macos-139-release
+  cancel-in-progress: false
+
 jobs:
   macos:
     runs-on: macos-15
+    timeout-minutes: 90
     defaults:
       run:
         working-directory: desktop
+        shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - name: Checkout EXACT tested Desktop 1.3.9 source (not changing QA)
+        uses: actions/checkout@v4
+        with:
+          ref: 334921f8503d868b922b468ed0dc5056f37290d7
+          persist-credentials: false
+
+      - name: Confirm pinned commit and version
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = '334921f8503d868b922b468ed0dc5056f37290d7'
+          node - <<'JS'
+          const p=require('./package.json'), l=require('./package-lock.json');
+          if (p.version !== '1.3.9' || l.version !== '1.3.9' || l.packages[''].version !== '1.3.9') {
+            throw Error('STOP: unexpected Desktop version');
+          }
+          JS
+          grep -Fq 'https://amorri.io.vn/desktop-updates/' electron-builder.yml
+          grep -Fq 'vn.amorri.studio.desktop' electron-builder.yml
+          echo 'PINNED MAC SOURCE: PASS'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: desktop/package-lock.json
-      - run: npm ci
-      - name: Prepare VPS and Google OAuth Desktop runtime config
+
+      - name: Install and validate Desktop (without production writes)
         env:
           AMORRI_CONFIG_JSON: ${{ secrets.AMORRI_DESKTOP_CONFIG_JSON || secrets.AMORRI_MAC_CONFIG_JSON }}
-        run: node scripts/prepare-release-config.mjs
-      - name: Verify configuration and compile
         run: |
+          set -euo pipefail
+          npm ci
+          node scripts/prepare-release-config.mjs
           node scripts/prepare-release-config.mjs --verify
           npm run typecheck
-          npm run build:main
           npm run test:desktop
-          node --test tests/google-drive-oauth-131.test.mjs
-      - name: Build UNSIGNED macOS DMG and ZIP (QA packaging only; NOT auto-update ready)
+          npm run test:auto-update
+          npm run build:main
+
+      - name: Verify macOS signed-release credentials are configured
+        if: inputs.release_mode == 'signed_release'
         env:
-          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
-        run: npx electron-builder --config electron-builder.yml --mac dmg zip --arm64 --x64 --publish never
-      - name: Verify bundled runtime points to VPS
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          FILE="$(find release -path '*/Contents/Resources/desktop.config.json' -type f -print -quit)"
-          test -n "$FILE"
-          cmp -s desktop.config.json "$FILE"
-          echo 'Bundled runtime config OK (values hidden)'
-      - name: Verify macOS QA update files (NOT signed)
+          set -euo pipefail
+          for x in CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID; do
+            test -n "${!x:-}" || { echo "STOP: Missing required signing/notarization secret $x"; exit 1; }
+          done
+          echo 'APPLE SIGNING + NOTARIZATION SECRETS: PRESENT (VALUES HIDDEN)'
+
+      - name: Build macOS arm64 and Intel x64 DMG + ZIP
+        env:
+          RELEASE_MODE: ${{ inputs.release_mode }}
+          CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
-          test -f release/latest-mac.yml
-          find release -maxdepth 1 -name '*.zip' | grep -q .
-      - name: Upload macOS DMG and ZIP (UNSIGNED QA)
+          set -euo pipefail
+          if [ "$RELEASE_MODE" = 'signed_release' ]; then
+            npx electron-builder --config electron-builder.yml -c.mac.forceCodeSigning=true --mac dmg zip --arm64 --x64 --publish never
+          elif [ "$RELEASE_MODE" = 'unsigned_preview' ]; then
+            # Never report this artifact as auto-update ready. Disable notarization only for manual preview.
+            python3 - <<'PY'
+          from pathlib import Path
+          source = Path('electron-builder.yml').read_text()
+          old = '  notarize: true'
+          assert source.count(old) == 1, 'Unexpected builder config; refusing unsigned override'
+          Path('electron-builder-ci-preview.yml').write_text(source.replace(old, '  notarize: false'))
+          PY
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+            unset CSC_LINK CSC_KEY_PASSWORD APPLE_ID APPLE_APP_SPECIFIC_PASSWORD APPLE_TEAM_ID
+            npx electron-builder --config electron-builder-ci-preview.yml --mac dmg zip --arm64 --x64 --publish never
+          else
+            echo 'STOP: Invalid release mode'; exit 1
+          fi
+
+      - name: Validate BOTH Mac architectures and update manifest hashes
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          from pathlib import Path
+          import hashlib,base64,re
+          release=Path('release')
+          meta=release/'latest-mac.yml'
+          text=meta.read_text(encoding='utf-8')
+          assert re.search(r'(?m)^version:[ \t]*1\.3\.9[ \t]*$',text), 'Wrong Mac version'
+          for arch in ('arm64','x64'):
+              for ext in ('zip','dmg'):
+                  found=list(release.glob(f'*.{ext}'))
+                  matches=[f for f in found if arch in f.name and '1.3.9' in f.name]
+                  assert len(matches)==1, f'Expected exactly one {arch} {ext} artifact; got {matches}'
+          entries=[]
+          parts=re.split(r'(?m)^  - url: ',text)[1:]
+          for part in parts:
+              name=part.splitlines()[0].strip().strip('"\'')
+              sha=re.search(r'(?m)^    sha512:[ \t]*(\S+)',part)
+              size=re.search(r'(?m)^    size:[ \t]*(\d+)',part)
+              assert sha and size, f'Missing checksum metadata for {name}'
+              entries.append((name,sha.group(1),int(size.group(1))))
+          assert entries, 'Empty update manifest'
+          for arch in ('arm64','x64'):
+              matched=[e for e in entries if e[0].endswith('.zip') and arch in e[0]]
+              assert len(matched)==1, f'Manifest must contain one ZIP entry for {arch}'
+          for name,digest,size in entries:
+              f=release/name
+              assert f.is_file(), f'Missing manifest file: {name}'
+              assert f.stat().st_size==size, f'Size mismatch: {name}'
+              calc=base64.b64encode(hashlib.sha512(f.read_bytes()).digest()).decode()
+              assert calc==digest, f'SHA512 mismatch: {name}'
+          print('MAC ARM64/X64 DMG+ZIP AND LATEST-MAC.YML SHA512: PASS')
+          PY
+
+      - name: Require valid Apple signatures and stapled notarization (release mode ONLY)
+        if: inputs.release_mode == 'signed_release'
+        run: |
+          set -euo pipefail
+          count=0
+          while IFS= read -r -d '' app; do
+            count=$((count+1))
+            codesign --verify --deep --strict --verbose=2 "$app"
+            spctl --assess --type execute --verbose=2 "$app"
+            xcrun stapler validate "$app"
+          done < <(find release -name '*.app' -type d -print0)
+          test "$count" -ge 2 || { echo 'STOP: Both signed architecture app bundles required'; exit 1; }
+          echo 'DEVELOPER ID SIGNING + NOTARIZATION: PASS'
+
+      - name: Upload outputs (NO VPS deploy, NO changes to Windows feed)
         uses: actions/upload-artifact@v4
         with:
-          name: Amorri-Studio-macOS-UNSIGNED-QA-DMG-ZIP
+          name: Amorri-1.3.9-macOS-${{ inputs.release_mode }}
           path: |
             desktop/release/*.dmg
             desktop/release/*.zip
             desktop/release/latest-mac.yml
             desktop/release/*.blockmap
           if-no-files-found: error
-          retention-days: 7
+          retention-days: 14
