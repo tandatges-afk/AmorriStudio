@@ -64,7 +64,11 @@ jobs:
           node scripts/prepare-release-config.mjs
           node scripts/prepare-release-config.mjs --verify
           npm run typecheck
-          npm run test:desktop
+          # macOS /var/folders may resolve to /private/var/folders.
+          # Keep test temporary paths canonical without changing app production paths.
+          TMPDIR_CANON="$(python3 -c 'import os; print(os.path.realpath(os.environ.get("TMPDIR", "/tmp")))')"
+          test -d "$TMPDIR_CANON"
+          TMPDIR="$TMPDIR_CANON" npm run test:desktop
           npm run test:auto-update
           npm run build:main
 
