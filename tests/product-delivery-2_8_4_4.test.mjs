@@ -33,8 +33,10 @@ test('each new delivery token is restricted to one product while existing event-
 });
 test('linked delivery token is issued per product and not rotated when copying another product',()=>{
  const service=source('lib/server/delivery-access.ts');
- assert.match(service,/String\(v\.productId\|\|''\)===productId/);
- assert.match(service,/String\(v\.productId\|\|''\)===productId && !v\.revokedAt/);
+ assert.match(service,/selectDeliveryGrantForCopy\(records,productId,now,storedToken,explicitlyReissue\)/);
+ const policy=source('lib/server/delivery-reissue-policy.ts');
+ assert.match(policy,/String\(record\.productId\|\|''\)!==productId/);
+ assert.match(policy,/record\.revokedAt/);
  assert.match(source('app/api/delivery/grants/route.ts'),/ensureDeliveryGrant\(eventId,user.uid,30,productId\)/);
 });
 test('product delete preserves legacy metadata, photo picks and other products',async()=>{
